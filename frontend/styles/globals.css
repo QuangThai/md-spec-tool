@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-ink: #0f172a;
+  --color-muted: #5b6370;
+  --color-border: rgba(15, 23, 42, 0.1);
+  --color-surface: rgba(255, 255, 255, 0.88);
+  --color-surface-strong: #ffffff;
+  --color-accent: #1f3a8a;
+  --color-accent-soft: #e0e7ff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  font-family: var(--font-sora), ui-sans-serif, system-ui;
+  color: var(--color-ink);
+  background-color: #f7f8fb;
+  background-image:
+    radial-gradient(900px 520px at 12% -10%, rgba(191, 219, 254, 0.55), transparent 60%),
+    radial-gradient(760px 420px at 90% 5%, rgba(254, 215, 170, 0.5), transparent 58%),
+    radial-gradient(640px 460px at 70% 85%, rgba(186, 230, 253, 0.35), transparent 55%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 60%, #f8fafc 100%);
+  text-rendering: optimizeLegibility;
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-fraunces), ui-serif, Georgia;
+  letter-spacing: -0.02em;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.18);
+}
+
+@layer components {
+  .app-container {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .surface {
+    @apply rounded-2xl border border-slate-200/70 bg-white/80 shadow-[0_18px_40px_rgba(15,23,42,0.08)];
+  }
+
+  .surface-muted {
+    @apply rounded-2xl border border-slate-200/70 bg-white/60;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-slate-200/70 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600;
+  }
+
+  .label {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-slate-500;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-300/80 bg-white/80 px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900 hover:bg-slate-100/70;
+  }
+
+  .animate-float-slow {
+    animation: float-slow 12s ease-in-out infinite;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.8s ease-out both;
+  }
+}

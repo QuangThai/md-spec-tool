@@ -1,0 +1,38 @@
+# Go
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+__debug_bin
+.env
+.env.local
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+.dockerignore
+
+# Database
+*.db
+*.sqlite
+postgres_data/
+
+# Logs
+*.log
+logs/
