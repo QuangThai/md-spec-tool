@@ -190,7 +190,7 @@ export default function MDFlowWorkbench() {
               <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
                 <button
                   onClick={() => setMode("paste")}
-                  className={`px-4 py-1.5 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                  className={`px-4 py-1.5 text-[9px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all ${
                     mode === "paste"
                       ? "bg-accent-orange text-white shadow-md shadow-accent-orange/20"
                       : "text-muted hover:text-white"
@@ -200,7 +200,7 @@ export default function MDFlowWorkbench() {
                 </button>
                 <button
                   onClick={() => setMode("xlsx")}
-                  className={`px-4 py-1.5 text-[9px] font-bold uppercase tracking-wider rounded-md transition-all ${
+                  className={`px-4 py-1.5 text-[9px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all ${
                     mode === "xlsx"
                       ? "bg-accent-orange text-white shadow-md shadow-accent-orange/20"
                       : "text-muted hover:text-white"
@@ -327,7 +327,7 @@ export default function MDFlowWorkbench() {
                 whileTap={{ scale: 0.98 }}
                 onClick={handleConvert}
                 disabled={loading}
-                className="btn-primary h-12 w-full sm:w-auto px-10 uppercase tracking-[0.2em] shadow-2xl shadow-accent-orange/30 group"
+                className="btn-primary h-12 w-full sm:w-auto px-10 uppercase tracking-[0.2em] shadow-2xl shadow-accent-orange/30 group cursor-pointer"
               >
                 {loading ? (
                   <RefreshCcw className="w-4 h-4 animate-spin" />

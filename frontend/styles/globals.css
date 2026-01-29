@@ -138,6 +138,38 @@
   }
 }
 
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.15;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes bounce-slow {
+  0%,
+  100% {
+    transform: translateY(-5%);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
 .animate-float {
   animation: float 20s ease-in-out infinite;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 8s ease-in-out infinite;
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 3s infinite;
 }

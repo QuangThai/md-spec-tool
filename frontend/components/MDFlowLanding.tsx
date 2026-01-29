@@ -1,29 +1,36 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight,
   CheckCircle2,
+  ChevronRight,
   Cpu,
   Database,
   FileCode,
+  FileSearch,
   Layers,
+  Layout,
   MousePointer2,
   Search,
   Shield,
+  Sparkles,
   Terminal,
+  Workflow,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
 
 const fadeInUp: any = {
-  initial: { opacity: 0, y: 40 },
-  whileInView: { opacity: 0.99, y: 0 },
+  initial: { opacity: 0, y: 30 },
+  whileInView: { opacity: 1, y: 0 },
   viewport: { once: true },
-  transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] },
+  transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
 };
 
-const stagger = {
+const stagger: any = {
   whileInView: {
     transition: {
       staggerChildren: 0.1,
@@ -34,129 +41,205 @@ const stagger = {
 const features = [
   {
     title: "Precision Engine",
-    desc: "Advanced TSV/CSV parsing with intelligent column mapping and validation.",
-    icon: <Cpu className="w-6 h-6" />,
+    desc: "Advanced TSV/CSV parsing with intelligent column mapping and node validation.",
+    icon: <Cpu className="w-5 h-5" />,
+    tag: "Core",
   },
   {
     title: "Sheet Aware",
-    desc: "Native support for complex XLSX files with multi-sheet detection logic.",
-    icon: <Database className="w-6 h-6" />,
+    desc: "Native support for complex XLSX with multi-sheet detection and logic handling.",
+    icon: <Database className="w-5 h-5" />,
+    tag: "Parsing",
   },
   {
     title: "Audit Ready",
-    desc: "Generate clean, standardized Markdown specifications optimized for Git workflows.",
-    icon: <Shield className="w-6 h-6" />,
+    desc: "Clean, standardized Markdown specifications optimized for Git-based workflows.",
+    icon: <Shield className="w-5 h-5" />,
+    tag: "Output",
   },
   {
     title: "Logic Injection",
-    desc: "Apply various schema templates to transform raw data into structured specs.",
-    icon: <Terminal className="w-6 h-6" />,
+    desc: "Apply schema templates to transform raw data into structured documentation.",
+    icon: <Terminal className="w-5 h-5" />,
+    tag: "Process",
+  },
+];
+
+const technicalSteps = [
+  {
+    id: "01",
+    title: "Stream Ingestion",
+    desc: "Paste raw TSV or upload Excel streams directly into the engine.",
+  },
+  {
+    id: "02",
+    title: "Node Mapping",
+    desc: "The parser identifies technical nodes and structural dependencies.",
+  },
+  {
+    id: "03",
+    title: "Serialization",
+    desc: "Automated conversion into standard Markdown technical specifications.",
   },
 ];
 
 export default function MDFlowLanding() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"],
+  });
+
+  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -50]);
+  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+
   return (
-    <div className="flex flex-col gap-24">
+    <div ref={containerRef} className="flex flex-col gap-32 pb-32">
       {/* 🚀 Hero Section - The Grand Entrance */}
-      <section className="relative min-h-[80vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-accent-orange/10 blur-[120px] rounded-full -z-10" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-accent-gold/5 blur-[100px] rounded-full -z-10" />
+      <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-4 overflow-hidden pt-12">
+        {/* Advanced Background Gradients - Liquid Glass Influence */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-accent-orange/10 blur-[150px] rounded-full -z-10 animate-pulse-soft" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent-gold/5 blur-[120px] rounded-full -z-10" />
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
+          style={{ y: heroY, opacity }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 max-w-4xl mx-auto space-y-10"
+          className="relative z-10 max-w-5xl mx-auto text-center space-y-12"
         >
-          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-            <span className="flex h-2 w-2 rounded-full bg-accent-orange animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/80">
-              Technical Studio v1.2 Release
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-xl shadow-2xl"
+          >
+            <span className="flex h-2 w-2 rounded-full bg-accent-orange shadow-[0_0_10px_rgba(242,123,47,0.8)] animate-pulse" />
+            <span className="text-[11px] font-black uppercase tracking-[0.4em] text-white/90">
+              Technical Studio v1.2.0 Stream
             </span>
-          </div>
+          </motion.div>
 
-          <h1 className="text-6xl sm:text-8xl font-black tracking-tighter leading-[0.9] text-white">
+          <h1 className="text-7xl sm:text-9xl font-black tracking-tighter leading-[0.85] text-white">
             Automate Your <br />
             <span className="text-transparent bg-clip-text bg-linear-to-r from-accent-orange via-accent-gold to-white">
               Technical Flow.
             </span>
           </h1>
 
-          <p className="max-w-xl mx-auto text-lg sm:text-xl text-muted leading-relaxed font-medium">
-            Stop manually maintaining specifications. Convert spreadsheets into
-            industry-standard technical streams with precision automation.
+          <p className="max-w-2xl mx-auto text-lg sm:text-2xl text-muted leading-relaxed font-medium">
+            Deconstruct complex spreadsheets. Reconstruct industry-standard
+            technical specifications with the power of stream automation.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-10">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-12">
             <Link href="/studio">
               <motion.button
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.98 }}
-                className="btn-primary px-10 h-16 text-base group"
+                className="btn-primary px-12 h-16 text-base group relative overflow-hidden"
               >
-                Launch Studio
-                <ArrowRight className="ml-3 w-5 h-5 transition-transform group-hover:translate-x-1" />
+                <span className="relative z-10 flex items-center gap-3">
+                  Launch Studio
+                  <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                </span>
+                <div className="absolute inset-0 bg-linear-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               </motion.button>
             </Link>
             <Link href="#features">
               <motion.button
                 whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                className="btn-ghost px-10 h-16 text-base border-white/10"
+                className="btn-ghost px-12 h-16 text-base border-white/10 group"
               >
-                Explorer Engine
+                Documentation Engine
+                <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
               </motion.button>
             </Link>
           </div>
         </motion.div>
 
-        {/* Floating Code Snippet / Visual Cue */}
+        {/* Floating Technical HUD - Engineering Preview */}
         <motion.div
-          initial={{ opacity: 0, y: 50 }}
+          initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 1 }}
-          className="mt-20 relative w-full max-w-5xl aspect-video rounded-2xl border border-white/10 bg-black/40 backdrop-blur-2xl shadow-2xl overflow-hidden group"
+          transition={{ delay: 0.6, duration: 1.2 }}
+          className="mt-24 relative w-full max-w-6xl aspect-21/9 rounded-3xl border border-white/10 bg-black/40 backdrop-blur-3xl shadow-3xl overflow-hidden group"
         >
+          <div className="absolute top-0 left-0 w-full h-px bg-linear-to-r from-transparent via-accent-orange/50 to-transparent" />
           <div className="absolute inset-0 bg-linear-to-b from-accent-orange/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-          <div className="p-8 h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-6 opacity-30">
-              <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-              <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-              <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+
+          <div className="p-8 h-full flex gap-8">
+            {/* Sidebar Simulation */}
+            <div className="w-48 h-full border-r border-white/5 pr-4 hidden lg:flex flex-col gap-4">
+              <div className="h-2 w-full bg-white/10 rounded-full" />
+              <div className="h-2 w-3/4 bg-white/5 rounded-full" />
+              <div className="h-2 w-1/2 bg-white/5 rounded-full" />
+              <div className="mt-auto h-2 w-full bg-accent-orange/20 rounded-full" />
             </div>
-            <div className="flex-1 font-mono text-sm sm:text-base text-white/40 overflow-hidden">
-              <span className="text-accent-orange">mdflow</span> process
-              dev_spec.xlsx <br />
-              <span className="text-white/60">
-                -- Reading plane: [System_Architecture]
-              </span>{" "}
-              <br />
-              <span className="text-white/60">-- Validating nodes...</span>{" "}
-              <br />
-              <span className="text-accent-gold">
-                -- Generating stream: output.md
-              </span>{" "}
-              <br />
-              <span className="text-accent-green">
-                {">> "} SUCCESS: 142 objects mapped.
-              </span>
+
+            <div className="flex-1 flex flex-col">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-accent-orange/40" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-accent-gold/40" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-dark font-mono">
+                    engine.core.process_stream
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-[10px] font-mono text-accent-orange/60">
+                  <span>RAM: 42MB</span>
+                  <span>CPU: 2%</span>
+                </div>
+              </div>
+
+              <div className="flex-1 font-mono text-sm sm:text-lg leading-relaxed space-y-2 overflow-hidden">
+                <p className="text-white/30 animate-pulse">
+                  # Initializing parsing pipeline...
+                </p>
+                <p className="text-white/60">
+                  <span className="text-accent-orange">$ </span>mdflow compile
+                  --input
+                  <span className="text-accent-gold"> blueprint.xlsx</span>
+                </p>
+                <div className="text-white/40 space-y-1 pl-4 border-l border-white/10 mt-4">
+                  <p>-- Loading planes: [Architecture, Logic, Database]</p>
+                  <p>-- Extracting 248 technical nodes...</p>
+                  <p>-- Applying standard MDFlow-v2 template...</p>
+                  <p className="text-accent-green/80">
+                    -- SUCCESS: output_spec.md generated (24.3KB)
+                  </p>
+                </div>
+              </div>
             </div>
+          </div>
+
+          {/* Corner Elements */}
+          <div className="absolute bottom-4 right-6 text-[9px] font-black text-white/20 uppercase tracking-[0.5em] font-mono">
+            TRK_ID: 0xFD29A
           </div>
         </motion.div>
       </section>
 
-      {/* 🛠 Feature Grid - The Core Power */}
-      <section id="features" className="app-container py-20">
+      {/* 🛠 Feature Grid - Bento Box Style */}
+      <section id="features" className="app-container py-12">
         <motion.div
           {...fadeInUp}
-          className="text-center max-w-3xl mx-auto mb-20 space-y-6"
+          className="text-center max-w-4xl mx-auto mb-24 space-y-6"
         >
-          <h2 className="text-4xl sm:text-5xl font-black text-white tracking-tighter uppercase">
-            Built for <span className="text-accent-orange">Precision.</span>
+          <div className="pill border-accent-orange/30 text-accent-orange mx-auto">
+            Core Toolchain
+          </div>
+          <h2 className="text-5xl sm:text-7xl font-black text-white tracking-tighter uppercase leading-[0.9]">
+            Engineered for <br />
+            <span className="text-accent-orange">Total Control.</span>
           </h2>
-          <p className="text-muted text-lg font-medium">
-            A specialized toolchain designed to handle the complexities of
-            engineering documentation at scale.
+          <p className="text-muted text-xl max-w-2xl mx-auto">
+            A specialized documentation stack designed for technical leads and
+            system architects.
           </p>
         </motion.div>
 
@@ -164,128 +247,139 @@ export default function MDFlowLanding() {
           variants={stagger}
           initial="initial"
           whileInView="whileInView"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
         >
           {features.map((feature, i) => (
             <motion.div
               key={i}
               variants={fadeInUp}
-              whileHover={{ y: -8, backgroundColor: "rgba(255,255,255,0.03)" }}
-              className="bento-card group p-10! relative overflow-hidden"
+              whileHover={{ y: -5 }}
+              className={`bento-card group p-1 relative overflow-hidden h-[350px]`}
             >
-              <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Zap className="w-4 h-4 text-accent-orange" />
+              <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent" />
+              <div className="relative px-10 pt-10 pb-14 h-full flex flex-col z-10">
+                <div className="mb-auto">
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="p-3.5 rounded-2xl bg-accent-orange/10 border border-accent-orange/20 text-accent-orange shadow-lg shadow-accent-orange/5 group-hover:scale-110 transition-transform duration-500">
+                      {feature.icon}
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/20 group-hover:text-accent-orange/40 transition-colors">
+                      {feature.tag}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight mb-4">
+                    {feature.title}
+                  </h3>
+                  <p className="text-[15px] text-muted leading-relaxed font-medium">
+                    {feature.desc}
+                  </p>
+                </div>
+
+                <div
+                  className="mt-8 flex items-center gap-2 text-[10px] font-black text-accent-orange uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0 cursor-pointer"
+                  onClick={() => {
+                    router.push("/docs");
+                  }}  
+                >
+                  Learn Detail <ChevronRight className="w-3 h-3" />
+                </div>
               </div>
-              <div className="mb-8 p-4 rounded-xl bg-accent-orange/10 border border-accent-orange/20 w-fit text-accent-orange shadow-[0_0_20px_rgba(242,123,47,0.1)]">
-                {feature.icon}
-              </div>
-              <h3 className="text-lg font-bold text-white uppercase tracking-tight mb-4">
-                {feature.title}
-              </h3>
-              <p className="text-sm text-muted leading-relaxed font-medium">
-                {feature.desc}
-              </p>
             </motion.div>
           ))}
         </motion.div>
       </section>
 
-      {/* 📊 The Workflow - Unified UX */}
-      <section className="relative overflow-hidden bg-white/2 border-y border-white/5">
-        <div className="app-container grid lg:grid-cols-2 gap-20 items-center">
-          <motion.div {...fadeInUp} className="space-y-10">
-            <div className="pill border-accent-orange/20 text-accent-orange">
-              Operational Stream
+      {/* 📊 The Pipeline - Kinetic Workflow */}
+      <section className="relative py-32 overflow-hidden bg-white/1 border-y border-white/5">
+        <div className="app-container grid lg:grid-cols-2 gap-24 items-center">
+          <motion.div {...fadeInUp} className="space-y-12">
+            <div className="pill border-accent-gold/30 text-accent-gold">
+              Operational Pipeline
             </div>
-            <h2 className="text-5xl font-black text-white leading-tight tracking-tighter">
-              A Seamless <br />
-              <span className="text-accent-orange">Technical Pipeline.</span>
+            <h2 className="text-6xl font-black text-white leading-[0.9] tracking-tighter">
+              A Zero-Friction <br />
+              <span className="text-accent-orange">Technical Path.</span>
             </h2>
-            <div className="space-y-8">
-              {[
-                "Instant Ingestion via Paste or Excel Stream",
-                "Validation Engine with Real-time Analysis",
-                "Single-click Markdown Serialization",
-                "Zero-Login Architecture (Session Based)",
-              ].map((text, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 group cursor-default"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 border border-white/10 group-hover:border-accent-orange group-hover:bg-accent-orange/10 transition-all">
-                    <CheckCircle2 className="w-5 h-5 text-accent-orange" />
+
+            <div className="space-y-12 relative">
+              {/* Connector Line */}
+              <div className="absolute left-6 top-8 bottom-8 w-px bg-linear-to-b from-accent-orange via-white/10 to-transparent" />
+
+              {technicalSteps.map((step, i) => (
+                <div key={i} className="flex gap-8 group">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black border border-white/10 text-accent-orange font-mono text-sm font-black z-10 group-hover:border-accent-orange group-hover:shadow-[0_0_15px_rgba(242,123,47,0.3)] transition-all">
+                    {step.id}
                   </div>
-                  <span className="text-base font-bold text-white/70 group-hover:text-white transition-colors">
-                    {text}
-                  </span>
+                  <div className="space-y-2 pt-1">
+                    <h4 className="text-xl font-black text-white uppercase tracking-tight group-hover:text-accent-orange transition-colors">
+                      {step.title}
+                    </h4>
+                    <p className="text-muted text-base leading-relaxed">
+                      {step.desc}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
           </motion.div>
 
+          {/* Interactive Workbench Mockup */}
           <motion.div
-            initial={{ opacity: 0, x: 40 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             className="relative"
           >
-            <div className="absolute -inset-4 bg-accent-orange/10 blur-[80px] rounded-full animate-float" />
-            <div className="relative surface p-0! overflow-hidden border-white/10 shadow-3xl">
-              <div className="bg-white/5 border-b border-white/10 p-4 flex items-center justify-between">
-                <div className="flex gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-accent-red/40" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-accent-gold/40" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-accent-orange/40" />
+            <div className="absolute -inset-10 bg-accent-orange/10 blur-[100px] rounded-full animate-pulse-soft" />
+            <div className="surface p-0! overflow-hidden border-white/10 shadow-3xl relative z-10 ring-1 ring-white/10">
+              <div className="bg-white/5 border-b border-white/10 p-5 flex items-center justify-between">
+                <div className="flex gap-2.5">
+                  <div className="w-3 h-3 rounded-full bg-accent-red/40" />
+                  <div className="w-3 h-3 rounded-full bg-accent-gold/40" />
+                  <div className="w-3 h-3 rounded-full bg-accent-orange/40" />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted">
-                  engine.telemetry.01
-                </span>
+                <div className="flex items-center gap-6">
+                  <div className="h-1.5 w-24 bg-white/10 rounded-full" />
+                  <div className="h-1.5 w-12 bg-accent-orange/20 rounded-full" />
+                </div>
               </div>
-              <div className="p-8 space-y-6">
-                <div className="h-4 w-3/4 bg-white/5 rounded-full" />
-                <div className="h-4 w-1/2 bg-white/5 rounded-full" />
-                <div className="h-4 w-5/6 bg-white/5 rounded-full" />
-                <div className="h-4 w-2/3 bg-white/5 rounded-full" />
+
+              <div className="p-10 space-y-8 h-[400px]">
+                {/* Mock Content Rows */}
+                {[1, 2, 3, 4].map((n) => (
+                  <motion.div
+                    key={n}
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ delay: n * 0.1 }}
+                    className="flex items-center gap-6"
+                  >
+                    <div className="h-10 w-10 rounded-xl bg-white/5 shrink-0" />
+                    <div className="flex-1 space-y-3">
+                      <div
+                        className={`h-2.5 bg-white/5 rounded-full`}
+                        style={{ width: `${70 + (n % 3) * 10}%` }}
+                      />
+                      <div
+                        className={`h-2 bg-white/2 rounded-full`}
+                        style={{ width: `${40 + (n % 2) * 15}%` }}
+                      />
+                    </div>
+                    <div className="h-6 w-16 rounded-lg bg-accent-orange/5 border border-accent-orange/10" />
+                  </motion.div>
+                ))}
+
+                {/* Hover Floating Stat */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-6 rounded-2xl bg-black/80 backdrop-blur-2xl border border-accent-orange/30 shadow-2xl space-y-2 rotate-3 group-hover:rotate-0 transition-transform">
+                  <p className="text-[10px] font-black text-accent-orange uppercase tracking-widest">
+                    Efficiency_Output
+                  </p>
+                  <p className="text-4xl font-black text-white">+84%</p>
+                </div>
               </div>
             </div>
           </motion.div>
         </div>
-      </section>
-
-      {/* 🏁 Final CTA */}
-      <section className="app-container flex flex-col items-center text-center py-20 px-4 space-y-12">
-        <motion.div {...fadeInUp} className="max-w-2xl space-y-6">
-          <h2 className="text-5xl font-black text-white tracking-tighter uppercase">
-            Ready to <span className="text-accent-orange">Convert?</span>
-          </h2>
-          <p className="text-muted text-lg font-medium">
-            Join developers and engineers standardizing their documentation
-            workflow. Instant, secure, and purely technical.
-          </p>
-        </motion.div>
-
-        <motion.div {...fadeInUp} className="pt-10">
-          <Link href="/studio">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              className="btn-primary h-20 px-16 text-xl shadow-2xl shadow-accent-orange/20"
-            >
-              Start Your Workbench
-            </motion.button>
-          </Link>
-          <div className="mt-10 flex items-center justify-center gap-10 text-[10px] font-bold uppercase tracking-[0.4em] text-white/60">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4" /> Scalable
-            </div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4" /> Local
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4" /> Fast
-            </div>
-          </div>
-        </motion.div>
       </section>
     </div>
   );

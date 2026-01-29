@@ -43,76 +43,77 @@ const MDFlowLogo = ({ className }: { className?: string }) => (
 export default function AppHeader() {
   return (
     <motion.header
-      initial={{ y: -10, opacity: 0 }}
+      initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       className="sticky top-6 z-50 px-4 sm:px-6"
     >
       <div className="mx-auto max-w-7xl">
-        <div className="glass relative flex h-16 items-center justify-between px-8 rounded-2xl border-white/10 shadow-premium overflow-hidden">
+        <div className="glass relative flex h-20 items-center justify-between px-10 rounded-3xl border-white/10 shadow-3xl overflow-hidden ring-1 ring-white/10">
           {/* Subtle brand flow effect */}
-          <div className="absolute left-0 top-0 h-full w-32 bg-accent-orange/5 blur-3xl pointer-events-none" />
+          <div className="absolute left-0 top-0 h-full w-48 bg-accent-orange/10 blur-[80px] pointer-events-none" />
 
-          <div className="flex items-center gap-10 z-10">
+          <div className="flex items-center gap-12 z-10">
             {/* Ultra-Premium MDFlow Brand Logo */}
             <Link
               href="/"
-              className="flex items-center gap-4 group cursor-pointer"
+              className="flex items-center gap-5 group cursor-pointer"
             >
               <div className="relative">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/40 border border-white/10 shadow-lg transition-all group-hover:border-accent-orange/50 group-hover:scale-105">
-                  <MDFlowLogo className="w-6 h-6" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/60 border border-white/10 shadow-2xl transition-all group-hover:border-accent-orange/50 group-hover:scale-105 group-hover:bg-black/80">
+                  <MDFlowLogo className="w-7 h-7" />
                 </div>
                 {/* Visual Glow */}
-                <div className="absolute inset-0 bg-accent-orange/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500" />
+                <div className="absolute inset-0 bg-accent-orange/30 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-all duration-700" />
               </div>
 
               <div className="flex items-center gap-4">
                 <div className="flex flex-col">
-                  <h1 className="text-lg font-black tracking-tighter text-white uppercase leading-none">
+                  <h1 className="text-xl font-black tracking-tighter text-white uppercase leading-none">
                     MD<span className="text-accent-orange">FLOW</span>
                   </h1>
-                  <span className="text-[7px] font-bold text-white/50 uppercase tracking-[0.5em] mt-1 ml-0.5">
+                  <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.5em] mt-1.5 ml-0.5">
                     Engineering_Studio
                   </span>
                 </div>
               </div>
             </Link>
 
-            <nav className="hidden md:flex items-center gap-8">
-              <Link
-                href="/"
-                className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted hover:text-accent-orange transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                href="/studio"
-                className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted hover:text-accent-orange transition-colors"
-              >
-                Workbench
-              </Link>
+            <nav className="hidden lg:flex items-center gap-10">
+              {[
+                { label: "Home", href: "/" },
+                { label: "Workbench", href: "/studio" },
+                { label: "Docs", href: "/docs" },
+              ].map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="text-[11px] font-black uppercase tracking-[0.3em] text-white/40 hover:text-accent-orange transition-all hover:tracking-[0.4em]"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </nav>
           </div>
 
-          <div className="flex items-center gap-6 z-10">
+          <div className="flex items-center gap-8 z-10">
             {/* System Status - Desktop Only */}
-            <div className="hidden sm:flex items-center gap-3 bg-white/5 px-4 py-2 rounded-lg border border-white/5">
-              <div className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping original-ping absolute inline-flex h-full w-full rounded-full bg-accent-orange opacity-40"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent-orange shadow-[0_0_10px_rgba(242,123,47,0.5)]"></span>
+            <div className="hidden xl:flex items-center gap-4 bg-white/5 pl-4 pr-5 py-2.5 rounded-2xl border border-white/5 backdrop-blur-md">
+              <div className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-orange opacity-40"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-orange shadow-[0_0_12px_rgba(242,123,47,0.8)]"></span>
               </div>
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-accent-orange">
+              <span className="text-[9px] font-black uppercase tracking-[0.3em] text-accent-orange/90 whitespace-nowrap">
                 Engine_Optimal
               </span>
             </div>
 
             <Link href="/studio">
               <motion.button
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.05, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                className="btn-primary h-10 px-6 text-[10px] uppercase tracking-widest shadow-xl shadow-accent-orange/15"
+                className="btn-primary h-12 px-8 text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-accent-orange/20 cursor-pointer"
               >
-                Launch App
+                Launch Studio
               </motion.button>
             </Link>
           </div>
