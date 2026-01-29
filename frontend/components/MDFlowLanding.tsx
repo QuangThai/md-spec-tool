@@ -56,7 +56,7 @@ const features = [
 
 export default function MDFlowLanding() {
   return (
-    <div className="flex flex-col gap-32 pb-32">
+    <div className="flex flex-col gap-24">
       {/* 🚀 Hero Section - The Grand Entrance */}
       <section className="relative min-h-[80vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
         {/* Background Decorative Elements */}
@@ -89,7 +89,7 @@ export default function MDFlowLanding() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-10">
-            <Link href="/app">
+            <Link href="/studio">
               <motion.button
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.98 }}
@@ -191,7 +191,7 @@ export default function MDFlowLanding() {
       </section>
 
       {/* 📊 The Workflow - Unified UX */}
-      <section className="relative overflow-hidden bg-white/2 py-32 border-y border-white/5">
+      <section className="relative overflow-hidden bg-white/2 border-y border-white/5">
         <div className="app-container grid lg:grid-cols-2 gap-20 items-center">
           <motion.div {...fadeInUp} className="space-y-10">
             <div className="pill border-accent-orange/20 text-accent-orange">
@@ -265,7 +265,7 @@ export default function MDFlowLanding() {
         </motion.div>
 
         <motion.div {...fadeInUp} className="pt-10">
-          <Link href="/app">
+          <Link href="/studio">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.98 }}

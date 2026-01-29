@@ -86,7 +86,7 @@ export default function AppHeader() {
                 Home
               </Link>
               <Link
-                href="/app"
+                href="/studio"
                 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted hover:text-accent-orange transition-colors"
               >
                 Workbench
@@ -106,7 +106,7 @@ export default function AppHeader() {
               </span>
             </div>
 
-            <Link href="/app">
+            <Link href="/studio">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.98 }}
