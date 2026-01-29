@@ -36,3 +36,5 @@ postgres_data/
 # Logs
 *.log
 logs/
+
+use-cases
