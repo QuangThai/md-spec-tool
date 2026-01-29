@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
@@ -22,26 +22,34 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    console.error("Error caught by boundary:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-red-50 flex items-center justify-center px-4">
-          <div className="bg-white p-8 rounded shadow max-w-md w-full">
-            <h1 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h1>
-            <p className="text-gray-700 mb-4">
-              {this.state.error?.message || 'An unexpected error occurred'}
+        <div className="min-h-screen bg-bg-base flex items-center justify-center px-4">
+          <div className="surface max-w-md w-full text-center">
+            <div className="mb-6 flex justify-center">
+              <div className="h-16 w-16 rounded-2xl bg-accent-red/10 flex items-center justify-center border border-accent-red/20 shadow-premium">
+                <span className="text-2xl">⚠️</span>
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-2 uppercase tracking-tighter">
+              Engine Halted
+            </h1>
+            <p className="text-muted text-sm mb-8 leading-relaxed uppercase tracking-widest font-medium">
+              {this.state.error?.message ||
+                "A critical kernel panic occurred during operation."}
             </p>
             <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });
-                window.location.href = '/';
+                window.location.href = "/";
               }}
-              className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+              className="btn-primary w-full"
             >
-              Go Home
+              Reboot Engine
             </button>
           </div>
         </div>
