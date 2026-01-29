@@ -45,6 +45,24 @@ func (d *HeaderDetector) scoreRow(row []string) int {
 		return 0
 	}
 
+	// Penalize rows with markdown markers
+	for _, cell := range row {
+		if d.hasMarkdownMarkers(cell) {
+			return 0 // Definitely not a header row
+		}
+	}
+
+	// Penalize rows with too few non-empty cells
+	nonEmpty := 0
+	for _, cell := range row {
+		if strings.TrimSpace(cell) != "" {
+			nonEmpty++
+		}
+	}
+	if nonEmpty < 2 {
+		return 0
+	}
+
 	score := 0
 	matchedFields := 0
 
@@ -52,7 +70,7 @@ func (d *HeaderDetector) scoreRow(row []string) int {
 		normalized := strings.ToLower(strings.TrimSpace(cell))
 		if _, ok := HeaderSynonyms[normalized]; ok {
 			matchedFields++
-			score += 20 // Each matched header synonym adds 20 points
+			score += 25 // Each matched header synonym adds 25 points
 		}
 
 		// Bonus for typical header characteristics
@@ -62,11 +80,24 @@ func (d *HeaderDetector) scoreRow(row []string) int {
 	}
 
 	// Bonus for having multiple recognized headers
+	if matchedFields >= 2 {
+		score += 20
+	}
 	if matchedFields >= 3 {
 		score += 30
 	}
 
 	return min(score, 100)
+}
+
+// hasMarkdownMarkers checks if a cell contains markdown indicators
+func (d *HeaderDetector) hasMarkdownMarkers(cell string) bool {
+	trimmed := strings.TrimSpace(cell)
+	return strings.HasPrefix(trimmed, "#") ||
+		strings.HasPrefix(trimmed, ">") ||
+		strings.HasPrefix(trimmed, "```") ||
+		strings.HasPrefix(trimmed, "- ") ||
+		strings.HasPrefix(trimmed, "* ")
 }
 
 // looksLikeHeader checks if a cell value looks like a header

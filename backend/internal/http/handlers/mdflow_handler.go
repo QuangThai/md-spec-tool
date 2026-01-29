@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -39,6 +40,13 @@ type MDFlowConvertResponse struct {
 	Meta     converter.SpecDocMeta `json:"meta"`
 }
 
+// InputAnalysisResponse represents the input type detection response
+type InputAnalysisResponse struct {
+	Type       string  `json:"type"`       // 'markdown' | 'table' | 'unknown'
+	Confidence float64 `json:"confidence"`
+	Reason     string  `json:"reason,omitempty"`
+}
+
 // SheetsResponse represents the list of sheets
 type SheetsResponse struct {
 	Sheets      []string `json:"sheets"`
@@ -46,7 +54,8 @@ type SheetsResponse struct {
 }
 
 // ConvertPaste handles POST /api/mdflow/paste
-// Converts pasted TSV/CSV text to MDFlow format
+// If detect_only=true query param, returns input type analysis
+// Otherwise converts pasted TSV/CSV text to MDFlow format
 func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 	var req PasteConvertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -60,6 +69,37 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 		return
 	}
 
+	// Log incoming request
+	println("DEBUG: ConvertPaste called")
+	println("DEBUG: template='" + req.Template + "'")
+	println("DEBUG: paste_text length=" + fmt.Sprintf("%d", len(req.PasteText)))
+
+	// Detect input type FIRST regardless of request
+	analysis := converter.DetectInputType(req.PasteText)
+	println("DEBUG: detected type=" + string(analysis.Type))
+	println("DEBUG: detection confidence=" + fmt.Sprintf("%d", analysis.Confidence))
+	println("DEBUG: detection reason=" + analysis.Reason)
+
+	// Check if this is detection-only request
+	detectOnly := c.Query("detect_only") == "true"
+	if detectOnly {
+		typeStr := "unknown"
+		switch analysis.Type {
+		case converter.InputTypeMarkdown:
+			typeStr = "markdown"
+		case converter.InputTypeTable:
+			typeStr = "table"
+		}
+
+		c.JSON(http.StatusOK, InputAnalysisResponse{
+			Type:       typeStr,
+			Confidence: float64(analysis.Confidence),
+			Reason:     analysis.Reason,
+		})
+		return
+	}
+
+	// Full conversion
 	result, err := h.converter.ConvertPaste(req.PasteText, req.Template)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})

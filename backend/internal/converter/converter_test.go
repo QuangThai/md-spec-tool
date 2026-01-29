@@ -350,3 +350,212 @@ func TestConverter_ConvertXLSX(t *testing.T) {
 		t.Errorf("expected at least 10 rows, got %d", result.Meta.TotalRows)
 	}
 }
+
+// Phase 5: Integration tests for markdown and table paths
+func TestConvertPaste_MarkdownInput(t *testing.T) {
+	input := readTestFile(t, "example-1.md")
+	converter := NewConverter()
+
+	result, err := converter.ConvertPaste(input, "")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// No header detection warnings
+	if len(result.Warnings) > 0 {
+		t.Errorf("expected no warnings, got %d: %v", len(result.Warnings), result.Warnings)
+	}
+
+	// Check for section content
+	if !strings.Contains(result.MDFlow, "Background") {
+		t.Error("expected 'Background' section in output")
+	}
+	if !strings.Contains(result.MDFlow, "Scope") {
+		t.Error("expected 'Scope' section in output")
+	}
+	if !strings.Contains(result.MDFlow, "Requirements") {
+		t.Error("expected 'Requirements' section in output")
+	}
+
+	// Original markdown should be preserved
+	if !strings.Contains(result.MDFlow, "WebinarStock") {
+		t.Error("expected original content to be preserved")
+	}
+
+	// Should use markdown template (not default table template)
+	if strings.Contains(result.MDFlow, "_inputs") {
+		t.Error("expected markdown output without _inputs")
+	}
+}
+
+func TestConvertPaste_Markdown_DefaultTemplateParam(t *testing.T) {
+	input := readTestFile(t, "example-1.md")
+	converter := NewConverter()
+
+	result, err := converter.ConvertPaste(input, "default")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if strings.Contains(result.MDFlow, "_inputs") {
+		t.Error("expected markdown output without _inputs when template=default")
+	}
+	if !strings.Contains(result.MDFlow, "type: \"specification\"") {
+		t.Error("expected markdown template output when template=default")
+	}
+}
+
+func TestConvertPaste_Markdown_IgnoresTemplateParam(t *testing.T) {
+	input := readTestFile(t, "example-1.md")
+	converter := NewConverter()
+
+	result, err := converter.ConvertPaste(input, "feature-spec")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.Contains(result.MDFlow, "## Background") {
+		t.Error("expected markdown section heading in output")
+	}
+}
+
+func TestConvertPaste_Markdown_WithTemplates(t *testing.T) {
+	input := readTestFile(t, "example-1.md")
+	converter := NewConverter()
+
+	resultFeature, err := converter.ConvertPaste(input, "feature-spec")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(resultFeature.MDFlow, "## Background") {
+		t.Error("expected feature-spec to include section heading")
+	}
+	if !strings.Contains(resultFeature.MDFlow, "type: \"feature-spec\"") {
+		t.Error("expected feature-spec marker in output")
+	}
+
+	resultTestPlan, err := converter.ConvertPaste(input, "test-plan")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(resultTestPlan.MDFlow, "Test Plan") {
+		t.Error("expected test-plan output")
+	}
+
+	resultAPI, err := converter.ConvertPaste(input, "api-endpoint")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(resultAPI.MDFlow, "API Specification") {
+		t.Error("expected api-endpoint output")
+	}
+}
+
+func TestConvertPaste_Markdown_BoldHeadings(t *testing.T) {
+	input := readTestFile(t, "example-5.md")
+	converter := NewConverter()
+
+	result, err := converter.ConvertPaste(input, "feature-spec")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(result.MDFlow, "Summary") {
+		t.Error("expected bold heading Summary to be parsed")
+	}
+	if !strings.Contains(result.MDFlow, "Details") {
+		t.Error("expected bold heading Details to be parsed")
+	}
+}
+
+func TestConvertPaste_TableInput(t *testing.T) {
+	input := readTestFile(t, "example-2.md")
+	converter := NewConverter()
+
+	result, err := converter.ConvertPaste(input, "")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// No "Low confidence" warning
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "Low confidence") {
+			t.Errorf("unexpected 'Low confidence' warning: %s", w)
+		}
+	}
+
+	// Should have parsed rows
+	if result.Meta.TotalRows == 0 {
+		t.Error("expected rows to be parsed from table input")
+	}
+
+	// Check column mappings for Phase 3 fields
+	if idx, ok := result.Meta.ColumnMap[FieldItemName]; !ok || idx != 1 {
+		t.Errorf("expected ItemName field at column 1, got %d", idx)
+	}
+	if idx, ok := result.Meta.ColumnMap[FieldItemType]; !ok || idx != 2 {
+		t.Errorf("expected ItemType field at column 2, got %d", idx)
+	}
+	if idx, ok := result.Meta.ColumnMap[FieldRequiredOptional]; !ok || idx != 3 {
+		t.Errorf("expected RequiredOptional field at column 3, got %d", idx)
+	}
+
+	// Spec-table content should map into Feature/Scenario for default templates
+	if !strings.Contains(result.MDFlow, "Popular Video Ranking") {
+		t.Error("expected table output to include ItemName content")
+	}
+	if !strings.Contains(result.MDFlow, "Input Restrictions") {
+		t.Error("expected table output to include Input Restrictions label")
+	}
+}
+
+func TestConvertPaste_WithSpecTableTemplate(t *testing.T) {
+	input := readTestFile(t, "example-2.md")
+	converter := NewConverter()
+
+	result, err := converter.ConvertPaste(input, "spec-table")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should contain spec-table type marker
+	if !strings.Contains(result.MDFlow, "type: \"spec-table\"") {
+		t.Error("expected 'spec-table' type in output")
+	}
+
+	// Should contain summary table
+	if !strings.Contains(result.MDFlow, "Summary Table") {
+		t.Error("expected 'Summary Table' in spec-table output")
+	}
+
+	// Should contain item details
+	if !strings.Contains(result.MDFlow, "Item Details") {
+		t.Error("expected 'Item Details' in spec-table output")
+	}
+}
+
+func TestInputTypeDetection_Markdown(t *testing.T) {
+	input := readTestFile(t, "example-1.md")
+	analysis := DetectInputType(input)
+
+	if analysis.Type != InputTypeMarkdown {
+		t.Errorf("expected InputTypeMarkdown, got %s", analysis.Type)
+	}
+	if analysis.Confidence < 70 {
+		t.Errorf("expected confidence >= 70, got %d", analysis.Confidence)
+	}
+}
+
+func TestInputTypeDetection_Table(t *testing.T) {
+	input := readTestFile(t, "example-2.md")
+	analysis := DetectInputType(input)
+
+	if analysis.Type != InputTypeTable {
+		t.Errorf("expected InputTypeTable, got %s", analysis.Type)
+	}
+	if analysis.Confidence < 80 {
+		t.Errorf("expected confidence >= 80, got %d", analysis.Confidence)
+	}
+}

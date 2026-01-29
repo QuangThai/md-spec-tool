@@ -32,19 +32,17 @@ func (p *PasteParser) Parse(text string) (CellMatrix, error) {
 
 // parseTSV parses tab-separated values
 func (p *PasteParser) parseTSV(text string) (CellMatrix, error) {
-	lines := strings.Split(text, "\n")
-	var matrix CellMatrix
+	reader := csv.NewReader(strings.NewReader(text))
+	reader.FieldsPerRecord = -1 // Allow variable field counts
+	reader.LazyQuotes = true
+	reader.Comma = '\t'
 
-	for _, line := range lines {
-		// Handle Windows line endings
-		line = strings.TrimSuffix(line, "\r")
-		
-		// Split by tabs
-		cells := strings.Split(line, "\t")
-		matrix = append(matrix, cells)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return p.parseSimple(text)
 	}
 
-	return matrix.Normalize(), nil
+	return NewCellMatrix(records).Normalize(), nil
 }
 
 // parseCSV parses comma-separated values

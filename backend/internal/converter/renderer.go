@@ -52,6 +52,30 @@ func (r *MDFlowRenderer) Render(doc *SpecDoc, templateName string) (string, erro
 	return buf.String(), nil
 }
 
+// RenderMarkdown converts a markdown SpecDoc to MDFlow format
+func (r *MDFlowRenderer) RenderMarkdown(doc *SpecDoc, templateName string) (string, error) {
+	// Default markdown template for prose content
+	funcMap := template.FuncMap{
+		"replace": strings.Replace,
+	}
+	tmpl := template.Must(template.New("markdown").Funcs(funcMap).Parse(markdownTemplate))
+
+	data := map[string]interface{}{
+		"Title":             doc.Title,
+		"Sections":          doc.Prose.Sections,
+		"OriginalMarkdown":  doc.Prose.OriginalMarkdown,
+		"RawMessage":        doc.Prose.RawMessage,
+		"GeneratedAt":       time.Now().Format("2006-01-02"),
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
 // FeatureGroup represents a group of rows for a single feature
 type FeatureGroup struct {
 	Feature string
@@ -91,6 +115,7 @@ func (r *MDFlowRenderer) registerDefaultTemplates() {
 		"formatSteps":    formatSteps,
 		"formatBullets":  formatBullets,
 		"notEmpty":       notEmpty,
+		"displayTitle":   displayTitle,
 		"escapeYAML":     escapeYAML,
 		"trimPrefix":     strings.TrimPrefix,
 		"lower":          strings.ToLower,
@@ -109,6 +134,9 @@ func (r *MDFlowRenderer) registerDefaultTemplates() {
 
 	// API endpoint template
 	r.templates["api-endpoint"] = template.Must(template.New("api-endpoint").Funcs(funcMap).Parse(apiEndpointTemplate))
+	
+	// Spec table template - for UI/UX spec tables with Phase 3 fields
+	r.templates["spec-table"] = template.Must(template.New("spec-table").Funcs(funcMap).Parse(specTableTemplate))
 }
 
 // GetTemplateNames returns available template names
@@ -158,6 +186,18 @@ func notEmpty(s string) bool {
 	return strings.TrimSpace(s) != ""
 }
 
+func displayTitle(feature string, scenario string) string {
+	feature = strings.TrimSpace(feature)
+	scenario = strings.TrimSpace(scenario)
+	if scenario == "" {
+		return feature
+	}
+	if feature != "" && strings.EqualFold(feature, scenario) {
+		return feature
+	}
+	return scenario
+}
+
 func escapeYAML(s string) string {
 	// Escape special YAML characters
 	s = strings.ReplaceAll(s, `\`, `\\`)
@@ -185,35 +225,36 @@ This specification contains {{.TotalCount}} test cases.
 
 {{range .FeatureGroups}}
 ## {{.Feature}}
-
 {{range .Rows}}
-### {{if .ID}}{{.ID}}: {{end}}{{if .Scenario}}{{.Scenario}}{{else}}{{.Feature}}{{end}}
-
-{{if .Priority}}**Priority:** {{.Priority}}{{end}}{{if .Type}} | **Type:** {{.Type}}{{end}}
-{{if notEmpty .Precondition}}
+{{- $title := displayTitle .Feature .Scenario -}}
+{{if or .ID (ne (lower $title) (lower .Feature))}}
+### {{if .ID}}{{.ID}}: {{end}}{{ $title }}
+{{end}}
+{{- if .Priority}}**Priority:** {{.Priority}}{{end}}{{if .Type}} | **Type:** {{.Type}}{{end}}
+{{- if notEmpty .Precondition}}
 **Preconditions:**
 {{formatBullets .Precondition}}
-{{end}}
-{{if notEmpty .Instructions}}
+{{- end}}
+{{- if notEmpty .Instructions}}
 **Steps:**
 {{formatSteps .Instructions}}
-{{end}}
-{{if notEmpty .Inputs}}
+{{- end}}
+{{- if notEmpty .Inputs}}
 **Test Data:**
 - {{.Inputs}}
-{{end}}
-{{if notEmpty .Expected}}
+{{- end}}
+{{- if notEmpty .Expected}}
 **Expected Result:**
 - {{.Expected}}
-{{end}}
-{{if notEmpty .Endpoint}}
+{{- end}}
+{{- if notEmpty .Endpoint}}
 **API/Endpoint:** ` + "`{{.Endpoint}}`" + `
-{{end}}
-{{if notEmpty .Notes}}
+{{- end}}
+{{- if notEmpty .Notes}}
 **Notes:** {{.Notes}}
-{{end}}
----
+{{- end}}
 
+---
 {{end}}
 {{end}}
 `
@@ -223,6 +264,7 @@ const featureSpecTemplate = `---
 name: "{{.Title}}"
 version: "1.0"
 generated_at: "{{.GeneratedAt}}"
+type: "feature-spec"
 ---
 
 # {{.Title}}
@@ -231,7 +273,10 @@ generated_at: "{{.GeneratedAt}}"
 ## {{.Feature}}
 
 {{range .Rows}}
-### {{if .Scenario}}{{.Scenario}}{{else}}Requirement{{end}}
+{{- $title := displayTitle .Feature .Scenario -}}
+{{if ne (lower $title) (lower .Feature)}}
+### {{ $title }}
+{{end}}
 
 {{if notEmpty .Instructions}}
 {{.Instructions}}
@@ -348,3 +393,82 @@ generated_at: "{{.GeneratedAt}}"
 {{end}}
 {{end}}
 `
+
+// Markdown template for prose/blockquote content
+const markdownTemplate = `---
+name: "{{.Title}}"
+version: "1.0"
+generated_at: "{{.GeneratedAt}}"
+type: "specification"
+---
+
+# {{.Title}}
+
+{{range .Sections}}
+## {{.Heading}}
+
+{{.Content}}
+
+{{end}}
+{{if .RawMessage}}
+## Raw Message
+
+{{.RawMessage}}
+
+{{end}}
+---
+
+<details>
+<summary>Original Content</summary>
+
+{{ replace .OriginalMarkdown "##" "####" -1 }}
+
+</details>
+`
+
+// Spec table template for UI/UX specification tables with Phase 3 fields
+const specTableTemplate = `---
+name: "{{.Title}}"
+version: "1.0"
+generated_at: "{{.GeneratedAt}}"
+type: "spec-table"
+---
+
+# {{.Title}}
+
+## Summary Table
+
+| No | Item Name | Type | Required | Display Conditions | Action | Navigation |
+|----|-----------|------|----------|-------------------|--------|-----------|
+{{range .Rows}}| {{.No}} | {{.ItemName}} | {{.ItemType}} | {{.RequiredOptional}} | {{.DisplayConditions}} | {{.Action}} | {{.NavigationDest}} |
+{{end}}
+
+---
+
+## Item Details
+
+{{range .Rows}}
+### {{if .No}}{{.No}}. {{end}}{{.ItemName}}
+
+{{if notEmpty .ItemType}}**Type:** {{.ItemType}}
+{{end}}
+{{if notEmpty .RequiredOptional}}**Required:** {{.RequiredOptional}}
+{{end}}
+{{if notEmpty .DisplayConditions}}
+**Display Conditions:**
+{{.DisplayConditions}}
+
+{{end}}
+**Input Restrictions:**
+{{if notEmpty .InputRestrictions}}{{.InputRestrictions}}{{else}}-{{end}}
+
+{{if notEmpty .Action}}
+**Action:** {{.Action}}
+{{end}}
+{{if notEmpty .NavigationDest}}
+**Navigation Destination:** {{.NavigationDest}}
+{{end}}
+
+---
+
+{{end}}`

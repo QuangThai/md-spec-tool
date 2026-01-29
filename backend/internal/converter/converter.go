@@ -1,5 +1,7 @@
 package converter
 
+import "strings"
+
 // Converter orchestrates the conversion process
 type Converter struct {
 	pasteParser    *PasteParser
@@ -22,12 +24,64 @@ func NewConverter() *Converter {
 
 // ConvertPaste converts pasted text to MDFlow
 func (c *Converter) ConvertPaste(text string, template string) (*ConvertResponse, error) {
+	// Phase 1: Detect input type first
+	analysis := DetectInputType(text)
+
+	if analysis.Type == InputTypeMarkdown {
+		return c.convertMarkdown(text, template)
+	}
+
+	// Table path (existing behavior)
 	matrix, err := c.pasteParser.Parse(text)
 	if err != nil {
 		return nil, err
 	}
 
 	return c.convertMatrix(matrix, "", template)
+}
+
+// convertMarkdown handles markdown/prose input without table parsing
+func (c *Converter) convertMarkdown(text string, template string) (*ConvertResponse, error) {
+	specDoc := BuildMarkdownSpecDoc(text, "Specification")
+
+	// Render to MDFlow
+	if template == "" {
+		mdflow, err := c.renderer.RenderMarkdown(specDoc, template)
+		if err != nil {
+			return nil, err
+		}
+		return &ConvertResponse{
+			MDFlow:   mdflow,
+			Warnings: []string{},
+			Meta:     specDoc.Meta,
+		}, nil
+	}
+
+	if template == "default" {
+		template = ""
+		mdflow, err := c.renderer.RenderMarkdown(specDoc, template)
+		if err != nil {
+			return nil, err
+		}
+		return &ConvertResponse{
+			MDFlow:   mdflow,
+			Warnings: []string{},
+			Meta:     specDoc.Meta,
+		}, nil
+	}
+
+	specDoc.Rows = buildRowsFromSections(specDoc.Prose.Sections)
+	specDoc.Meta.TotalRows = len(specDoc.Rows)
+	mdflow, err := c.renderer.Render(specDoc, template)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ConvertResponse{
+		MDFlow:   mdflow,
+		Warnings: []string{}, // No warnings for markdown
+		Meta:     specDoc.Meta,
+	}, nil
 }
 
 // ConvertXLSX converts an XLSX file to MDFlow
@@ -128,6 +182,17 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			Status:       GetFieldValue(row, colMap, FieldStatus),
 			Endpoint:     GetFieldValue(row, colMap, FieldEndpoint),
 			Notes:        GetFieldValue(row, colMap, FieldNotes),
+			
+			// Phase 3 fields
+			No:                GetFieldValue(row, colMap, FieldNo),
+			ItemName:          GetFieldValue(row, colMap, FieldItemName),
+			ItemType:          GetFieldValue(row, colMap, FieldItemType),
+			RequiredOptional:  GetFieldValue(row, colMap, FieldRequiredOptional),
+			InputRestrictions: GetFieldValue(row, colMap, FieldInputRestrictions),
+			DisplayConditions: GetFieldValue(row, colMap, FieldDisplayConditions),
+			Action:            GetFieldValue(row, colMap, FieldAction),
+			NavigationDest:    GetFieldValue(row, colMap, FieldNavigationDest),
+			
 			Metadata:     make(map[string]string),
 		}
 
@@ -148,9 +213,49 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			}
 		}
 
-		// Skip completely empty rows
-		if specRow.Feature == "" && specRow.Scenario == "" && specRow.Instructions == "" {
+		// Skip completely empty rows (check both test case and spec table fields)
+		if specRow.Feature == "" && specRow.Scenario == "" && specRow.Instructions == "" &&
+			specRow.ItemName == "" && specRow.No == "" {
 			continue
+		}
+
+		// If this is a spec-table style row, map ItemName into Feature/Scenario for other templates
+		if specRow.Feature == "" && specRow.ItemName != "" {
+			specRow.Feature = specRow.ItemName
+			if specRow.Scenario == "" {
+				specRow.Scenario = specRow.ItemName
+			}
+		}
+
+		// Populate Instructions/Expected from spec-table fields when missing
+		if specRow.Instructions == "" {
+			var parts []string
+			if specRow.DisplayConditions != "" {
+				parts = append(parts, "Display Conditions: "+specRow.DisplayConditions)
+			}
+			if specRow.InputRestrictions != "" {
+				parts = append(parts, "Input Restrictions: "+specRow.InputRestrictions)
+			}
+			if specRow.Action != "" {
+				parts = append(parts, "Action: "+specRow.Action)
+			}
+			if len(parts) > 0 {
+				specRow.Instructions = strings.Join(parts, "\n")
+			}
+		}
+		if specRow.Instructions != "" {
+			if specRow.DisplayConditions != "" && !strings.Contains(specRow.Instructions, "Display Conditions:") {
+				specRow.Instructions += "\nDisplay Conditions: " + specRow.DisplayConditions
+			}
+			if specRow.InputRestrictions != "" && !strings.Contains(specRow.Instructions, "Input Restrictions:") {
+				specRow.Instructions += "\nInput Restrictions: " + specRow.InputRestrictions
+			}
+			if specRow.Action != "" && !strings.Contains(specRow.Instructions, "Action:") {
+				specRow.Instructions += "\nAction: " + specRow.Action
+			}
+		}
+		if specRow.Expected == "" && specRow.NavigationDest != "" {
+			specRow.Expected = "Navigation: " + specRow.NavigationDest
 		}
 
 		rows = append(rows, specRow)

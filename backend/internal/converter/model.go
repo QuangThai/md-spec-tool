@@ -16,6 +16,16 @@ const (
 	FieldStatus       CanonicalField = "status"
 	FieldEndpoint     CanonicalField = "endpoint"
 	FieldNotes        CanonicalField = "notes"
+	
+	// Spec table fields (Phase 3)
+	FieldNo                CanonicalField = "no"
+	FieldItemName          CanonicalField = "item_name"
+	FieldItemType          CanonicalField = "item_type"
+	FieldRequiredOptional  CanonicalField = "required_optional"
+	FieldInputRestrictions CanonicalField = "input_restrictions"
+	FieldDisplayConditions CanonicalField = "display_conditions"
+	FieldAction            CanonicalField = "action"
+	FieldNavigationDest    CanonicalField = "navigation_destination"
 )
 
 // CellMatrix represents normalized spreadsheet data
@@ -38,6 +48,17 @@ type SpecRow struct {
 	Status       string            `json:"status,omitempty"`
 	Endpoint     string            `json:"endpoint,omitempty"`
 	Notes        string            `json:"notes,omitempty"`
+	
+	// Spec table fields (Phase 3)
+	No                string            `json:"no,omitempty"`
+	ItemName          string            `json:"item_name,omitempty"`
+	ItemType          string            `json:"item_type,omitempty"`
+	RequiredOptional  string            `json:"required_optional,omitempty"`
+	InputRestrictions string            `json:"input_restrictions,omitempty"`
+	DisplayConditions string            `json:"display_conditions,omitempty"`
+	Action            string            `json:"action,omitempty"`
+	NavigationDest    string            `json:"navigation_destination,omitempty"`
+	
 	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
@@ -48,6 +69,7 @@ type SpecDoc struct {
 	Warnings []string       `json:"warnings"`
 	Meta     SpecDocMeta    `json:"meta"`
 	Headers  []string       `json:"headers"`
+	Prose    *ProseContent  `json:"prose,omitempty"`
 }
 
 // SpecDocMeta contains metadata about the parsed document

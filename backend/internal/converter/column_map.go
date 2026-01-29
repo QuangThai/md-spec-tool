@@ -113,6 +113,66 @@ var HeaderSynonyms = map[string]CanonicalField{
 	"comment":  FieldNotes,
 	"remarks":  FieldNotes,
 	"remark":   FieldNotes,
+	
+	// === No / Number (Phase 3) ===
+	"no":   FieldNo,
+	"no.":  FieldNo,
+	"#":    FieldNo,
+	"番号":  FieldNo,
+	"連番":  FieldNo,
+	
+	// === Item Name (Phase 3) ===
+	"item name":  FieldItemName,
+	"item_name": FieldItemName,
+	"項目名":     FieldItemName,
+	"項目名称":   FieldItemName,
+	"名称":      FieldItemName,
+	
+	// === Item Type (Phase 3) ===
+	"item type":  FieldItemType,
+	"item_type": FieldItemType,
+	"種別":       FieldItemType,
+	"タイプ":     FieldItemType,
+	"項目種別":   FieldItemType,
+	
+	// === Required/Optional (Phase 3) ===
+	"required/optional": FieldRequiredOptional,
+	"required":          FieldRequiredOptional,
+	"optional":          FieldRequiredOptional,
+	"必須":              FieldRequiredOptional,
+	"任意":              FieldRequiredOptional,
+	"必須/任意":         FieldRequiredOptional,
+	"要否":              FieldRequiredOptional,
+	
+	// === Input Restrictions (Phase 3) ===
+	"input restrictions":  FieldInputRestrictions,
+	"input_restrictions": FieldInputRestrictions,
+	"入力制限":            FieldInputRestrictions,
+	"制約":               FieldInputRestrictions,
+	"バリデーション":      FieldInputRestrictions,
+	"validation":         FieldInputRestrictions,
+	
+	// === Display Conditions (Phase 3) ===
+	"display conditions":  FieldDisplayConditions,
+	"display_conditions": FieldDisplayConditions,
+	"表示条件":            FieldDisplayConditions,
+	"表示制御":            FieldDisplayConditions,
+	"条件":               FieldDisplayConditions,
+	
+	// === Action (Phase 3) ===
+	"操作":       FieldAction,
+	"アクション":  FieldAction,
+	"イベント":   FieldAction,
+	"on click":  FieldAction,
+	
+	// === Navigation Destination (Phase 3) ===
+	"navigation destination":  FieldNavigationDest,
+	"navigation_destination": FieldNavigationDest,
+	"遷移先":                 FieldNavigationDest,
+	"画面遷移先":              FieldNavigationDest,
+	"遷移先画面":              FieldNavigationDest,
+	"destination":           FieldNavigationDest,
+	"link":                  FieldNavigationDest,
 }
 
 // ColumnMapper maps headers to canonical fields
