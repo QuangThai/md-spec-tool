@@ -57,15 +57,18 @@ func (r *MDFlowRenderer) RenderMarkdown(doc *SpecDoc, templateName string) (stri
 	// Default markdown template for prose content
 	funcMap := template.FuncMap{
 		"replace": strings.Replace,
+		"add1": func(i int) int {
+			return i + 1
+		},
 	}
 	tmpl := template.Must(template.New("markdown").Funcs(funcMap).Parse(markdownTemplate))
 
 	data := map[string]interface{}{
-		"Title":             doc.Title,
-		"Sections":          doc.Prose.Sections,
-		"OriginalMarkdown":  doc.Prose.OriginalMarkdown,
-		"RawMessage":        doc.Prose.RawMessage,
-		"GeneratedAt":       time.Now().Format("2006-01-02"),
+		"Title":            doc.Title,
+		"Sections":         doc.Prose.Sections,
+		"OriginalMarkdown": doc.Prose.OriginalMarkdown,
+		"RawMessage":       doc.Prose.RawMessage,
+		"GeneratedAt":      time.Now().Format("2006-01-02"),
 	}
 
 	var buf bytes.Buffer
@@ -112,15 +115,15 @@ func (r *MDFlowRenderer) groupByFeature(rows []SpecRow) []FeatureGroup {
 // registerDefaultTemplates registers built-in templates
 func (r *MDFlowRenderer) registerDefaultTemplates() {
 	funcMap := template.FuncMap{
-		"formatSteps":    formatSteps,
-		"formatBullets":  formatBullets,
-		"notEmpty":       notEmpty,
-		"displayTitle":   displayTitle,
-		"escapeYAML":     escapeYAML,
-		"trimPrefix":     strings.TrimPrefix,
-		"lower":          strings.ToLower,
-		"upper":          strings.ToUpper,
-		"replace":        strings.ReplaceAll,
+		"formatSteps":   formatSteps,
+		"formatBullets": formatBullets,
+		"notEmpty":      notEmpty,
+		"displayTitle":  displayTitle,
+		"escapeYAML":    escapeYAML,
+		"trimPrefix":    strings.TrimPrefix,
+		"lower":         strings.ToLower,
+		"upper":         strings.ToUpper,
+		"replace":       strings.ReplaceAll,
 	}
 
 	// Default template - comprehensive test case format
@@ -134,7 +137,7 @@ func (r *MDFlowRenderer) registerDefaultTemplates() {
 
 	// API endpoint template
 	r.templates["api-endpoint"] = template.Must(template.New("api-endpoint").Funcs(funcMap).Parse(apiEndpointTemplate))
-	
+
 	// Spec table template - for UI/UX spec tables with Phase 3 fields
 	r.templates["spec-table"] = template.Must(template.New("spec-table").Funcs(funcMap).Parse(specTableTemplate))
 }
@@ -183,7 +186,11 @@ func formatBullets(text string) string {
 }
 
 func notEmpty(s string) bool {
-	return strings.TrimSpace(s) != ""
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return false
+	}
+	return trimmed != "-"
 }
 
 func displayTitle(feature string, scenario string) string {
@@ -268,27 +275,26 @@ type: "feature-spec"
 ---
 
 # {{.Title}}
+{{- range .FeatureGroups}}
 
-{{range .FeatureGroups}}
 ## {{.Feature}}
-
-{{range .Rows}}
+{{- range .Rows}}
 {{- $title := displayTitle .Feature .Scenario -}}
-{{if ne (lower $title) (lower .Feature)}}
+{{- if ne (lower $title) (lower .Feature)}}
+
 ### {{ $title }}
-{{end}}
+{{- end}}
+{{- if notEmpty .Instructions}}
 
-{{if notEmpty .Instructions}}
 {{.Instructions}}
-{{end}}
+{{- end}}
+{{- if notEmpty .Expected}}
 
-{{if notEmpty .Expected}}
 **Acceptance Criteria:**
 {{formatBullets .Expected}}
-{{end}}
-
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
+{{- end}}
 `
 
 // Test plan template
@@ -310,46 +316,50 @@ generated_at: "{{.GeneratedAt}}"
 ---
 
 ## Test Case Details
+{{- range .FeatureGroups}}
 
-{{range .FeatureGroups}}
 ### {{.Feature}}
+{{- $feature := .Feature -}}
+{{- range .Rows}}
+{{- if or .ID (ne (lower .Scenario) (lower $feature))}}
 
-{{range .Rows}}
-#### {{.ID}}: {{.Scenario}}
+#### {{if .ID}}{{.ID}}: {{end}}{{.Scenario}}
+{{- end}}
+{{- if or (notEmpty .Priority) (notEmpty .Type) (notEmpty .Status) (notEmpty .Endpoint)}}
 
 | Field | Value |
 |---|---|
-| Priority | {{.Priority}} |
-| Type | {{.Type}} |
-| Status | {{.Status}} |
+{{if notEmpty .Priority}}| Priority | {{.Priority}} |{{end}}
+{{if notEmpty .Type}}| Type | {{.Type}} |{{end}}
+{{if notEmpty .Status}}| Status | {{.Status}} |{{end}}
 {{if notEmpty .Endpoint}}| Endpoint | ` + "`{{.Endpoint}}`" + ` |{{end}}
+{{- end}}
+{{- if notEmpty .Precondition}}
 
-{{if notEmpty .Precondition}}
 **Preconditions:**
 {{formatBullets .Precondition}}
-{{end}}
+{{- end}}
+{{- if notEmpty .Instructions}}
 
-{{if notEmpty .Instructions}}
 **Test Steps:**
 {{formatSteps .Instructions}}
-{{end}}
+{{- end}}
+{{- if notEmpty .Inputs}}
 
-{{if notEmpty .Inputs}}
 **Test Data:**
 ` + "```" + `
 {{.Inputs}}
 ` + "```" + `
-{{end}}
+{{- end}}
+{{- if notEmpty .Expected}}
 
-{{if notEmpty .Expected}}
 **Expected Result:**
 {{.Expected}}
-{{end}}
+{{- end}}
 
 ---
-
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 `
 
 // API endpoint template
@@ -360,38 +370,37 @@ generated_at: "{{.GeneratedAt}}"
 ---
 
 # {{.Title}} - API Specification
+{{- range .FeatureGroups}}
 
-{{range .FeatureGroups}}
 ## {{.Feature}}
+{{- range .Rows}}
 
-{{range .Rows}}
 ### {{if .Endpoint}}{{.Endpoint}}{{else}}{{.Scenario}}{{end}}
+{{- if notEmpty .Scenario}}
 
-{{if notEmpty .Scenario}}
 **Description:** {{.Scenario}}
-{{end}}
+{{- end}}
+{{- if notEmpty .Instructions}}
 
-{{if notEmpty .Instructions}}
 **Flow:**
 {{formatSteps .Instructions}}
-{{end}}
+{{- end}}
+{{- if notEmpty .Inputs}}
 
-{{if notEmpty .Inputs}}
 **Request Parameters:**
 ` + "```" + `
 {{.Inputs}}
 ` + "```" + `
-{{end}}
+{{- end}}
+{{- if notEmpty .Expected}}
 
-{{if notEmpty .Expected}}
 **Response:**
 {{.Expected}}
-{{end}}
+{{- end}}
 
 ---
-
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 `
 
 // Markdown template for prose/blockquote content
@@ -403,27 +412,25 @@ type: "specification"
 ---
 
 # {{.Title}}
+{{- if .Sections}}
+{{- range $index, $section := .Sections}}
 
-{{range .Sections}}
-## {{.Heading}}
+## {{ add1 $index }}. {{ $section.Heading }}
+{{- if $section.Content}}
 
-{{.Content}}
+{{ $section.Content }}
+{{- end}}
+{{- end}}
+{{- else}}
 
-{{end}}
-{{if .RawMessage}}
+{{ .OriginalMarkdown }}
+{{- end}}
+{{- if .RawMessage}}
+
 ## Raw Message
 
-{{.RawMessage}}
-
-{{end}}
----
-
-<details>
-<summary>Original Content</summary>
-
-{{ replace .OriginalMarkdown "##" "####" -1 }}
-
-</details>
+{{ .RawMessage }}
+{{- end}}
 `
 
 // Spec table template for UI/UX specification tables with Phase 3 fields
@@ -446,29 +453,35 @@ type: "spec-table"
 ---
 
 ## Item Details
+{{- range .Rows}}
 
-{{range .Rows}}
 ### {{if .No}}{{.No}}. {{end}}{{.ItemName}}
+{{- if notEmpty .ItemType}}
 
-{{if notEmpty .ItemType}}**Type:** {{.ItemType}}
-{{end}}
-{{if notEmpty .RequiredOptional}}**Required:** {{.RequiredOptional}}
-{{end}}
-{{if notEmpty .DisplayConditions}}
+**Type:** {{.ItemType}}
+{{- end}}
+{{- if notEmpty .RequiredOptional}}
+
+**Required:** {{.RequiredOptional}}
+{{- end}}
+{{- if notEmpty .DisplayConditions}}
+
 **Display Conditions:**
 {{.DisplayConditions}}
+{{- end}}
+{{- if notEmpty .InputRestrictions}}
 
-{{end}}
 **Input Restrictions:**
-{{if notEmpty .InputRestrictions}}{{.InputRestrictions}}{{else}}-{{end}}
+{{.InputRestrictions}}
+{{- end}}
+{{- if notEmpty .Action}}
 
-{{if notEmpty .Action}}
 **Action:** {{.Action}}
-{{end}}
-{{if notEmpty .NavigationDest}}
+{{- end}}
+{{- if notEmpty .NavigationDest}}
+
 **Navigation Destination:** {{.NavigationDest}}
-{{end}}
+{{- end}}
 
 ---
-
-{{end}}`
+{{- end}}`

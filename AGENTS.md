@@ -1,37 +1,65 @@
-# AGENTS.md - Development Guidelines
+# AGENTS.md - md-spec-tool
 
-## Commands
+## Build, Test & Lint Commands
 
-### Build & Test
-- **Backend tests (all)**: `make test` or `cd backend && go test ./...`
-- **Backend single test**: `cd backend && go test -run TestName ./...`
-- **Backend build**: `go build -o main ./cmd/server`
-- **Frontend build**: `cd frontend && npm run build`
-- **Frontend tests**: `cd frontend && npm test` (not yet configured)
+### Backend (Go)
+- **Test single package**: `cd backend && go test ./path/to/package`
+- **Test all**: `cd backend && go test ./...`
+- **Run dev server**: `make dev-backend` (runs `go run ./cmd/server`)
+- **Build**: `docker-compose build`
 
-### Development
-- **Dev backend**: `make dev-backend` → runs `cd backend && go run ./cmd/server`
-- **Dev frontend**: `make dev-frontend` → runs `cd frontend && npm run dev`
-- **All services**: `make up` → Docker Compose (db, backend, frontend)
-- **Logs**: `make logs` → `docker-compose logs -f`
+### Frontend (Next.js)
+- **Dev server**: `make dev-frontend` (runs `npm run dev`)
+- **Build**: `cd frontend && npm run build`
+- **Test**: `cd frontend && npm test` (currently not configured)
 
-## Architecture
+### Docker
+- **Start services**: `make up`
+- **Stop services**: `make down`
+- **View logs**: `make logs`
 
-**Full-Stack**: Go 1.20 + Gin backend, Next.js 14 + React frontend, PostgreSQL 15
+## Architecture & Codebase
 
-**Backend** (`/backend`): Entry point `cmd/server/main.go`, layered: `internal/{http,services,repositories,models,converters,config}`
-- HTTP handlers, JWT auth, Excel parsing (excelize), Markdown generation (text/template)
-- PostgreSQL with migrations in `migrations/`
+**Tech Stack**:
+- **Backend**: Go 1.20 + Gin web framework + PostgreSQL 15
+- **Frontend**: Next.js 14 + React 18 + TypeScript + Tailwind CSS + Zustand
+- **Authentication**: JWT tokens
 
-**Frontend** (`/frontend`): Next.js App Router, Tailwind CSS, Zustand state, Zod validation
-- Path alias: `@/*` maps to project root
+**Key Directories**:
+- `backend/cmd/server/`: Entry point (main.go)
+- `backend/internal/`: Business logic
+  - `http/`: Routes & handlers
+  - `services/`: Business logic layer
+  - `repositories/`: Data access layer
+  - `models/`: Domain models
+  - `converters/`: Excel→Markdown conversion
+  - `database/`: DB connection & migrations
+  - `config/`: Configuration management
+- `frontend/app/`: Next.js app router
+- `frontend/components/`: React components
+- `frontend/lib/`: Utilities
 
-**Database**: PostgreSQL 15, auto-migrated on startup
+**Database**: PostgreSQL. Migrations auto-run on startup; manual: `backend/migrations/001_create_users.up.sql`
 
-**Key APIs**: Auth (JWT login), Import (Excel), Convert (Markdown), Spec (CRUD), Sharing/Comments/Activity
+**Ports**: Frontend 3000, Backend 8080, PostgreSQL 5432
 
-## Style
+## Code Style & Guidelines
 
-**Go**: CamelCase, `type StructName struct{}`, receiver functions `(r *Type) Method()`, error returns, organized by layer
-**TypeScript**: Strict mode, ES2020+, `@/` imports, React 18, component pattern, Zustand stores
-**Frontend**: Tailwind for styling, `ErrorBoundary` component error handling, custom fonts (Sora, Fraunces, Space Grotesk)
+**Go**:
+- Standard Go conventions (CamelCase, error handling with explicit checks)
+- Error handling: always check and propagate errors
+- Use Gin middleware for HTTP handling
+- Package structure: `internal/` for private packages
+
+**TypeScript/React**:
+- TypeScript strict mode
+- Functional components with hooks
+- Zustand for state management
+- Tailwind CSS for styling
+- App router pattern (Next.js 14)
+
+**Imports**: Use relative imports within packages; absolute imports for cross-package
+
+**Naming**: 
+- Go: PascalCase for exported, camelCase for unexported
+- TS: camelCase functions/vars, PascalCase components/types

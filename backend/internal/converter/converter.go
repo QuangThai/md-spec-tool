@@ -22,6 +22,31 @@ func NewConverter() *Converter {
 	}
 }
 
+// BuildSpecDocFromPaste parses pasted content into a SpecDoc
+func BuildSpecDocFromPaste(text string) (*SpecDoc, error) {
+	analysis := DetectInputType(text)
+	if analysis.Type == InputTypeMarkdown {
+		return BuildMarkdownSpecDoc(text, "Specification"), nil
+	}
+
+	parser := NewPasteParser()
+	matrix, err := parser.Parse(text)
+	if err != nil {
+		return nil, err
+	}
+	if len(matrix) == 0 {
+		return &SpecDoc{Title: "Converted Spec"}, nil
+	}
+
+	converter := NewConverter()
+	headerRow, _ := converter.headerDetector.DetectHeaderRow(matrix)
+	headers := matrix.GetRow(headerRow)
+	colMap, _ := converter.columnMapper.MapColumns(headers)
+
+	specDoc := converter.buildSpecDoc(matrix, headerRow, headers, colMap, "")
+	return specDoc, nil
+}
+
 // ConvertPaste converts pasted text to MDFlow
 func (c *Converter) ConvertPaste(text string, template string) (*ConvertResponse, error) {
 	// Phase 1: Detect input type first
@@ -44,35 +69,7 @@ func (c *Converter) ConvertPaste(text string, template string) (*ConvertResponse
 func (c *Converter) convertMarkdown(text string, template string) (*ConvertResponse, error) {
 	specDoc := BuildMarkdownSpecDoc(text, "Specification")
 
-	// Render to MDFlow
-	if template == "" {
-		mdflow, err := c.renderer.RenderMarkdown(specDoc, template)
-		if err != nil {
-			return nil, err
-		}
-		return &ConvertResponse{
-			MDFlow:   mdflow,
-			Warnings: []string{},
-			Meta:     specDoc.Meta,
-		}, nil
-	}
-
-	if template == "default" {
-		template = ""
-		mdflow, err := c.renderer.RenderMarkdown(specDoc, template)
-		if err != nil {
-			return nil, err
-		}
-		return &ConvertResponse{
-			MDFlow:   mdflow,
-			Warnings: []string{},
-			Meta:     specDoc.Meta,
-		}, nil
-	}
-
-	specDoc.Rows = buildRowsFromSections(specDoc.Prose.Sections)
-	specDoc.Meta.TotalRows = len(specDoc.Rows)
-	mdflow, err := c.renderer.Render(specDoc, template)
+	mdflow, err := c.renderer.RenderMarkdown(specDoc, template)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +124,7 @@ func (c *Converter) convertMatrix(matrix CellMatrix, sheetName string, template 
 
 	// Detect header row
 	headerRow, confidence := c.headerDetector.DetectHeaderRow(matrix)
-	
+
 	var warnings []string
 	if confidence < 50 {
 		warnings = append(warnings, "Low confidence in header detection, results may be inaccurate")
@@ -138,7 +135,7 @@ func (c *Converter) convertMatrix(matrix CellMatrix, sheetName string, template 
 
 	// Map columns
 	colMap, unmapped := c.columnMapper.MapColumns(headers)
-	
+
 	if len(unmapped) > 0 {
 		warnings = append(warnings, "Unmapped columns: "+joinStrings(unmapped, ", "))
 	}
@@ -164,7 +161,7 @@ func (c *Converter) convertMatrix(matrix CellMatrix, sheetName string, template 
 func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []string, colMap ColumnMap, sheetName string) *SpecDoc {
 	// Count rows by feature
 	rowsByFeature := make(map[string]int)
-	
+
 	var rows []SpecRow
 	dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
 
@@ -182,7 +179,7 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			Status:       GetFieldValue(row, colMap, FieldStatus),
 			Endpoint:     GetFieldValue(row, colMap, FieldEndpoint),
 			Notes:        GetFieldValue(row, colMap, FieldNotes),
-			
+
 			// Phase 3 fields
 			No:                GetFieldValue(row, colMap, FieldNo),
 			ItemName:          GetFieldValue(row, colMap, FieldItemName),
@@ -192,8 +189,8 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			DisplayConditions: GetFieldValue(row, colMap, FieldDisplayConditions),
 			Action:            GetFieldValue(row, colMap, FieldAction),
 			NavigationDest:    GetFieldValue(row, colMap, FieldNavigationDest),
-			
-			Metadata:     make(map[string]string),
+
+			Metadata: make(map[string]string),
 		}
 
 		// Store unmapped columns in metadata
@@ -259,7 +256,7 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 		}
 
 		rows = append(rows, specRow)
-		
+
 		// Track row count by feature
 		if specRow.Feature != "" {
 			rowsByFeature[specRow.Feature]++
@@ -275,9 +272,9 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 	_, unmapped := c.columnMapper.MapColumns(headers)
 
 	return &SpecDoc{
-		Title:    title,
-		Rows:     rows,
-		Headers:  headers,
+		Title:   title,
+		Rows:    rows,
+		Headers: headers,
 		Meta: SpecDocMeta{
 			SheetName:       sheetName,
 			HeaderRow:       headerRow,
