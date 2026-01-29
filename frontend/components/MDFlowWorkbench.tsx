@@ -183,30 +183,28 @@ export default function MDFlowWorkbench() {
                   <Database className="w-4 h-4 text-accent-orange" />
                 </div>
                 <h2 className="text-sm font-black uppercase tracking-widest text-white">
-                  Source_Channel
+                  Source Channel
                 </h2>
               </div>
 
               <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
                 <button
                   onClick={() => setMode("paste")}
-                  className={`px-4 py-1.5 text-[9px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all ${
-                    mode === "paste"
+                  className={`px-4 py-1.5 text-[9px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all ${mode === "paste"
                       ? "bg-accent-orange text-white shadow-md shadow-accent-orange/20"
                       : "text-muted hover:text-white"
-                  }`}
+                    }`}
                 >
-                  Raw_Pasted
+                  Raw Pasted
                 </button>
                 <button
                   onClick={() => setMode("xlsx")}
-                  className={`px-4 py-1.5 text-[9px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all ${
-                    mode === "xlsx"
+                  className={`px-4 py-1.5 text-[9px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all ${mode === "xlsx"
                       ? "bg-accent-orange text-white shadow-md shadow-accent-orange/20"
                       : "text-muted hover:text-white"
-                  }`}
+                    }`}
                 >
-                  Excel_Stream
+                  Excel Stream
                 </button>
               </div>
             </div>
@@ -234,7 +232,7 @@ export default function MDFlowWorkbench() {
                   className="h-full flex flex-col min-h-0"
                 >
                   <div className="flex justify-between items-center text-[10px] uppercase font-bold text-muted/60 mb-4 shrink-0">
-                    <span>Dataset_Entry</span>
+                    <span>Dataset Entry</span>
                     <span className="text-accent-orange/40">
                       TSV / CSV Supported
                     </span>
@@ -289,7 +287,7 @@ export default function MDFlowWorkbench() {
 
                   {sheets.length > 0 && (
                     <div className="space-y-4 shrink-0">
-                      <label className="label">Active_Data_Plane</label>
+                      <label className="label">Active Data Plane</label>
                       <Select
                         value={selectedSheet}
                         onValueChange={setSelectedSheet}
@@ -309,12 +307,12 @@ export default function MDFlowWorkbench() {
             {/* Footer: Global Config & Action - Stays at bottom */}
             <div className="p-8 border-t border-white/5 bg-white/2 flex flex-col sm:flex-row gap-6 items-end shrink-0 mt-auto relative z-20">
               <div className="flex-1 w-full space-y-4">
-                <label className="label">Blueprint_Schema</label>
+                <label className="label">Blueprint Schema</label>
                 <Select
                   value={template}
                   onValueChange={setTemplate}
                   options={templates.map((t) => ({
-                    label: `${t.toUpperCase()}_MODEL`,
+                    label: `${t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()} Model`,
                     value: t,
                   }))}
                   placeholder="Select technical model"
@@ -333,7 +331,7 @@ export default function MDFlowWorkbench() {
                   <RefreshCcw className="w-4 h-4 animate-spin" />
                 ) : (
                   <span className="flex items-center gap-3">
-                    Run_Engine{" "}
+                    Run Engine{" "}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </span>
                 )}
@@ -396,7 +394,7 @@ export default function MDFlowWorkbench() {
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-60">
                   <Terminal className="w-12 h-12 mb-6 text-white/20 animate-pulse" />
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">
-                    Awaiting_Data_Stream
+                    Awaiting Data Stream
                   </p>
                 </div>
               )}
@@ -447,7 +445,7 @@ const TechnicalAnalysis = ({
           <div className="flex items-center gap-4">
             <div className="h-2 w-2 rounded-full bg-white/40 animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">
-              Engine_Status: Standby
+              Engine Status: Standby
             </span>
           </div>
           <div className="flex gap-2">
@@ -467,7 +465,7 @@ const TechnicalAnalysis = ({
             <div className="flex items-center gap-3">
               <Activity className="w-3.5 h-3.5 text-accent-orange opacity-60" />
               <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-white/60">
-                Telemetry_Data
+                Telemetry Data
               </h3>
             </div>
             <div className="flex gap-4">
@@ -496,7 +494,7 @@ const TechnicalAnalysis = ({
               <div className="flex items-center gap-3">
                 <AlertCircle className="w-3.5 h-3.5 text-accent-gold" />
                 <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-accent-gold/80">
-                  Validation_Alerts
+                  Validation Alerts
                 </h3>
               </div>
               <div className="max-h-[60px] overflow-auto custom-scrollbar space-y-2">

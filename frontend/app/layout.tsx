@@ -44,93 +44,79 @@ export default function RootLayout({
             {children}
           </main>
 
-          <footer className="relative border-t border-white/5 bg-black/40 backdrop-blur-2xl py-20 overflow-hidden">
-            {/* Ambient Footer Glow */}
-            <div className="absolute inset-x-0 bottom-0 h-64 bg-accent-orange/5 blur-3xl pointer-events-none" />
+          <footer className="relative mt-20 border-t border-white/5 bg-bg-base overflow-hidden">
+            {/* Premium Ambient Backlight */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(242,123,47,0.08),transparent_50%)]" />
 
-            <div className="mx-auto max-w-7xl px-8 relative z-10">
-              <div className="flex flex-col items-center justify-between gap-12 lg:flex-row lg:items-end">
-                {/* Brand Identity */}
-                <div className="flex flex-col items-center lg:items-start gap-6 group">
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/60 border border-white/10 shadow-2xl transition-all group-hover:border-accent-orange/50">
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="w-7 h-7"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M4 18V6L12 14L20 6V18"
-                            stroke="#f27b2f"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <path
-                            d="M12 14L16 10"
-                            stroke="#f27b2f"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </div>
-                      <div className="absolute inset-0 bg-accent-orange/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500" />
+            <div className="mx-auto max-w-7xl px-8 py-10 relative z-10">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-10">
+                {/* Brand Identity - Clean & Premium */}
+                <div className="flex items-center gap-5 group">
+                  <div className="relative">
+                    <div className="absolute -inset-1 rounded-2xl bg-linear-to-br from-accent-orange/40 to-transparent blur-md opacity-40 group-hover:opacity-80 transition-opacity duration-700" />
+                    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0A0A0A] border border-white/10 shadow-2xl ring-1 ring-white/5 group-hover:border-accent-orange/30 transition-all">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="w-7 h-7"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M4 18V6L12 14L20 6V18"
+                          stroke="#F27B2F"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="drop-shadow-[0_0_10px_rgba(242,123,47,0.5)]"
+                        />
+                        <path
+                          d="M12 14L16 10"
+                          stroke="#F27B2F"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          className="drop-shadow-[0_0_10px_rgba(242,123,47,0.5)]"
+                        />
+                      </svg>
                     </div>
+                  </div>
 
-                    <div className="flex flex-col">
-                      <span className="text-xl font-black tracking-tighter text-white uppercase leading-none">
-                        MD<span className="text-accent-orange">Flow</span>{" "}
-                        Studio
+                  <div className="flex flex-col">
+                    <h2 className="text-2xl font-black tracking-tight text-white uppercase leading-none">
+                      MDFLOW{" "}
+                      <span className="text-transparent bg-clip-text bg-linear-to-r from-accent-orange via-accent-gold to-white">
+                        STUDIO
                       </span>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/40 mt-1.5 ml-0.5">
-                        Specification_Automation
+                    </h2>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="h-px w-8 bg-white/10" />
+                      <span className="text-[10px] font-medium uppercase tracking-[0.3em] text-white/40">
+                        Specification Engine
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Technical Metadata */}
-                <div className="flex flex-wrap justify-center gap-8 lg:gap-16">
-                  <div className="flex flex-col gap-3">
-                    <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 text-center lg:text-left">
-                      Platform_Stack
+                {/* Condensed & Eye-Catching Status Indicators */}
+                <div className="flex items-center gap-4 p-1.5 rounded-full border border-white/5 bg-white/2 backdrop-blur-sm">
+                  <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/5 border border-white/5 group hover:border-accent-orange/30 transition-colors cursor-default">
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                    <span className="text-[10px] font-bold text-white/70 uppercase tracking-widest group-hover:text-white transition-colors">
+                      System Operational
                     </span>
-                    <div className="inline-flex items-center px-4 py-2 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                      <p className="text-[10px] font-black text-white/80 uppercase tracking-widest font-mono">
-                        Next_JS_v16
-                      </p>
-                    </div>
                   </div>
-
-                  <div className="flex flex-col gap-3 text-right">
-                    <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 text-center lg:text-right">
-                      Engine_Version
+                  <div className="hidden sm:flex items-center gap-3 px-5 py-2.5 rounded-full hover:bg-white/5 transition-colors cursor-default">
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                      v1.2.0 Alpha
                     </span>
-                    <div className="inline-flex items-center px-4 py-2 rounded-xl bg-accent-orange/5 border border-accent-orange/20 shadow-lg shadow-accent-orange/5">
-                      <p className="text-[10px] font-black text-accent-orange uppercase tracking-widest font-mono">
-                        Alpha v1.2.0
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Copyright Strip */}
-              <div className="mt-20 pt-10 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-8">
-                <div className="flex items-center gap-8 text-[9px] font-bold uppercase tracking-[0.4em] text-white/30">
-                  <p>© 2026 MD_Flow Cluster Engine</p>
-                  <div className="hidden sm:block h-3 w-px bg-white/10" />
-                  <p className="hidden sm:block">Legal_Standard_Compliant</p>
-                </div>
-
-                <div className="flex items-center gap-3 px-4 py-2 rounded-full border border-white/5 bg-white/2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-accent-orange shadow-[0_0_8px_rgba(242,123,47,0.5)] animate-pulse" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-accent-orange/80">
-                    Precision_Automation_System
-                  </span>
-                </div>
+              {/* Minimal Copyright */}
+              <div className="flex justify-center">
+                <p className="text-[10px] font-medium text-white/20 uppercase tracking-[0.2em] hover:text-white/40 transition-colors cursor-default">
+                  © 2026 MDFlow Inc. All Rights Reserved.
+                </p>
               </div>
             </div>
           </footer>

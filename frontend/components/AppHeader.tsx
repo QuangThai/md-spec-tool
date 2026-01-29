@@ -59,20 +59,22 @@ export default function AppHeader() {
               className="flex items-center gap-5 group cursor-pointer"
             >
               <div className="relative">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/60 border border-white/10 shadow-2xl transition-all group-hover:border-accent-orange/50 group-hover:scale-105 group-hover:bg-black/80">
+                <div className="absolute -inset-px rounded-2xl bg-linear-to-br from-accent-orange/70 via-accent-gold/30 to-white/10 blur-md opacity-60 transition-all duration-500 group-hover:opacity-100" />
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-white/5 to-black/70 border border-white/10 shadow-2xl transition-all group-hover:border-accent-orange/50 group-hover:scale-[1.03]">
                   <MDFlowLogo className="w-7 h-7" />
                 </div>
-                {/* Visual Glow */}
-                <div className="absolute inset-0 bg-accent-orange/30 blur-2xl rounded-full opacity-0 group-hover:opacity-100 transition-all duration-700" />
               </div>
 
               <div className="flex items-center gap-4">
                 <div className="flex flex-col">
-                  <h1 className="text-xl font-black tracking-tighter text-white uppercase leading-none">
-                    MD<span className="text-accent-orange">FLOW</span>
+                  <h1 className="text-xl font-black tracking-tight text-white uppercase leading-none">
+                    MDFLOW{" "}
+                    <span className="text-transparent bg-clip-text bg-linear-to-r from-accent-orange via-accent-gold to-white">
+                      STUDIO
+                    </span>
                   </h1>
-                  <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.5em] mt-1.5 ml-0.5">
-                    Engineering_Studio
+                  <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.55em] mt-1.5 ml-0.5">
+                    Specification Automation
                   </span>
                 </div>
               </div>
@@ -103,7 +105,7 @@ export default function AppHeader() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-accent-orange shadow-[0_0_12px_rgba(242,123,47,0.8)]"></span>
               </div>
               <span className="text-[9px] font-black uppercase tracking-[0.3em] text-accent-orange/90 whitespace-nowrap">
-                Engine_Optimal
+                Engine Optimal
               </span>
             </div>
 
