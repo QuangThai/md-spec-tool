@@ -1,67 +1,81 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 
 const MDFlowLogo = ({ className }: { className?: string }) => (
   <svg
-    viewBox="0 0 180 40"
+    viewBox="0 0 160 40"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     className={className}
+    aria-label="MDFlow Logo"
   >
     <defs>
-      <linearGradient id="premium-gold" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#F7CE68" />
-        <stop offset="50%" stopColor="#FBAB7E" />
-        <stop offset="100%" stopColor="#f27b2f" />
+      {/* Prism Facet 1: Light Gold */}
+      <linearGradient id="prism-light" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FFF7ED" />
+        <stop offset="100%" stopColor="#FCD34D" />
       </linearGradient>
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="2" result="blur" />
-        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+
+      {/* Prism Facet 2: Mid Gold */}
+      <linearGradient id="prism-mid" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#F59E0B" />
+        <stop offset="100%" stopColor="#D97706" />
+      </linearGradient>
+
+      {/* Prism Facet 3: Dark Gold (Shadow) */}
+      <linearGradient id="prism-dark" x1="100%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#B45309" />
+        <stop offset="100%" stopColor="#78350F" />
+      </linearGradient>
+
+      <filter id="crisp-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow
+          dx="0"
+          dy="1"
+          stdDeviation="1"
+          floodColor="#000"
+          floodOpacity="0.4"
+        />
       </filter>
     </defs>
 
-    {/* Premium Abstract Mark: Quantized Flow 'M' */}
-    <path
-      d="M14 26L14 14C14 14 14 10 18 10C22 10 22 14 22 14L22 26"
-      stroke="url(#premium-gold)"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M22 26L22 18C22 18 22 14 26 14C30 14 30 18 30 18L30 26"
-      stroke="url(#premium-gold)"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeOpacity="0.8"
-    />
-    <path
-      d="M30 26L30 22C30 22 30 18 34 18C38 18 38 22 38 22L38 26"
-      stroke="url(#premium-gold)"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeOpacity="0.6"
-    />
+    <g filter="url(#crisp-shadow)">
+      {/* 3D Isometric 'M' Symbol */}
+      <g transform="translate(4, 4)">
+        {/* Left Leg: Dark Side */}
+        <path d="M6 32V12L16 6L16 26L6 32Z" fill="url(#prism-dark)" />
+        {/* Left Leg: Light Top */}
+        <path d="M6 12L16 6L22 10L12 16L6 12Z" fill="url(#prism-light)" />
+        {/* Left Leg: Face */}
+        <path d="M16 26L22 22V10L16 6V26Z" fill="url(#prism-mid)" />
 
-    {/* Accent Dot */}
-    <circle cx="42" cy="12" r="2" fill="#F7CE68" className="animate-pulse" />
+        {/* V-Connector: Deep Shadow */}
+        <path d="M22 10L28 14L22 22Z" fill="#78350F" />
 
-    {/* Integrated Logotype - Modern Wide Sans */}
-    <text
-      x="54"
-      y="27"
-      fill="white"
-      fontSize="24"
-      fontWeight="800"
-      letterSpacing="-0.02em"
-      style={{ fontFamily: "'Inter', sans-serif" }}
-    >
-      MDFlow
-    </text>
+        {/* Right Leg: Dark Side */}
+        <path d="M38 32V12L28 6L28 26L38 32Z" fill="url(#prism-dark)" />
+        {/* Right Leg: Light Top */}
+        <path d="M38 12L28 6L22 10L32 16L38 12Z" fill="url(#prism-light)" />
+        {/* Right Leg: Face */}
+        <path d="M28 26L22 22V10L28 6V26Z" fill="url(#prism-mid)" />
+      </g>
+
+      {/* Text: Technical & Precise */}
+      <text
+        x="52"
+        y="29"
+        fill="white"
+        fontSize="22"
+        fontWeight="800"
+        letterSpacing="-0.01em"
+        style={{ fontFamily: "'Inter', sans-serif" }}
+      >
+        MDFlow
+      </text>
+    </g>
   </svg>
 );
 
@@ -79,17 +93,15 @@ export default function AppHeader() {
 
           <div className="flex items-center gap-4 sm:gap-8 lg:gap-12 z-10">
             {/* Ultra-Premium MDFlow Brand Logo */}
-            {/* Ultra-Premium MDFlow Brand Logo (Integrated) */}
             <Link href="/" className="group cursor-pointer py-2">
               <div className="relative">
                 <div className="absolute -inset-4 rounded-full bg-linear-to-r from-accent-gold/20 via-accent-orange/10 to-transparent blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <MDFlowLogo className="w-auto h-7 sm:h-8 lg:h-10 drop-shadow-lg group-hover:scale-105 transition-transform duration-300" />
+                <MDFlowLogo className="h-8 sm:h-9 lg:h-11 w-auto drop-shadow-lg group-hover:scale-110 transition-transform duration-300" />
               </div>
             </Link>
 
             <nav className="hidden lg:flex items-center gap-6 xl:gap-10">
               {[
-                { label: "Home", href: "/" },
                 { label: "Studio", href: "/studio" },
                 { label: "Docs", href: "/docs" },
               ].map((item) => (

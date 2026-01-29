@@ -78,6 +78,11 @@ export default function MDFlowWorkbench() {
     });
   }, []);
 
+  // Reset store when leaving Studio so data is not shown when user comes back
+  useEffect(() => {
+    return () => reset();
+  }, [reset]);
+
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const selectedFile = e.target.files?.[0];

@@ -2,6 +2,7 @@ import AppHeader from "@/components/AppHeader";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Command } from "lucide-react";
 import { Geist_Mono as GeistMono, Inter } from "next/font/google";
+import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import "../styles/globals.css";
@@ -81,78 +82,103 @@ export default function RootLayout({
                   Automate technical documentation with MDFlow's precision
                   engine.
                 </p>
-                <a
+                <Link
                   href="/studio"
                   className="mt-1 h-9 sm:h-10 px-4 sm:px-6 rounded-lg bg-white text-black font-bold text-xs sm:text-sm tracking-wide hover:bg-white/95 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 inline-flex items-center justify-center"
                 >
                   Launch Studio
-                </a>
+                </Link>
               </div>
 
               {/* Dense footer bar: logo · nav · status · legal */}
               <div className="py-4 sm:py-5 lg:py-6 flex flex-wrap items-center justify-between gap-3 sm:gap-4 lg:gap-6">
                 <div className="flex items-center gap-6 sm:gap-8 min-w-0">
-                  <a
+                  <Link
                     href="/"
                     className="flex items-center gap-1 shrink-0 opacity-90 hover:opacity-100 transition-opacity"
                     aria-label="MDFlow Home"
                   >
                     <svg
-                      viewBox="0 0 180 40"
+                      viewBox="0 0 160 40"
                       fill="none"
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 sm:h-6 lg:h-7 w-auto"
+                      className="h-10 sm:h-12 w-auto"
+                      aria-label="MDFlow Logo"
                     >
                       <defs>
                         <linearGradient
-                          id="footer-premium-gold"
+                          id="footer-prism-light"
                           x1="0%"
                           y1="0%"
                           x2="100%"
                           y2="100%"
                         >
-                          <stop offset="0%" stopColor="#F7CE68" />
-                          <stop offset="50%" stopColor="#FBAB7E" />
-                          <stop offset="100%" stopColor="#f27b2f" />
+                          <stop offset="0%" stopColor="#FFF7ED" />
+                          <stop offset="100%" stopColor="#FCD34D" />
+                        </linearGradient>
+                        <linearGradient
+                          id="footer-prism-mid"
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="0%"
+                        >
+                          <stop offset="0%" stopColor="#F59E0B" />
+                          <stop offset="100%" stopColor="#D97706" />
+                        </linearGradient>
+                        <linearGradient
+                          id="footer-prism-dark"
+                          x1="100%"
+                          y1="0%"
+                          x2="0%"
+                          y2="100%"
+                        >
+                          <stop offset="0%" stopColor="#B45309" />
+                          <stop offset="100%" stopColor="#78350F" />
                         </linearGradient>
                       </defs>
-                      <path
-                        d="M14 26L14 14C14 14 14 10 18 10C22 10 22 14 22 14L22 26"
-                        stroke="url(#footer-premium-gold)"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <path
-                        d="M22 26L22 18C22 18 22 14 26 14C30 14 30 18 30 18L30 26"
-                        stroke="url(#footer-premium-gold)"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeOpacity="0.8"
-                      />
-                      <path
-                        d="M30 26L30 22C30 22 30 18 34 18C38 18 38 22 38 22L38 26"
-                        stroke="url(#footer-premium-gold)"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeOpacity="0.6"
-                      />
-                      <circle cx="42" cy="12" r="2" fill="#F7CE68" />
-                      <text
-                        x="54"
-                        y="27"
-                        fill="white"
-                        fontSize="22"
-                        fontWeight="800"
-                        letterSpacing="-0.02em"
-                        style={{ fontFamily: "'Inter', sans-serif" }}
-                      >
-                        MDFlow
-                      </text>
+                      <g opacity="0.9">
+                        <g transform="translate(4, 4)">
+                          <path
+                            d="M6 32V12L16 6L16 26L6 32Z"
+                            fill="url(#footer-prism-dark)"
+                          />
+                          <path
+                            d="M6 12L16 6L22 10L12 16L6 12Z"
+                            fill="url(#footer-prism-light)"
+                          />
+                          <path
+                            d="M16 26L22 22V10L16 6V26Z"
+                            fill="url(#footer-prism-mid)"
+                          />
+                          <path d="M22 10L28 14L22 22Z" fill="#78350F" />
+                          <path
+                            d="M38 32V12L28 6L28 26L38 32Z"
+                            fill="url(#footer-prism-dark)"
+                          />
+                          <path
+                            d="M38 12L28 6L22 10L32 16L38 12Z"
+                            fill="url(#footer-prism-light)"
+                          />
+                          <path
+                            d="M28 26L22 22V10L28 6V26Z"
+                            fill="url(#footer-prism-mid)"
+                          />
+                        </g>
+                        <text
+                          x="52"
+                          y="29"
+                          fill="white"
+                          fontSize="22"
+                          fontWeight="800"
+                          letterSpacing="-0.01em"
+                          style={{ fontFamily: "'Inter', sans-serif" }}
+                        >
+                          MDFlow
+                        </text>
+                      </g>
                     </svg>
-                  </a>
+                  </Link>
                   <nav
                     className="flex items-center gap-1 text-muted"
                     aria-label="Footer navigation"
