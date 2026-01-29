@@ -61,35 +61,35 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
     title: "System Overview",
     content: (
       <div className="space-y-8">
-        <p className="text-xl text-muted leading-relaxed font-light">
+        <p className="text-base sm:text-lg lg:text-xl text-muted leading-relaxed font-light">
           MDFlow is a high-performance <strong>Engineering Studio</strong>{" "}
           that bridges the gap between raw technical data (Excel/CSV) and
           standardized documentation. It runs as a local web app with a
           Next.js UI (default port 3000) and a Go API (default port 8080).
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-accent-orange/30 transition-colors group">
-            <div className="mb-6 p-4 rounded-2xl bg-black/40 w-fit text-accent-orange group-hover:scale-110 transition-transform">
-              <Database className="w-6 h-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+          <div className="p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 hover:border-accent-orange/30 transition-colors group">
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/40 w-fit text-accent-orange group-hover:scale-110 transition-transform">
+              <Database className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <h4 className="text-white font-black uppercase tracking-wider mb-2">
+            <h4 className="text-sm sm:text-base font-black uppercase tracking-wider mb-2 text-white">
               Frontend Studio
             </h4>
-            <p className="text-sm text-muted">
+            <p className="text-xs sm:text-sm text-muted">
               Built with Next.js 16 and React 19. Handles the UI, local state
               (Zustand), and client-side parsing workflows.
             </p>
           </div>
 
-          <div className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-accent-gold/30 transition-colors group">
-            <div className="mb-6 p-4 rounded-2xl bg-black/40 w-fit text-accent-gold group-hover:scale-110 transition-transform">
-              <Cpu className="w-6 h-6" />
+          <div className="p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 hover:border-accent-gold/30 transition-colors group">
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-black/40 w-fit text-accent-gold group-hover:scale-110 transition-transform">
+              <Cpu className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <h4 className="text-white font-black uppercase tracking-wider mb-2">
+            <h4 className="text-sm sm:text-base font-black uppercase tracking-wider mb-2 text-white">
               Backend Engine
             </h4>
-            <p className="text-sm text-muted">
+            <p className="text-xs sm:text-sm text-muted">
               Powered by Go (Golang) with Gin. Provides the MDFlow API on port
               8080 for paste and XLSX conversions.
             </p>
@@ -131,7 +131,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               </strong>
               <span className="text-sm text-white/40">
                 App router with client components for the interactive
-                Workbench experience.
+                Studio experience.
               </span>
             </div>
           </li>
@@ -369,14 +369,14 @@ const DocsContent: React.FC = () => {
   }, [filteredSections, activeSection]);
 
   return (
-    <div className="min-h-screen pt-12 pb-24">
+    <div className="min-h-screen pt-8 sm:pt-12 pb-16 sm:pb-24">
       <div className="app-container">
-        <div className="grid lg:grid-cols-[280px_1fr] gap-12">
+        <div className="grid lg:grid-cols-[260px_1fr] xl:grid-cols-[280px_1fr] gap-8 sm:gap-12">
           {/* Sidebar Navigation */}
           <motion.aside
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="hidden lg:block space-y-8 sticky top-32 h-fit"
+            className="hidden lg:block space-y-6 lg:space-y-8 sticky top-24 lg:top-32 h-fit"
           >
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -385,7 +385,7 @@ const DocsContent: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search docs..."
-                className="w-full h-10 pl-10 pr-4 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-hidden focus:border-accent-orange/50 transition-all"
+                className="w-full h-9 sm:h-10 pl-9 sm:pl-10 pr-3 sm:pr-4 rounded-lg sm:rounded-xl bg-white/5 border border-white/10 text-xs sm:text-sm text-white placeholder:text-white/20 focus:outline-hidden focus:border-accent-orange/50 transition-all"
               />
             </div>
 
@@ -401,8 +401,8 @@ const DocsContent: React.FC = () => {
                         key={item.id}
                         onClick={() => setActiveSection(item.id)}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer group ${activeSection === item.id
-                            ? "bg-accent-orange/10 text-accent-orange"
-                            : "text-muted hover:text-white hover:bg-white/5"
+                          ? "bg-accent-orange/10 text-accent-orange"
+                          : "text-muted hover:text-white hover:bg-white/5"
                           }`}
                       >
                         <span
@@ -434,7 +434,7 @@ const DocsContent: React.FC = () => {
               transition={{ duration: 0.3 }}
               className="space-y-8"
             >
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-accent-orange mb-2">
+              <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-accent-orange mb-2">
                 Docs <ChevronRight className="w-3 h-3" />{" "}
                 {
                   docsSections.find((s) =>
@@ -443,17 +443,17 @@ const DocsContent: React.FC = () => {
                 }
               </div>
 
-              <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tighter uppercase">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black text-white tracking-tighter uppercase">
                 {docContent[activeSection]?.title || "Documentation"}
               </h1>
 
-              <div className="prose prose-invert prose-lg max-w-none">
+              <div className="prose prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none">
                 {docContent[activeSection]?.content}
               </div>
 
               {/* Navigation Footer for Docs */}
-              <div className="pt-20 mt-20 border-t border-white/5 flex items-center justify-between">
-                <div className="text-sm text-muted">
+              <div className="pt-12 sm:pt-16 lg:pt-20 mt-12 sm:mt-16 lg:mt-20 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="text-xs sm:text-sm text-muted">
                   Last updated: <span className="text-white">Jan 29, 2026</span>
                 </div>
                 <div className="flex gap-4">
