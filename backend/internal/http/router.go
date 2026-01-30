@@ -9,6 +9,7 @@ import (
 
 func SetupRouter(cfg *config.Config) *gin.Engine {
 	router := gin.Default()
+	router.MaxMultipartMemory = 8 << 20
 
 	// Apply middlewares
 	router.Use(middleware.CORS(cfg))

@@ -2,7 +2,7 @@ import MDFlowLanding from "@/components/MDFlowLanding";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Home",
+  title: "Home | MDFlow Studio",
   description:
     "Automate technical specifications from spreadsheets with MDFlow Studio.",
   alternates: {

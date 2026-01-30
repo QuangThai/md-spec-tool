@@ -151,6 +151,12 @@ func (r *MDFlowRenderer) GetTemplateNames() []string {
 	return names
 }
 
+// HasTemplate returns true when template name exists.
+func (r *MDFlowRenderer) HasTemplate(name string) bool {
+	_, ok := r.templates[name]
+	return ok
+}
+
 // Helper functions for templates
 func formatSteps(text string) string {
 	if text == "" {
@@ -374,9 +380,12 @@ generated_at: "{{.GeneratedAt}}"
 
 ## {{.Feature}}
 {{- range .Rows}}
+{{- $title := displayTitle .Feature .Scenario -}}
 
-### {{if .Endpoint}}{{.Endpoint}}{{else}}{{.Scenario}}{{end}}
-{{- if notEmpty .Scenario}}
+{{- if or .Endpoint (ne (lower $title) (lower .Feature))}}
+### {{if .Endpoint}}{{.Endpoint}}{{else}}{{ $title }}{{end}}
+{{- end}}
+{{- if and (notEmpty .Scenario) (or .Endpoint (ne (lower $title) (lower .Feature)))}}
 
 **Description:** {{.Scenario}}
 {{- end}}

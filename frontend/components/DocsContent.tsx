@@ -63,7 +63,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           MDFlow is a high-performance <strong>Engineering Studio</strong>{" "}
           that bridges the gap between raw technical data (Excel/CSV) and
           standardized documentation. It runs as a local web app with a
-          Next.js UI (default port 3000) and a Go API (default port 8080).
+          Next.js UI and a Go API, supporting both paste-based input and XLSX
+          conversions.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -76,7 +77,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </h4>
             <p className="text-xs sm:text-sm text-muted">
               Built with Next.js 16 and React 19. Handles the UI, local state
-              (Zustand), and client-side parsing workflows.
+              (Zustand), and the request flow for paste/XLSX conversions.
             </p>
           </div>
 
@@ -88,8 +89,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               Backend Engine
             </h4>
             <p className="text-xs sm:text-sm text-muted">
-              Powered by Go (Golang) with Gin. Provides the MDFlow API on port
-              8080 for paste and XLSX conversions.
+              Powered by Go (Golang) with Gin. Provides the MDFlow API for
+              template-based conversion and sheet discovery.
             </p>
           </div>
         </div>
@@ -114,8 +115,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 Go (Golang) Backend
               </strong>
               <span className="text-sm text-white/40">
-                Handlers `/api/mdflow/xlsx` and `/api/mdflow/paste` provide
-                robust, type-safe parsing streams.
+                Gin handlers `/api/mdflow/paste`, `/api/mdflow/xlsx`, and
+                `/api/mdflow/xlsx/sheets` power conversion, detection, and sheet
+                discovery.
               </span>
             </div>
           </li>
@@ -128,8 +130,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 Next.js 16 + React 19
               </strong>
               <span className="text-sm text-white/40">
-                App router with client components for the interactive
-                Studio experience.
+                App router with client components for the interactive Studio
+                experience (TypeScript + Tailwind CSS).
               </span>
             </div>
           </li>
@@ -142,6 +144,19 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <span className="text-sm text-white/40">
                 Client-side state for file selection, sheet selection,
                 template choice, and parsed results (MDFlowStore).
+              </span>
+            </div>
+          </li>
+          <li className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
+            <span className="text-accent-orange font-black text-xs uppercase tracking-widest mt-1">
+              Templates
+            </span>
+            <div>
+              <strong className="text-white block mb-1">MDFlow Renderer</strong>
+              <span className="text-sm text-white/40">
+                Built-in templates render test cases, feature specs, API docs,
+                and spec tables, with a default fallback if the template name
+                is missing or unknown.
               </span>
             </div>
           </li>
@@ -165,11 +180,16 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </h4>
             <p className="text-sm text-muted mb-4">
               Designed for quick prototyping. Accepts raw text buffer from CSV
-              or TSV sources (1MB limit).
+              or TSV sources (1MB limit). Use <code>detect_only=true</code> to
+              return input type analysis without conversion.
             </p>
             <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
               POST /api/mdflow/paste <br />
               {`{ "paste_text": "...", "template": "default" }`}
+            </div>
+            <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/paste?detect_only=true <br />
+              {`{ "paste_text": "..." }`}
             </div>
           </div>
 
@@ -186,8 +206,11 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 Supports multi-sheet discovery (`/api/mdflow/xlsx/sheets`)
               </li>
               <li>Sheet-specific targeting via `sheet_name` parameter</li>
-              <li>Preserves cell formatting and relationships</li>
+              <li>Optional `template` parameter for output format</li>
             </ul>
+            <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/xlsx (form-data: file, sheet_name?, template?)
+            </div>
           </div>
         </div>
       </div>
@@ -218,7 +241,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               2. Header Detection
             </span>
             <span className="text-xs text-white/40 font-mono">
-              Confidence Scoring
+              Confidence Scoring (warn if &lt; 50)
             </span>
           </div>
           <div className="flex justify-center">
@@ -229,7 +252,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               3. Column Mapping
             </span>
             <span className="text-xs text-white/40 font-mono">
-              Column → Field
+              Column → Canonical Field
             </span>
           </div>
           <div className="flex justify-center">
@@ -237,7 +260,18 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           </div>
           <div className="p-4 rounded-xl bg-white/5 flex items-center justify-between">
             <span className="text-white text-sm font-medium">
-              4. Template Rendering
+              4. Spec Assembly
+            </span>
+            <span className="text-xs text-white/40 font-mono">
+              SpecDoc + Metadata
+            </span>
+          </div>
+          <div className="flex justify-center">
+            <ChevronRight className="rotate-90 text-white/20" />
+          </div>
+          <div className="p-4 rounded-xl bg-white/5 flex items-center justify-between">
+            <span className="text-white text-sm font-medium">
+              5. Template Rendering
             </span>
             <span className="text-xs text-white/40 font-mono">
               Spec → MDFlow
@@ -260,7 +294,19 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           <div>
             <span className="text-accent-purple">meta.column_map</span>
             <p className="text-white/40 pl-4">
-              Logs exactly which Excel columns were mapped to internal nodes.
+              Logs exactly which columns were mapped to canonical fields.
+            </p>
+          </div>
+          <div>
+            <span className="text-accent-purple">meta.header_row</span>
+            <p className="text-white/40 pl-4">
+              The detected header row index used for column mapping.
+            </p>
+          </div>
+          <div>
+            <span className="text-accent-purple">meta.sheet_name</span>
+            <p className="text-white/40 pl-4">
+              The active sheet used for XLSX conversions when applicable.
             </p>
           </div>
           <div>
@@ -270,10 +316,16 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </p>
           </div>
           <div>
+            <span className="text-accent-gold">meta.rows_by_feature</span>
+            <p className="text-white/40 pl-4">
+              Aggregated row counts grouped by feature name.
+            </p>
+          </div>
+          <div>
             <span className="text-accent-red">warnings[]</span>
             <p className="text-white/40 pl-4">
-              Returns an array of issues like unmapped columns or low header
-              confidence.
+              Returns issues like unmapped columns, low header confidence, or
+              empty input.
             </p>
           </div>
           <div>
@@ -293,7 +345,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
         <p className="text-muted">
           MDFlow renders outputs using named templates. The API defaults to
           <code className="text-accent-orange">default</code> when no template
-          is provided.
+          is provided, and falls back to <code>default</code> when the template
+          name is unknown. Markdown/prose inputs always render with the
+          built-in markdown template.
         </p>
         <div className="grid gap-4">
           <div className="p-5 rounded-xl bg-white/5 border border-white/5">
@@ -317,7 +371,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </div>
             <div className="text-sm text-white/50">
               Include <code>template</code> in paste/XLSX requests. If omitted,
-              the backend falls back to <code>default</code>.
+              the backend falls back to <code>default</code>. The
+              <code>spec-table</code> template highlights Phase 3 fields like
+              Item Name, Display Conditions, and Navigation Destination.
             </div>
           </div>
         </div>
@@ -448,7 +504,7 @@ const DocsContentBody: React.FC = () => {
 
               <div className="pt-12 sm:pt-16 lg:pt-20 mt-12 sm:mt-16 lg:mt-20 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="text-xs sm:text-sm text-muted">
-                  Last updated: <span className="text-white">Jan 29, 2026</span>
+                  Last updated: <span className="text-white">Jan 30, 2026</span>
                 </div>
                 <div className="flex gap-4">
                   <button className="text-xs font-bold uppercase tracking-wider text-muted hover:text-accent-orange transition-colors">
