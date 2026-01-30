@@ -17,6 +17,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "https://md-spec-tool.vercel.app/docs/opengraph-image",
+        secureUrl: "https://md-spec-tool.vercel.app/docs/opengraph-image",
+        type: "image/png",
         width: 1200,
         height: 630,
         alt: "MDFlow Docs",
