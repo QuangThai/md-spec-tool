@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { MDFlowMeta, MDFlowWarning, PreviewResponse } from './mdflowApi';
+import { MDFlowMeta, MDFlowWarning, PreviewResponse, ValidationRules } from './mdflowApi';
 
 export type InputMode = 'paste' | 'xlsx' | 'tsv';
 
@@ -13,6 +13,15 @@ export interface ConversionRecord {
   inputPreview: string;
   output: string;
   meta: MDFlowMeta | null;
+}
+
+// Custom template record
+export interface CustomTemplate {
+  id: string;
+  name: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface MDFlowStore {
@@ -36,6 +45,9 @@ interface MDFlowStore {
   // History state
   history: ConversionRecord[];
   
+  // Validation rules (custom validation configurator)
+  validationRules: ValidationRules;
+  
   loading: boolean;
   error: string | null;
   
@@ -48,6 +60,7 @@ interface MDFlowStore {
   setSelectedSheet: (sheet: string) => void;
   setTemplate: (template: string) => void;
   setResult: (output: string, warnings: MDFlowWarning[], meta: MDFlowMeta) => void;
+  setValidationRules: (rules: ValidationRules) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   dismissWarning: (code: string) => void;
@@ -81,6 +94,11 @@ const initialState = {
   previewLoading: false,
   showPreview: false,
   columnOverrides: {} as Record<string, string>,
+  validationRules: {
+    required_fields: [],
+    format_rules: null,
+    cross_field: [],
+  } as ValidationRules,
   loading: false,
   error: null as string | null,
   dismissedWarningCodes: {} as Record<string, boolean>,
@@ -132,6 +150,7 @@ export const useMDFlowStore = create<MDFlowStore>((set) => ({
   setSelectedSheet: (selectedSheet) => set({ selectedSheet }),
   setTemplate: (template) => set({ template }),
   setResult: (mdflowOutput, warnings, meta) => set({ mdflowOutput, warnings: warnings || [], meta }),
+  setValidationRules: (validationRules) => set({ validationRules }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   dismissWarning: (code) => set((state) => ({
@@ -152,5 +171,5 @@ export const useMDFlowStore = create<MDFlowStore>((set) => ({
   addToHistory: () => {},
   clearHistory: () => {},
   
-  reset: () => set({ ...initialState, history: [] }),
+  reset: () => set({ ...initialState, history: [], validationRules: initialState.validationRules }),
 }));

@@ -23,10 +23,10 @@
   --color-surface-hover: #121212;
 
   /* Shadows from style.md */
-  --shadow-premium:
-    0 0 0 1px rgba(158, 158, 158, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-bento:
-    0 0 0 1px rgba(255, 255, 255, 0.05), 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-premium: 0 0 0 1px rgba(158, 158, 158, 0.3),
+    0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-bento: 0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 @source "../app/**/*.{js,ts,jsx,tsx,mdx}";
@@ -193,4 +193,12 @@
 
 .animate-dash {
   animation: dash-offset 0.8s linear infinite;
+}
+button,
+[role="button"],
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+select {
+  cursor: pointer ;
 }

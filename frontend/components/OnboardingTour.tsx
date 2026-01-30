@@ -138,17 +138,17 @@ export function OnboardingTour() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-100 flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-gradient-to-br from-gray-900 via-black to-gray-900 border border-white/20 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden"
+              className="bg-linear-to-br from-gray-900 via-black to-gray-900 border border-white/20 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden"
             >
               {/* Header with gradient */}
               <div className="relative p-8 pb-6 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-accent-orange/20 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-br from-accent-orange/20 via-transparent to-transparent" />
                 <div className="absolute top-4 right-4">
                   <button
                     onClick={handleSkipWelcome}
@@ -237,7 +237,7 @@ export function OnboardingTour() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[90] pointer-events-none"
+              className="fixed inset-0 z-90 pointer-events-none"
               style={{
                 background: targetRect
                   ? `radial-gradient(ellipse ${targetRect.width + 60}px ${targetRect.height + 60}px at ${targetRect.left + targetRect.width / 2}px ${targetRect.top + targetRect.height / 2}px, transparent 0%, rgba(0,0,0,0.75) 100%)`
@@ -247,7 +247,7 @@ export function OnboardingTour() {
 
             {/* Click blocker except for target */}
             <div
-              className="fixed inset-0 z-[91]"
+              className="fixed inset-0 z-91"
               onClick={(e) => {
                 // Allow clicks on the target element
                 if (targetRect) {
@@ -274,9 +274,9 @@ export function OnboardingTour() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               style={getTooltipStyle()}
-              className="fixed z-[92] w-[360px]"
+              className="fixed z-92 w-[360px]"
             >
-              <div className="bg-gradient-to-br from-gray-900 via-black to-gray-900 border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="bg-linear-to-br from-gray-900 via-black to-gray-900 border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
                 {/* Progress bar */}
                 <div className="h-1 bg-white/10">
                   <motion.div
@@ -370,7 +370,7 @@ export function OnboardingTour() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="fixed z-[89] pointer-events-none"
+                className="fixed z-89 pointer-events-none"
                 style={{
                   top: targetRect.top - 8,
                   left: targetRect.left - 8,

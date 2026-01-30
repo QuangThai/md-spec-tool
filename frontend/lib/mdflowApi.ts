@@ -338,3 +338,157 @@ export async function convertGoogleSheet(
     return { error: error instanceof Error ? error.message : 'Network error' };
   }
 }
+
+// Validation Rules (custom validation configurator)
+export interface ValidationFormatRules {
+  id_pattern?: string;
+  date_format?: string;
+  email_fields?: string[];
+  url_fields?: string[];
+}
+
+export interface ValidationCrossFieldRule {
+  if_field: string;
+  then_field: string;
+  message?: string;
+}
+
+export interface ValidationRules {
+  required_fields: string[];
+  format_rules?: ValidationFormatRules | null;
+  cross_field?: ValidationCrossFieldRule[];
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  warnings: MDFlowWarning[];
+}
+
+export interface ValidationPreset {
+  id: string;
+  name: string;
+  rules: ValidationRules;
+  createdAt: number;
+}
+
+export async function validatePaste(
+  pasteText: string,
+  rules: ValidationRules
+): Promise<{ data?: ValidationResult; error?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        paste_text: pasteText,
+        validation_rules: rules,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+// Template Editor types and functions
+export interface TemplateVariable {
+  name: string;
+  type: string;
+  description: string;
+}
+
+export interface TemplateFunction {
+  name: string;
+  signature: string;
+  description: string;
+}
+
+export interface TemplateInfo {
+  variables: TemplateVariable[];
+  functions: TemplateFunction[];
+}
+
+export interface TemplatePreviewResponse {
+  output: string;
+  error?: string;
+  warnings: MDFlowWarning[];
+}
+
+export interface TemplateContentResponse {
+  name: string;
+  content: string;
+}
+
+export async function getTemplateInfo(): Promise<{
+  data?: TemplateInfo;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/templates/info`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+export async function getTemplateContent(
+  name: string
+): Promise<{ data?: TemplateContentResponse; error?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/templates/${name}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+export async function previewTemplate(
+  templateContent: string,
+  sampleData?: string
+): Promise<{ data?: TemplatePreviewResponse; error?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/templates/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        template_content: templateContent,
+        sample_data: sampleData || '',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}

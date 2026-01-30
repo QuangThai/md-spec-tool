@@ -167,6 +167,116 @@ func (r *MDFlowRenderer) HasTemplate(name string) bool {
 	return ok
 }
 
+// RenderCustom renders a SpecDoc using a custom template string
+func (r *MDFlowRenderer) RenderCustom(doc *SpecDoc, templateContent string) (string, error) {
+	funcMap := template.FuncMap{
+		"formatSteps":   formatSteps,
+		"formatBullets": formatBullets,
+		"notEmpty":      notEmpty,
+		"displayTitle":  displayTitle,
+		"escapeYAML":    escapeYAML,
+		"cellValue":     cellValue,
+		"headerCell":    headerCell,
+		"metadataPairs": metadataPairs,
+		"trimPrefix":    strings.TrimPrefix,
+		"lower":         strings.ToLower,
+		"upper":         strings.ToUpper,
+		"replace":       strings.ReplaceAll,
+	}
+
+	tmpl, err := template.New("custom").Funcs(funcMap).Parse(templateContent)
+	if err != nil {
+		return "", err
+	}
+
+	// Group rows by feature
+	featureGroups := r.groupByFeature(doc.Rows)
+
+	data := map[string]interface{}{
+		"Title":         doc.Title,
+		"Rows":          doc.Rows,
+		"FeatureGroups": featureGroups,
+		"TotalCount":    len(doc.Rows),
+		"GeneratedAt":   time.Now().Format("2006-01-02"),
+		"Meta":          doc.Meta,
+		"Headers":       doc.Headers,
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+// GetTemplateContent returns the content of a built-in template
+func (r *MDFlowRenderer) GetTemplateContent(name string) string {
+	switch name {
+	case "default":
+		return defaultTemplate
+	case "feature-spec":
+		return featureSpecTemplate
+	case "test-plan":
+		return testPlanTemplate
+	case "api-endpoint":
+		return apiEndpointTemplate
+	case "spec-table":
+		return specTableTemplate
+	default:
+		return ""
+	}
+}
+
+// TemplateInfo contains metadata about template variables and functions
+type TemplateInfo struct {
+	Variables []TemplateVariable `json:"variables"`
+	Functions []TemplateFunction `json:"functions"`
+}
+
+// TemplateVariable describes a template variable
+type TemplateVariable struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+// TemplateFunction describes a template function
+type TemplateFunction struct {
+	Name        string `json:"name"`
+	Signature   string `json:"signature"`
+	Description string `json:"description"`
+}
+
+// GetTemplateInfo returns information about available template variables and functions
+func (r *MDFlowRenderer) GetTemplateInfo() TemplateInfo {
+	return TemplateInfo{
+		Variables: []TemplateVariable{
+			{Name: ".Title", Type: "string", Description: "Document title (from sheet name or 'Converted Spec')"},
+			{Name: ".Rows", Type: "[]SpecRow", Description: "All data rows from the input"},
+			{Name: ".FeatureGroups", Type: "[]FeatureGroup", Description: "Rows grouped by Feature field"},
+			{Name: ".TotalCount", Type: "int", Description: "Total number of rows"},
+			{Name: ".GeneratedAt", Type: "string", Description: "Generation date (YYYY-MM-DD)"},
+			{Name: ".Meta", Type: "SpecDocMeta", Description: "Metadata about the parsed document"},
+			{Name: ".Headers", Type: "[]string", Description: "Original column headers from input"},
+		},
+		Functions: []TemplateFunction{
+			{Name: "formatSteps", Signature: "formatSteps(text string) string", Description: "Format multi-line text as steps"},
+			{Name: "formatBullets", Signature: "formatBullets(text string) string", Description: "Format text as bullet points"},
+			{Name: "notEmpty", Signature: "notEmpty(s string) bool", Description: "Check if string is not empty or '-'"},
+			{Name: "displayTitle", Signature: "displayTitle(feature, scenario string) string", Description: "Get display title from feature/scenario"},
+			{Name: "escapeYAML", Signature: "escapeYAML(s string) string", Description: "Escape special YAML characters"},
+			{Name: "cellValue", Signature: "cellValue(row SpecRow, header string) string", Description: "Get cell value by header name"},
+			{Name: "headerCell", Signature: "headerCell(header string) string", Description: "Format header for table cell"},
+			{Name: "metadataPairs", Signature: "metadataPairs(row SpecRow) []MetadataPair", Description: "Get unmapped metadata as key-value pairs"},
+			{Name: "trimPrefix", Signature: "trimPrefix(s, prefix string) string", Description: "Remove prefix from string"},
+			{Name: "lower", Signature: "lower(s string) string", Description: "Convert to lowercase"},
+			{Name: "upper", Signature: "upper(s string) string", Description: "Convert to uppercase"},
+			{Name: "replace", Signature: "replace(s, old, new string) string", Description: "Replace all occurrences"},
+		},
+	}
+}
+
 // Helper functions for templates
 func formatSteps(text string) string {
 	if text == "" {
@@ -622,7 +732,7 @@ type: "spec-table"
 {{- if .Headers}}
 | {{range .Headers}}{{headerCell .}} |{{end}}
 | {{range .Headers}}---|{{end}}
-{{range .Rows}}| {{range $h := $.Headers}}{{cellValue . $h}} |{{end}}
+{{range $row := .Rows}}| {{range $h := $.Headers}}{{cellValue $row $h}} |{{end}}
 {{end}}
 {{- else}}
 | No | Item Name | Type | Required | Display Conditions | Action | Navigation | Notes |

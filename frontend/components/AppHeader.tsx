@@ -78,6 +78,7 @@ export default function AppHeader() {
             <nav className="hidden lg:flex items-center gap-6 xl:gap-10">
               {[
                 { label: "Studio", href: "/studio" },
+                { label: "Batch", href: "/batch" },
                 { label: "Docs", href: "/docs" },
               ].map((item) => (
                 <Link

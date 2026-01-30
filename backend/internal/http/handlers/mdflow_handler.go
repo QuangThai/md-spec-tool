@@ -415,6 +415,43 @@ func (h *MDFlowHandler) GetXLSXSheets(c *gin.Context) {
 	})
 }
 
+// ValidateRequest represents the request for validation with custom rules
+type ValidateRequest struct {
+	PasteText       string                  `json:"paste_text" binding:"required"`
+	ValidationRules *converter.ValidationRules `json:"validation_rules"`
+}
+
+// Validate handles POST /api/mdflow/validate
+// Builds SpecDoc from paste_text and runs custom validation rules
+func (h *MDFlowHandler) Validate(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxPasteBodyBytes)
+
+	var req ValidateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "paste_text is required"})
+		return
+	}
+
+	if len(req.PasteText) > maxPasteBytes {
+		c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{Error: "paste_text exceeds 1MB limit"})
+		return
+	}
+
+	specDoc, err := converter.BuildSpecDocFromPaste(req.PasteText)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "failed to parse input: " + err.Error()})
+		return
+	}
+
+	rules := req.ValidationRules
+	if rules == nil {
+		rules = &converter.ValidationRules{}
+	}
+
+	result := converter.Validate(specDoc, rules)
+	c.JSON(http.StatusOK, result)
+}
+
 // GetTemplates handles GET /api/mdflow/templates
 // Returns available MDFlow templates
 func (h *MDFlowHandler) GetTemplates(c *gin.Context) {
@@ -424,6 +461,109 @@ func (h *MDFlowHandler) GetTemplates(c *gin.Context) {
 		"templates": templates,
 	})
 }
+
+// TemplatePreviewRequest represents the request for custom template preview
+type TemplatePreviewRequest struct {
+	TemplateContent string `json:"template_content" binding:"required"`
+	SampleData      string `json:"sample_data"`
+}
+
+// TemplatePreviewResponse represents the response for custom template preview
+type TemplatePreviewResponse struct {
+	Output   string            `json:"output"`
+	Error    string            `json:"error,omitempty"`
+	Warnings []converter.Warning `json:"warnings"`
+}
+
+// PreviewTemplate handles POST /api/mdflow/templates/preview
+// Renders sample data using a custom template
+func (h *MDFlowHandler) PreviewTemplate(c *gin.Context) {
+	var req TemplatePreviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "template_content is required"})
+		return
+	}
+
+	// Limit template size
+	if len(req.TemplateContent) > 50000 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "template_content exceeds 50KB limit"})
+		return
+	}
+
+	// Use sample data or default sample
+	sampleData := req.SampleData
+	if sampleData == "" {
+		sampleData = defaultSampleData
+	}
+
+	// Parse sample data to SpecDoc
+	specDoc, err := converter.BuildSpecDocFromPaste(sampleData)
+	if err != nil {
+		c.JSON(http.StatusOK, TemplatePreviewResponse{
+			Output: "",
+			Error:  "Failed to parse sample data: " + err.Error(),
+		})
+		return
+	}
+
+	// Render with custom template
+	output, err := h.renderer.RenderCustom(specDoc, req.TemplateContent)
+	if err != nil {
+		c.JSON(http.StatusOK, TemplatePreviewResponse{
+			Output: "",
+			Error:  "Template error: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, TemplatePreviewResponse{
+		Output:   output,
+		Warnings: specDoc.Warnings,
+	})
+}
+
+// GetTemplateInfo handles GET /api/mdflow/templates/info
+// Returns available template variables and functions
+func (h *MDFlowHandler) GetTemplateInfo(c *gin.Context) {
+	info := h.renderer.GetTemplateInfo()
+	c.JSON(http.StatusOK, info)
+}
+
+// GetTemplateContent handles GET /api/mdflow/templates/:name
+// Returns the content of a built-in template
+func (h *MDFlowHandler) GetTemplateContent(c *gin.Context) {
+	name := c.Param("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "template name is required"})
+		return
+	}
+
+	content := h.renderer.GetTemplateContent(name)
+	if content == "" {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "template not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"name":    name,
+		"content": content,
+	})
+}
+
+// Default sample data for template preview
+const defaultSampleData = `Feature	Scenario	Instructions	Expected	Priority	Type	Notes
+User Authentication	Valid Login	1. Enter username
+2. Enter password
+3. Click login button	Dashboard should display with user name	High	Positive	Core feature
+User Authentication	Invalid Password	1. Enter valid username
+2. Enter wrong password
+3. Click login button	Error message: "Invalid credentials"	High	Negative	Security test
+Profile Management	Update Profile	1. Go to settings
+2. Change display name
+3. Click save	Profile updated successfully message shown	Medium	Positive	
+Profile Management	Upload Avatar	1. Click avatar
+2. Select image file
+3. Confirm upload	New avatar displayed	Low	Positive	Max 5MB`
 
 func (h *MDFlowHandler) validateTemplate(template string) error {
 	if template == "" {

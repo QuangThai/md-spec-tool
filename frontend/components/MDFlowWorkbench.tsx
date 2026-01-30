@@ -20,6 +20,7 @@ import {
   AlertCircle,
   ArrowRight,
   BookOpen,
+  Boxes,
   Check,
   Clock,
   Copy,
@@ -27,6 +28,8 @@ import {
   Download,
   Eye,
   EyeOff,
+  ExternalLink,
+  FileCode,
   FileJson,
   FileSpreadsheet,
   FileText,
@@ -36,15 +39,21 @@ import {
   Link2,
   RefreshCcw,
   Save,
+  Share2,
+  ShieldCheck,
   Table,
   Terminal,
   X,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
+import { generateShareURL, isShareDataTooLong, ShareData } from "@/lib/shareUtils";
 import { useCallback, useEffect, useState } from "react";
 import { DiffViewer } from "./DiffViewer";
 import { OnboardingTour, RestartTourButton } from "./OnboardingTour";
 import { TemplateCards } from "./TemplateCards";
+import { TemplateEditor } from "./TemplateEditor";
+import { ValidationConfigurator } from "./ValidationConfigurator";
 import { WarningPanel } from "./WarningPanel";
 import { ResizablePanels } from "./ui/ResizablePanels";
 import { Select } from "./ui/Select";
@@ -109,6 +118,8 @@ export default function MDFlowWorkbench() {
   const [previousOutput, setPreviousOutput] = useState<string>("");
   const [currentDiff, setCurrentDiff] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showValidationConfigurator, setShowValidationConfigurator] = useState(false);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
   useEffect(() => {
     getMDFlowTemplates().then((res) => {
@@ -818,7 +829,29 @@ export default function MDFlowWorkbench() {
 
               <div className="px-5 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8 border-t border-white/5 bg-white/2 flex flex-col gap-4 shrink-0">
                 <div className="w-full space-y-2" data-tour="template-selector">
-                  <label className="label mb-2">Template</label>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <label className="label">Template</label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowTemplateEditor(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all"
+                        title="Create custom templates"
+                      >
+                        <FileCode className="w-3 h-3" />
+                        Template Editor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowValidationConfigurator(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all"
+                        title="Configure validation rules"
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        Validation rules
+                      </button>
+                    </div>
+                  </div>
                   <TemplateCards
                     templates={templates}
                     selected={template}
@@ -972,6 +1005,10 @@ export default function MDFlowWorkbench() {
                     >
                       <Save className="w-3 h-3 shrink-0" />
                     </button>
+                    <ShareButton
+                      mdflowOutput={mdflowOutput}
+                      template={template}
+                    />
                     <ExportDropdown
                       mdflowOutput={mdflowOutput}
                       onDownloadMD={handleDownload}
@@ -1027,7 +1064,14 @@ export default function MDFlowWorkbench() {
         </motion.div>
       </div>
 
-      <motion.div variants={stagger.item} className="flex justify-center">
+      <motion.div variants={stagger.item} className="flex justify-center gap-3">
+        <Link
+          href="/batch"
+          className="inline-flex items-center gap-2 text-[8px] sm:text-[9px] font-bold text-muted/50 hover:text-accent-orange uppercase tracking-[0.25em] sm:tracking-[0.3em] bg-white/3 hover:bg-white/5 border border-white/5 hover:border-accent-orange/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full transition-all"
+        >
+          <Boxes className="w-3 h-3" />
+          Batch Mode
+        </Link>
         <div className="inline-flex items-center gap-2 text-[8px] sm:text-[9px] font-bold text-muted/50 uppercase tracking-[0.3em] sm:tracking-[0.35em] bg-white/3 border border-white/5 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-accent-orange/80 animate-pulse" />
           MDFlow Studio
@@ -1089,6 +1133,20 @@ export default function MDFlowWorkbench() {
           />
         )}
       </AnimatePresence>
+
+      {/* Validation Rules Configurator */}
+      <ValidationConfigurator
+        open={showValidationConfigurator}
+        onClose={() => setShowValidationConfigurator(false)}
+        showValidateAction={true}
+      />
+
+      {/* Template Editor */}
+      <TemplateEditor
+        isOpen={showTemplateEditor}
+        onClose={() => setShowTemplateEditor(false)}
+        currentSampleData={pasteText || undefined}
+      />
 
       {/* Keyboard shortcuts tooltip */}
       <div className="fixed bottom-4 right-4 z-40">
@@ -1334,6 +1392,112 @@ function PreviewTable({
           Showing {displayRows.length} of {preview.total_rows} rows
         </div>
       )}
+    </div>
+  );
+}
+
+/* Share Button Component */
+function ShareButton({
+  mdflowOutput,
+  template,
+}: {
+  mdflowOutput: string;
+  template: string;
+}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const shareData: ShareData = {
+    mdflow: mdflowOutput,
+    template,
+    createdAt: Date.now(),
+  };
+
+  const isTooLong = isShareDataTooLong(shareData);
+
+  const handleShare = useCallback(() => {
+    if (isTooLong) {
+      setError("Content too large for URL sharing. Try exporting instead.");
+      setShowTooltip(true);
+      return;
+    }
+
+    try {
+      const url = generateShareURL(shareData);
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      setError(null);
+      setShowTooltip(true);
+      setTimeout(() => {
+        setCopied(false);
+        setShowTooltip(false);
+      }, 3000);
+    } catch (err) {
+      setError("Failed to generate share link");
+      setShowTooltip(true);
+    }
+  }, [shareData, isTooLong]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={handleShare}
+        onMouseEnter={() => !copied && setShowTooltip(true)}
+        onMouseLeave={() => !copied && setShowTooltip(false)}
+        disabled={isTooLong}
+        className={`
+          flex items-center justify-center h-8 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0
+          ${isTooLong
+            ? "bg-white/5 text-white/30 cursor-not-allowed border border-white/10"
+            : "bg-white/10 hover:bg-white/20 text-white/80 hover:text-white border border-white/10 hover:border-white/20"
+          }
+        `}
+        title={isTooLong ? "Content too large to share via URL" : "Share link"}
+      >
+        <Share2 className="w-3 h-3 shrink-0" />
+      </button>
+
+      <AnimatePresence>
+        {showTooltip && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.95 }}
+            className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl bg-black/95 backdrop-blur-xl border border-white/20 shadow-2xl overflow-hidden"
+          >
+            <div className="p-3">
+              {error ? (
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-red-400">{error}</p>
+                </div>
+              ) : copied ? (
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-400" />
+                  <div>
+                    <p className="text-[11px] font-bold text-white">Link copied!</p>
+                    <p className="text-[9px] text-white/50 mt-0.5">
+                      Share this URL with anyone
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2">
+                  <Share2 className="w-4 h-4 text-accent-orange shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[11px] font-bold text-white">Share Link</p>
+                    <p className="text-[9px] text-white/50 mt-0.5">
+                      Click to copy shareable URL
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -1644,11 +1808,13 @@ function KeyboardShortcutsTooltip() {
   };
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
       <button
         type="button"
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
         onClick={() => setShow(!show)}
         className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-white/60 transition-all cursor-pointer"
         aria-label="Keyboard shortcuts"
