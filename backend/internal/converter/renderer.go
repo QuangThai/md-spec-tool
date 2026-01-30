@@ -299,6 +299,10 @@ type: "feature-spec"
 **Acceptance Criteria:**
 {{formatBullets .Expected}}
 {{- end}}
+{{- if notEmpty .Notes}}
+
+**Notes:** {{.Notes}}
+{{- end}}
 {{- end}}
 {{- end}}
 `
@@ -362,6 +366,10 @@ generated_at: "{{.GeneratedAt}}"
 **Expected Result:**
 {{.Expected}}
 {{- end}}
+{{- if notEmpty .Notes}}
+
+**Notes:** {{.Notes}}
+{{- end}}
 
 ---
 {{- end}}
@@ -405,6 +413,10 @@ generated_at: "{{.GeneratedAt}}"
 
 **Response:**
 {{.Expected}}
+{{- end}}
+{{- if notEmpty .Notes}}
+
+**Notes:** {{.Notes}}
 {{- end}}
 
 ---
@@ -454,9 +466,9 @@ type: "spec-table"
 
 ## Summary Table
 
-| No | Item Name | Type | Required | Display Conditions | Action | Navigation |
-|----|-----------|------|----------|-------------------|--------|-----------|
-{{range .Rows}}| {{.No}} | {{.ItemName}} | {{.ItemType}} | {{.RequiredOptional}} | {{.DisplayConditions}} | {{.Action}} | {{.NavigationDest}} |
+| No | Item Name | Type | Required | Display Conditions | Action | Navigation | Notes |
+|----|-----------|------|----------|-------------------|--------|-----------|-------|
+{{range .Rows}}| {{.No}} | {{.ItemName}} | {{.ItemType}} | {{.RequiredOptional}} | {{.DisplayConditions}} | {{.Action}} | {{.NavigationDest}} | {{.Notes}} |
 {{end}}
 
 ---
@@ -490,6 +502,10 @@ type: "spec-table"
 {{- if notEmpty .NavigationDest}}
 
 **Navigation Destination:** {{.NavigationDest}}
+{{- end}}
+{{- if notEmpty .Notes}}
+
+**Notes:** {{.Notes}}
 {{- end}}
 
 ---

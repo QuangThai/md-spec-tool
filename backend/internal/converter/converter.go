@@ -167,28 +167,28 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 
 	for _, row := range dataRows {
 		specRow := SpecRow{
-			ID:           GetFieldValue(row, colMap, FieldID),
-			Feature:      GetFieldValue(row, colMap, FieldFeature),
-			Scenario:     GetFieldValue(row, colMap, FieldScenario),
-			Instructions: GetFieldValue(row, colMap, FieldInstructions),
-			Inputs:       GetFieldValue(row, colMap, FieldInputs),
-			Expected:     GetFieldValue(row, colMap, FieldExpected),
-			Precondition: GetFieldValue(row, colMap, FieldPrecondition),
-			Priority:     GetFieldValue(row, colMap, FieldPriority),
-			Type:         GetFieldValue(row, colMap, FieldType),
-			Status:       GetFieldValue(row, colMap, FieldStatus),
-			Endpoint:     GetFieldValue(row, colMap, FieldEndpoint),
-			Notes:        GetFieldValue(row, colMap, FieldNotes),
+			ID:           normalizeCell(GetFieldValue(row, colMap, FieldID)),
+			Feature:      normalizeCell(GetFieldValue(row, colMap, FieldFeature)),
+			Scenario:     normalizeCell(GetFieldValue(row, colMap, FieldScenario)),
+			Instructions: normalizeCell(GetFieldValue(row, colMap, FieldInstructions)),
+			Inputs:       normalizeCell(GetFieldValue(row, colMap, FieldInputs)),
+			Expected:     normalizeCell(GetFieldValue(row, colMap, FieldExpected)),
+			Precondition: normalizeCell(GetFieldValue(row, colMap, FieldPrecondition)),
+			Priority:     normalizeCell(GetFieldValue(row, colMap, FieldPriority)),
+			Type:         normalizeCell(GetFieldValue(row, colMap, FieldType)),
+			Status:       normalizeCell(GetFieldValue(row, colMap, FieldStatus)),
+			Endpoint:     normalizeCell(GetFieldValue(row, colMap, FieldEndpoint)),
+			Notes:        normalizeCell(GetFieldValue(row, colMap, FieldNotes)),
 
 			// Phase 3 fields
-			No:                GetFieldValue(row, colMap, FieldNo),
-			ItemName:          GetFieldValue(row, colMap, FieldItemName),
-			ItemType:          GetFieldValue(row, colMap, FieldItemType),
-			RequiredOptional:  GetFieldValue(row, colMap, FieldRequiredOptional),
-			InputRestrictions: GetFieldValue(row, colMap, FieldInputRestrictions),
-			DisplayConditions: GetFieldValue(row, colMap, FieldDisplayConditions),
-			Action:            GetFieldValue(row, colMap, FieldAction),
-			NavigationDest:    GetFieldValue(row, colMap, FieldNavigationDest),
+			No:                normalizeCell(GetFieldValue(row, colMap, FieldNo)),
+			ItemName:          normalizeCell(GetFieldValue(row, colMap, FieldItemName)),
+			ItemType:          normalizeCell(GetFieldValue(row, colMap, FieldItemType)),
+			RequiredOptional:  normalizeCell(GetFieldValue(row, colMap, FieldRequiredOptional)),
+			InputRestrictions: normalizeCell(GetFieldValue(row, colMap, FieldInputRestrictions)),
+			DisplayConditions: normalizeCell(GetFieldValue(row, colMap, FieldDisplayConditions)),
+			Action:            normalizeCell(GetFieldValue(row, colMap, FieldAction)),
+			NavigationDest:    normalizeCell(GetFieldValue(row, colMap, FieldNavigationDest)),
 
 			Metadata: make(map[string]string),
 		}
@@ -210,9 +210,13 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			}
 		}
 
+		if shouldAppendContinuation(rows, specRow) {
+			continue
+		}
+
 		// Skip completely empty rows (check both test case and spec table fields)
 		if specRow.Feature == "" && specRow.Scenario == "" && specRow.Instructions == "" &&
-			specRow.ItemName == "" && specRow.No == "" {
+			specRow.ItemName == "" && specRow.No == "" && specRow.Notes == "" {
 			continue
 		}
 
@@ -295,4 +299,59 @@ func joinStrings(strs []string, sep string) string {
 		result += sep + strs[i]
 	}
 	return result
+}
+
+func normalizeCell(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "-" {
+		return ""
+	}
+	return trimmed
+}
+
+func hasMeaningfulFields(row SpecRow) bool {
+	return row.ID != "" || row.Feature != "" || row.Scenario != "" || row.Instructions != "" ||
+		row.Inputs != "" || row.Expected != "" || row.Precondition != "" || row.Priority != "" ||
+		row.Type != "" || row.Status != "" || row.Endpoint != "" || row.Notes != "" ||
+		row.ItemName != "" || row.ItemType != "" || row.RequiredOptional != "" ||
+		row.InputRestrictions != "" || row.DisplayConditions != "" || row.Action != "" ||
+		row.NavigationDest != ""
+}
+
+func shouldAppendContinuation(rows []SpecRow, row SpecRow) bool {
+	if row.No == "" {
+		return false
+	}
+	if hasMeaningfulFields(row) {
+		return false
+	}
+	if len(rows) == 0 {
+		return false
+	}
+	appendContinuation(&rows[len(rows)-1], row.No)
+	return true
+}
+
+func appendContinuation(target *SpecRow, text string) {
+	text = normalizeCell(text)
+	if text == "" {
+		return
+	}
+	if target.Notes != "" {
+		target.Notes += "\n" + text
+		return
+	}
+	if target.Expected != "" {
+		target.Expected += "\n" + text
+		return
+	}
+	if target.Instructions != "" {
+		target.Instructions += "\n" + text
+		return
+	}
+	if target.DisplayConditions != "" {
+		target.DisplayConditions += "\n" + text
+		return
+	}
+	target.Notes = text
 }

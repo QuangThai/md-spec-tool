@@ -10,34 +10,23 @@ import (
 	"github.com/yourorg/md-spec-tool/internal/converter"
 )
 
-type result struct {
+type diffResult struct {
 	file     string
 	template string
-	ok       bool
-	details  string
+	missing  []string
+	err      error
 }
 
 func main() {
 	useCasesDir := filepath.Clean(filepath.Join("..", "use-cases"))
 	outputRoot := filepath.Join(useCasesDir, "output")
+	reportPath := filepath.Join(useCasesDir, "diff-report.txt")
 
-	mdFiles, err := filepath.Glob(filepath.Join(useCasesDir, "*.md"))
+	files, err := collectUseCaseFiles(useCasesDir)
 	if err != nil {
 		fmt.Printf("Failed to list use-cases: %v\n", err)
 		os.Exit(1)
 	}
-	tsvFiles, err := filepath.Glob(filepath.Join(useCasesDir, "*.tsv"))
-	if err != nil {
-		fmt.Printf("Failed to list use-cases: %v\n", err)
-		os.Exit(1)
-	}
-	csvFiles, err := filepath.Glob(filepath.Join(useCasesDir, "*.csv"))
-	if err != nil {
-		fmt.Printf("Failed to list use-cases: %v\n", err)
-		os.Exit(1)
-	}
-	files := append(mdFiles, tsvFiles...)
-	files = append(files, csvFiles...)
 	if len(files) == 0 {
 		fmt.Println("No use-case files found.")
 		return
@@ -47,89 +36,82 @@ func main() {
 	templates := renderer.GetTemplateNames()
 	sort.Strings(templates)
 
-	conv := converter.NewConverter()
-	results := make([]result, 0)
+	results := make([]diffResult, 0)
+	totalChecks := 0
 
 	for _, filePath := range files {
-		contentBytes, readErr := os.ReadFile(filePath)
+		inputBytes, readErr := os.ReadFile(filePath)
 		if readErr != nil {
-			results = append(results, result{
+			results = append(results, diffResult{
 				file:     filepath.Base(filePath),
 				template: "(all)",
-				ok:       false,
-				details:  fmt.Sprintf("read error: %v", readErr),
+				err:      readErr,
 			})
 			continue
 		}
-		content := string(contentBytes)
+		content := string(inputBytes)
 		specDoc, specErr := converter.BuildSpecDocFromPaste(content)
 		if specErr != nil {
-			results = append(results, result{
+			results = append(results, diffResult{
 				file:     filepath.Base(filePath),
 				template: "(all)",
-				ok:       false,
-				details:  fmt.Sprintf("spec doc error: %v", specErr),
+				err:      specErr,
 			})
 			continue
 		}
-
 		analysis := converter.DetectInputType(content)
 
 		for _, tmpl := range templates {
-			outputDir := filepath.Join(outputRoot, tmpl)
-			if err := os.MkdirAll(outputDir, 0o755); err != nil {
-				results = append(results, result{
+			totalChecks++
+			outputPath := filepath.Join(outputRoot, tmpl, filepath.Base(filePath))
+			outputBytes, outErr := os.ReadFile(outputPath)
+			if outErr != nil {
+				results = append(results, diffResult{
 					file:     filepath.Base(filePath),
 					template: tmpl,
-					ok:       false,
-					details:  fmt.Sprintf("mkdir error: %v", err),
+					err:      outErr,
 				})
 				continue
 			}
 
-			res, convErr := conv.ConvertPaste(content, tmpl)
-			if convErr != nil {
-				results = append(results, result{
-					file:     filepath.Base(filePath),
-					template: tmpl,
-					ok:       false,
-					details:  fmt.Sprintf("convert error: %v", convErr),
-				})
-				continue
-			}
-
-			outputPath := filepath.Join(outputDir, filepath.Base(filePath))
-			if err := os.WriteFile(outputPath, []byte(res.MDFlow), 0o644); err != nil {
-				results = append(results, result{
-					file:     filepath.Base(filePath),
-					template: tmpl,
-					ok:       false,
-					details:  fmt.Sprintf("write error: %v", err),
-				})
-				continue
-			}
-
-			missing := validateOutput(specDoc, analysis, tmpl, res.MDFlow)
+			missing := validateOutput(specDoc, analysis, tmpl, string(outputBytes))
 			if len(missing) > 0 {
-				results = append(results, result{
+				results = append(results, diffResult{
 					file:     filepath.Base(filePath),
 					template: tmpl,
-					ok:       false,
-					details:  "missing content: " + strings.Join(missing, ", "),
+					missing:  missing,
 				})
-				continue
 			}
-
-			results = append(results, result{
-				file:     filepath.Base(filePath),
-				template: tmpl,
-				ok:       true,
-				details:  "ok",
-			})
 		}
 	}
 
-	report(results, outputRoot)
+	if err := writeReport(reportPath, results, totalChecks); err != nil {
+		fmt.Printf("Failed to write report: %v\n", err)
+		os.Exit(1)
+	}
+
+	failed := 0
+	for _, r := range results {
+		if r.err != nil || len(r.missing) > 0 {
+			failed++
+		}
+	}
+	fmt.Printf("Use-cases diff: %d checks, %d flagged\n", totalChecks, failed)
+	fmt.Printf("Diff report: %s\n", reportPath)
+}
+
+func collectUseCaseFiles(dir string) ([]string, error) {
+	patterns := []string{"*.md", "*.tsv", "*.csv"}
+	files := make([]string, 0)
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(filepath.Join(dir, pattern))
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, matches...)
+	}
+	sort.Strings(files)
+	return files, nil
 }
 
 func validateOutput(doc *converter.SpecDoc, analysis converter.InputAnalysis, template string, output string) []string {
@@ -216,6 +198,7 @@ func validateRow(row converter.SpecRow, template string, normalizedOutput string
 	case "feature-spec":
 		check(row.Instructions)
 		check(row.Expected)
+		check(row.Notes)
 	case "test-plan":
 		check(row.ID)
 		check(row.Priority)
@@ -226,6 +209,7 @@ func validateRow(row converter.SpecRow, template string, normalizedOutput string
 		check(row.Instructions)
 		check(row.Inputs)
 		check(row.Expected)
+		check(row.Notes)
 	case "api-endpoint":
 		if strings.TrimSpace(row.Endpoint) != "" {
 			check(row.Endpoint)
@@ -236,6 +220,7 @@ func validateRow(row converter.SpecRow, template string, normalizedOutput string
 		check(row.Instructions)
 		check(row.Inputs)
 		check(row.Expected)
+		check(row.Notes)
 	case "spec-table":
 		check(row.No)
 		check(row.ItemName)
@@ -245,6 +230,7 @@ func validateRow(row converter.SpecRow, template string, normalizedOutput string
 		check(row.InputRestrictions)
 		check(row.Action)
 		check(row.NavigationDest)
+		check(row.Notes)
 	}
 
 	return missing
@@ -262,10 +248,10 @@ func preview(value string) string {
 	trimmed = strings.ReplaceAll(trimmed, "\n", " ")
 	trimmed = strings.ReplaceAll(trimmed, "\t", " ")
 	fields := strings.Fields(trimmed)
-	if len(fields) <= 6 {
+	if len(fields) <= 8 {
 		return strings.Join(fields, " ")
 	}
-	return strings.Join(fields[:6], " ") + "..."
+	return strings.Join(fields[:8], " ") + "..."
 }
 
 func uniqueMissing(items []string) []string {
@@ -284,23 +270,35 @@ func uniqueMissing(items []string) []string {
 	return result
 }
 
-func report(results []result, outputRoot string) {
-	total := len(results)
-	failed := 0
+func writeReport(reportPath string, results []diffResult, totalChecks int) error {
+	var builder strings.Builder
+	builder.WriteString("Use-cases diff report\n")
+	builder.WriteString(fmt.Sprintf("Total checks: %d\n", totalChecks))
+	builder.WriteString("\n")
+
+	flagged := 0
 	for _, r := range results {
-		if !r.ok {
-			failed++
+		if r.err == nil && len(r.missing) == 0 {
+			continue
 		}
+		flagged++
+		builder.WriteString(fmt.Sprintf("File: %s | Template: %s\n", r.file, r.template))
+		if r.err != nil {
+			builder.WriteString(fmt.Sprintf("Error: %v\n", r.err))
+		} else {
+			builder.WriteString("Missing lines:\n")
+			for _, line := range r.missing {
+				builder.WriteString("- ")
+				builder.WriteString(line)
+				builder.WriteString("\n")
+			}
+		}
+		builder.WriteString("\n")
 	}
 
-	fmt.Printf("Use-cases converted: %d checks, %d failures\n", total, failed)
-	fmt.Printf("Output directory: %s\n", outputRoot)
-	for _, r := range results {
-		if !r.ok {
-			fmt.Printf("FAIL %s [%s] - %s\n", r.file, r.template, r.details)
-		}
+	if flagged == 0 {
+		builder.WriteString("No missing lines detected.\n")
 	}
-	if failed == 0 {
-		fmt.Println("All conversions succeeded with content coverage checks.")
-	}
+
+	return os.WriteFile(reportPath, []byte(builder.String()), 0o644)
 }

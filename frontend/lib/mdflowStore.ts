@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { MDFlowMeta } from './mdflowApi';
 
-export type InputMode = 'paste' | 'xlsx';
+export type InputMode = 'paste' | 'xlsx' | 'tsv';
 
 interface MDFlowStore {
   mode: InputMode;

@@ -80,6 +80,32 @@ export async function convertXLSX(
   }
 }
 
+export async function convertTSV(
+  file: File,
+  template?: string
+): Promise<{ data?: MDFlowConvertResponse; error?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (template) formData.append('template', template);
+
+    const response = await fetch(`${API_URL}/api/mdflow/tsv`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
 export async function getXLSXSheets(
   file: File
 ): Promise<{ data?: SheetsResponse; error?: string }> {

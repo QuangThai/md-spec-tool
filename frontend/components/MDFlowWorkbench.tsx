@@ -3,6 +3,7 @@
 import {
   convertPaste,
   convertXLSX,
+  convertTSV,
   getMDFlowTemplates,
   getXLSXSheets,
 } from "@/lib/mdflowApi";
@@ -92,6 +93,11 @@ export default function MDFlowWorkbench() {
       setLoading(true);
       setError(null);
 
+      if (/\.tsv$/i.test(selectedFile.name)) {
+        setLoading(false);
+        return;
+      }
+
       const result = await getXLSXSheets(selectedFile);
       setLoading(false);
 
@@ -117,13 +123,20 @@ export default function MDFlowWorkbench() {
         return;
       }
       result = await convertPaste(pasteText, template);
-    } else {
+    } else if (mode === "xlsx") {
       if (!file) {
         setError("No file uploaded");
         setLoading(false);
         return;
       }
       result = await convertXLSX(file, selectedSheet, template);
+    } else {
+      if (!file) {
+        setError("No file uploaded");
+        setLoading(false);
+        return;
+      }
+      result = await convertTSV(file, template);
     }
 
     setLoading(false);
@@ -169,7 +182,15 @@ export default function MDFlowWorkbench() {
       e.preventDefault();
       setDragOver(false);
       const f = e.dataTransfer.files?.[0];
-      if (f && /\.(xlsx|xls)$/i.test(f.name)) {
+      if (!f) return;
+
+      if (mode === "tsv" && /\.tsv$/i.test(f.name)) {
+        setFile(f);
+        setError(null);
+        return;
+      }
+
+      if (mode === "xlsx" && /\.(xlsx|xls)$/i.test(f.name)) {
         setFile(f);
         setLoading(true);
         setError(null);
@@ -183,7 +204,7 @@ export default function MDFlowWorkbench() {
         });
       }
     },
-    [setFile, setLoading, setError, setSheets, setSelectedSheet],
+    [mode, setFile, setLoading, setError, setSheets, setSelectedSheet],
   );
 
   return (
@@ -272,7 +293,10 @@ export default function MDFlowWorkbench() {
                 <div className="flex bg-black/50 p-1.5 rounded-lg sm:rounded-xl border border-white/5 shadow-inner shrink-0">
                   <button
                     type="button"
-                    onClick={() => setMode("paste")}
+                    onClick={() => {
+                      setMode("paste");
+                      setFile(null);
+                    }}
                     className={`
                       px-4 sm:px-5 py-2 sm:py-2.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md sm:rounded-lg transition-all duration-200
                       ${mode === "paste"
@@ -285,7 +309,10 @@ export default function MDFlowWorkbench() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setMode("xlsx")}
+                    onClick={() => {
+                      setMode("xlsx");
+                      setFile(null);
+                    }}
                     className={`
                       px-4 sm:px-5 py-2 sm:py-2.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md sm:rounded-lg transition-all duration-200
                       ${mode === "xlsx"
@@ -295,6 +322,22 @@ export default function MDFlowWorkbench() {
                     `}
                   >
                     Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("tsv");
+                      setFile(null);
+                    }}
+                    className={`
+                      px-4 sm:px-5 py-2 sm:py-2.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md sm:rounded-lg transition-all duration-200
+                      ${mode === "tsv"
+                        ? "bg-accent-orange text-white shadow-lg shadow-accent-orange/25"
+                        : "text-muted hover:text-white hover:bg-white/5"
+                      }
+                    `}
+                  >
+                    TSV
                   </button>
                 </div>
               </div>
@@ -339,7 +382,7 @@ export default function MDFlowWorkbench() {
                     </motion.div>
                   ) : (
                     <motion.div
-                      key="xlsx"
+                      key={mode}
                       initial={{ opacity: 0, x: 8 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -8 }}
@@ -364,10 +407,10 @@ export default function MDFlowWorkbench() {
                       >
                         <input
                           type="file"
-                          accept=".xlsx,.xls"
+                          accept={mode === "tsv" ? ".tsv" : ".xlsx,.xls"}
                           onChange={handleFileChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          aria-label="Upload Excel file"
+                          aria-label={mode === "tsv" ? "Upload TSV file" : "Upload Excel file"}
                         />
                         <motion.div
                           animate={{ scale: dragOver ? 1.05 : 1 }}
@@ -387,7 +430,9 @@ export default function MDFlowWorkbench() {
                             <p className="text-sm font-black text-white uppercase tracking-widest">
                               {dragOver
                                 ? "Drop file here"
-                                : "Upload .xlsx or .xls"}
+                                : mode === "tsv"
+                                  ? "Upload .tsv"
+                                  : "Upload .xlsx or .xls"}
                             </p>
                             <p className="text-[10px] text-muted mt-1.5 uppercase font-medium">
                               Click or drag & drop
@@ -412,7 +457,7 @@ export default function MDFlowWorkbench() {
                         </motion.div>
                       )}
 
-                      {sheets.length > 0 && (
+                      {mode === "xlsx" && sheets.length > 0 && (
                         <div className="space-y-3 shrink-0">
                           <label className="label mb-2">Sheet</label>
                           <Select

@@ -195,7 +195,24 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
 
           <div className="relative pl-8 border-l-2 border-accent-gold/20">
             <h4 className="text-white font-bold mb-2">
-              2. XLSX Mode (Binary)
+              2. TSV Mode (Binary)
+            </h4>
+            <p className="text-sm text-muted mb-4">
+              Designed for exported sheet data. Accepts
+              `multipart/form-data` text streams (10MB limit, .tsv).
+            </p>
+            <ul className="list-disc list-inside text-sm text-white/60 space-y-2 mb-4">
+              <li>No sheet selection required</li>
+              <li>Optional `template` parameter for output format</li>
+            </ul>
+            <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/tsv (form-data: file, template?)
+            </div>
+          </div>
+
+          <div className="relative pl-8 border-l-2 border-accent-gold/20">
+            <h4 className="text-white font-bold mb-2">
+              3. XLSX Mode (Binary)
             </h4>
             <p className="text-sm text-muted mb-4">
               Designed for production specifications. Accepts

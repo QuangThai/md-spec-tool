@@ -22,6 +22,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	mdflow := router.Group("/api/mdflow")
 	{
 		mdflow.POST("/paste", mdflowHandler.ConvertPaste)
+		mdflow.POST("/tsv", mdflowHandler.ConvertTSV)
 		mdflow.POST("/xlsx", mdflowHandler.ConvertXLSX)
 		mdflow.POST("/xlsx/sheets", mdflowHandler.GetXLSXSheets)
 		mdflow.GET("/templates", mdflowHandler.GetTemplates)

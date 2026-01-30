@@ -61,7 +61,7 @@ type MDFlowConvertResponse struct {
 
 // InputAnalysisResponse represents the input type detection response
 type InputAnalysisResponse struct {
-	Type       string  `json:"type"`       // 'markdown' | 'table' | 'unknown'
+	Type       string  `json:"type"` // 'markdown' | 'table' | 'unknown'
 	Confidence float64 `json:"confidence"`
 	Reason     string  `json:"reason,omitempty"`
 }
@@ -241,6 +241,72 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 	result, err := h.converter.ConvertXLSX(tempName, sheetName, template)
 	if err != nil {
 		log.Printf("mdflow.ConvertXLSX failed: %v", err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
+		return
+	}
+
+	c.JSON(http.StatusOK, MDFlowConvertResponse{
+		MDFlow:   result.MDFlow,
+		Warnings: result.Warnings,
+		Meta:     result.Meta,
+	})
+}
+
+// ConvertTSV handles POST /api/mdflow/tsv
+// Converts uploaded TSV file to MDFlow format
+func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadBody)
+
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{Error: "file exceeds 10MB limit"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "file is required"})
+		return
+	}
+	defer file.Close()
+
+	if header.Size > maxUploadBytes {
+		c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{Error: "file exceeds 10MB limit"})
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if ext != ".tsv" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "only .tsv files are supported"})
+		return
+	}
+
+	template := strings.TrimSpace(c.PostForm("template"))
+	if err := h.validateTemplate(template); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	content, err := io.ReadAll(io.LimitReader(file, maxUploadBytes+1))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "failed to read file"})
+		return
+	}
+	if len(content) == 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "file is empty"})
+		return
+	}
+	if len(content) > maxUploadBytes {
+		c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{Error: "file exceeds 10MB limit"})
+		return
+	}
+
+	if len(content) >= 3 && content[0] == 0xEF && content[1] == 0xBB && content[2] == 0xBF {
+		content = content[3:]
+	}
+
+	result, err := h.converter.ConvertPaste(string(content), template)
+	if err != nil {
+		log.Printf("mdflow.ConvertTSV failed: %v", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
 		return
 	}
