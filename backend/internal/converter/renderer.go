@@ -2,6 +2,7 @@ package converter
 
 import (
 	"bytes"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -85,6 +86,12 @@ type FeatureGroup struct {
 	Rows    []SpecRow
 }
 
+// MetadataPair represents a key/value metadata item
+type MetadataPair struct {
+	Key   string
+	Value string
+}
+
 // groupByFeature groups rows by their Feature field
 func (r *MDFlowRenderer) groupByFeature(rows []SpecRow) []FeatureGroup {
 	groupMap := make(map[string][]SpecRow)
@@ -120,6 +127,9 @@ func (r *MDFlowRenderer) registerDefaultTemplates() {
 		"notEmpty":      notEmpty,
 		"displayTitle":  displayTitle,
 		"escapeYAML":    escapeYAML,
+		"cellValue":     cellValue,
+		"headerCell":    headerCell,
+		"metadataPairs": metadataPairs,
 		"trimPrefix":    strings.TrimPrefix,
 		"lower":         strings.ToLower,
 		"upper":         strings.ToUpper,
@@ -221,6 +231,118 @@ func escapeYAML(s string) string {
 	return s
 }
 
+func metadataPairs(row SpecRow) []MetadataPair {
+	if len(row.Metadata) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(row.Metadata))
+	for key, value := range row.Metadata {
+		key = strings.TrimSpace(key)
+		value = normalizeCellValue(value)
+		if key == "" || value == "" {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	sort.Strings(keys)
+	items := make([]MetadataPair, 0, len(keys))
+	for _, key := range keys {
+		items = append(items, MetadataPair{Key: key, Value: normalizeCellValue(row.Metadata[key])})
+	}
+	return items
+}
+
+func headerCell(header string) string {
+	return formatTableCell(header)
+}
+
+func cellValue(row SpecRow, header string) string {
+	normalized := normalizeHeader(header)
+	if field, ok := HeaderSynonyms[normalized]; ok {
+		return formatTableCell(valueForField(row, field))
+	}
+	if value, ok := row.Metadata[header]; ok {
+		return formatTableCell(value)
+	}
+	return ""
+}
+
+func normalizeHeader(header string) string {
+	h := strings.ToLower(strings.TrimSpace(header))
+	h = strings.Join(strings.Fields(h), " ")
+	return h
+}
+
+func normalizeCellValue(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "-" {
+		return ""
+	}
+	return trimmed
+}
+
+func formatTableCell(value string) string {
+	value = normalizeCellValue(value)
+	if value == "" {
+		return ""
+	}
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	value = strings.ReplaceAll(value, "\n", "<br>")
+	value = strings.ReplaceAll(value, "|", "\\|")
+	return value
+}
+
+func valueForField(row SpecRow, field CanonicalField) string {
+	switch field {
+	case FieldID:
+		return normalizeCellValue(row.ID)
+	case FieldFeature:
+		return normalizeCellValue(row.Feature)
+	case FieldScenario:
+		return normalizeCellValue(row.Scenario)
+	case FieldInstructions:
+		return normalizeCellValue(row.Instructions)
+	case FieldInputs:
+		return normalizeCellValue(row.Inputs)
+	case FieldExpected:
+		return normalizeCellValue(row.Expected)
+	case FieldPrecondition:
+		return normalizeCellValue(row.Precondition)
+	case FieldPriority:
+		return normalizeCellValue(row.Priority)
+	case FieldType:
+		return normalizeCellValue(row.Type)
+	case FieldStatus:
+		return normalizeCellValue(row.Status)
+	case FieldEndpoint:
+		return normalizeCellValue(row.Endpoint)
+	case FieldNotes:
+		return normalizeCellValue(row.Notes)
+	case FieldNo:
+		return normalizeCellValue(row.No)
+	case FieldItemName:
+		return normalizeCellValue(row.ItemName)
+	case FieldItemType:
+		return normalizeCellValue(row.ItemType)
+	case FieldRequiredOptional:
+		return normalizeCellValue(row.RequiredOptional)
+	case FieldInputRestrictions:
+		return normalizeCellValue(row.InputRestrictions)
+	case FieldDisplayConditions:
+		return normalizeCellValue(row.DisplayConditions)
+	case FieldAction:
+		return normalizeCellValue(row.Action)
+	case FieldNavigationDest:
+		return normalizeCellValue(row.NavigationDest)
+	default:
+		return ""
+	}
+}
+
 // Default template
 const defaultTemplate = `---
 name: "{{.Title}}"
@@ -266,6 +388,13 @@ This specification contains {{.TotalCount}} test cases.
 {{- if notEmpty .Notes}}
 **Notes:** {{.Notes}}
 {{- end}}
+{{- $meta := metadataPairs .}}
+{{- if $meta}}
+**Additional Fields:**
+{{- range $meta}}
+- {{.Key}}: {{.Value}}
+{{- end}}
+{{- end}}
 
 ---
 {{end}}
@@ -302,6 +431,14 @@ type: "feature-spec"
 {{- if notEmpty .Notes}}
 
 **Notes:** {{.Notes}}
+{{- end}}
+{{- $meta := metadataPairs .}}
+{{- if $meta}}
+
+**Additional Fields:**
+{{- range $meta}}
+- {{.Key}}: {{.Value}}
+{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}
@@ -370,6 +507,14 @@ generated_at: "{{.GeneratedAt}}"
 
 **Notes:** {{.Notes}}
 {{- end}}
+{{- $meta := metadataPairs .}}
+{{- if $meta}}
+
+**Additional Fields:**
+{{- range $meta}}
+- {{.Key}}: {{.Value}}
+{{- end}}
+{{- end}}
 
 ---
 {{- end}}
@@ -417,6 +562,14 @@ generated_at: "{{.GeneratedAt}}"
 {{- if notEmpty .Notes}}
 
 **Notes:** {{.Notes}}
+{{- end}}
+{{- $meta := metadataPairs .}}
+{{- if $meta}}
+
+**Additional Fields:**
+{{- range $meta}}
+- {{.Key}}: {{.Value}}
+{{- end}}
 {{- end}}
 
 ---
@@ -466,10 +619,17 @@ type: "spec-table"
 
 ## Summary Table
 
+{{- if .Headers}}
+| {{range .Headers}}{{headerCell .}} |{{end}}
+| {{range .Headers}}---|{{end}}
+{{range .Rows}}| {{range $h := $.Headers}}{{cellValue . $h}} |{{end}}
+{{end}}
+{{- else}}
 | No | Item Name | Type | Required | Display Conditions | Action | Navigation | Notes |
 |----|-----------|------|----------|-------------------|--------|-----------|-------|
 {{range .Rows}}| {{.No}} | {{.ItemName}} | {{.ItemType}} | {{.RequiredOptional}} | {{.DisplayConditions}} | {{.Action}} | {{.NavigationDest}} | {{.Notes}} |
 {{end}}
+{{- end}}
 
 ---
 
@@ -506,6 +666,14 @@ type: "spec-table"
 {{- if notEmpty .Notes}}
 
 **Notes:** {{.Notes}}
+{{- end}}
+{{- $meta := metadataPairs .}}
+{{- if $meta}}
+
+**Additional Fields:**
+{{- range $meta}}
+- {{.Key}}: {{.Value}}
+{{- end}}
 {{- end}}
 
 ---
