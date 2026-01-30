@@ -1,5 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+export type WarningSeverity = 'info' | 'warn' | 'error';
+export type WarningCategory = 'input' | 'detect' | 'header' | 'mapping' | 'rows' | 'render';
+
+export interface MDFlowWarning {
+  code: string;
+  message: string;
+  severity: WarningSeverity;
+  category: WarningCategory;
+  hint?: string;
+  details?: Record<string, unknown>;
+}
+
 export interface MDFlowMeta {
   sheet_name?: string;
   header_row: number;
@@ -11,7 +23,7 @@ export interface MDFlowMeta {
 
 export interface MDFlowConvertResponse {
   mdflow: string;
-  warnings: string[];
+  warnings: MDFlowWarning[];
   meta: MDFlowMeta;
 }
 

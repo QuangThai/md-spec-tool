@@ -28,7 +28,7 @@ func BuildMarkdownSpecDoc(text string, title string) *SpecDoc {
 	return &SpecDoc{
 		Title: title,
 		Rows: []SpecRow{}, // Empty for prose
-		Warnings: []string{},
+		Warnings: []Warning{},
 		Meta: SpecDocMeta{
 			ColumnMap:       ColumnMap{},
 			UnmappedColumns: []string{},

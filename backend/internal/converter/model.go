@@ -1,5 +1,36 @@
 package converter
 
+// WarningSeverity represents the importance level of a warning
+type WarningSeverity string
+
+const (
+	SeverityInfo  WarningSeverity = "info"
+	SeverityWarn  WarningSeverity = "warn"
+	SeverityError WarningSeverity = "error" // non-fatal error-level warning
+)
+
+// WarningCategory represents the type of warning
+type WarningCategory string
+
+const (
+	CatInput   WarningCategory = "input"
+	CatDetect  WarningCategory = "detect"
+	CatHeader  WarningCategory = "header"
+	CatMapping WarningCategory = "mapping"
+	CatRows    WarningCategory = "rows"
+	CatRender  WarningCategory = "render"
+)
+
+// Warning represents a structured warning from the conversion pipeline
+type Warning struct {
+	Code     string          `json:"code"`
+	Message  string          `json:"message"`
+	Severity WarningSeverity `json:"severity"`
+	Category WarningCategory `json:"category"`
+	Hint     string          `json:"hint,omitempty"`    // user-facing suggestion
+	Details  map[string]any  `json:"details,omitempty"` // structured metadata
+}
+
 // CanonicalField represents mapped column types
 type CanonicalField string
 
@@ -66,7 +97,7 @@ type SpecRow struct {
 type SpecDoc struct {
 	Title    string         `json:"title"`
 	Rows     []SpecRow      `json:"rows"`
-	Warnings []string       `json:"warnings"`
+	Warnings []Warning      `json:"warnings"`
 	Meta     SpecDocMeta    `json:"meta"`
 	Headers  []string       `json:"headers"`
 	Prose    *ProseContent  `json:"prose,omitempty"`
@@ -92,6 +123,6 @@ type ConvertRequest struct {
 // ConvertResponse represents the API response
 type ConvertResponse struct {
 	MDFlow   string      `json:"mdflow"`
-	Warnings []string    `json:"warnings"`
+	Warnings []Warning   `json:"warnings"`
 	Meta     SpecDocMeta `json:"meta"`
 }

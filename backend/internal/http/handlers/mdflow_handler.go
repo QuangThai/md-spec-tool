@@ -55,7 +55,7 @@ type XLSXConvertRequest struct {
 // MDFlowConvertResponse represents the conversion response
 type MDFlowConvertResponse struct {
 	MDFlow   string                `json:"mdflow"`
-	Warnings []string              `json:"warnings"`
+	Warnings []converter.Warning   `json:"warnings"`
 	Meta     converter.SpecDocMeta `json:"meta"`
 }
 

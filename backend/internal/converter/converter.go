@@ -2,6 +2,18 @@ package converter
 
 import "strings"
 
+// Helper function to create structured warnings
+func newWarning(code string, severity WarningSeverity, category WarningCategory, message string, hint string, details map[string]any) Warning {
+	return Warning{
+		Code:     code,
+		Severity: severity,
+		Category: category,
+		Message:  message,
+		Hint:     hint,
+		Details:  details,
+	}
+}
+
 // Converter orchestrates the conversion process
 type Converter struct {
 	pasteParser    *PasteParser
@@ -76,7 +88,7 @@ func (c *Converter) convertMarkdown(text string, template string) (*ConvertRespo
 
 	return &ConvertResponse{
 		MDFlow:   mdflow,
-		Warnings: []string{}, // No warnings for markdown
+		Warnings: []Warning{}, // No warnings for markdown
 		Meta:     specDoc.Meta,
 	}, nil
 }
@@ -117,7 +129,7 @@ func (c *Converter) convertMatrix(matrix CellMatrix, sheetName string, template 
 	if len(matrix) == 0 {
 		return &ConvertResponse{
 			MDFlow:   "",
-			Warnings: []string{"Empty input"},
+			Warnings: []Warning{newWarning("INPUT_EMPTY", SeverityWarn, CatInput, "Empty input.", "Paste a table or upload a file to convert.", nil)},
 			Meta:     SpecDocMeta{},
 		}, nil
 	}
@@ -125,9 +137,16 @@ func (c *Converter) convertMatrix(matrix CellMatrix, sheetName string, template 
 	// Detect header row
 	headerRow, confidence := c.headerDetector.DetectHeaderRow(matrix)
 
-	var warnings []string
+	var warnings []Warning
 	if confidence < 50 {
-		warnings = append(warnings, "Low confidence in header detection, results may be inaccurate")
+		warnings = append(warnings, newWarning(
+			"HEADER_LOW_CONFIDENCE",
+			SeverityWarn,
+			CatHeader,
+			"Low confidence in header detection; results may be inaccurate.",
+			"Verify the header row and ensure column names are present.",
+			map[string]any{"confidence": confidence, "header_row": headerRow},
+		))
 	}
 
 	// Get headers
@@ -137,7 +156,14 @@ func (c *Converter) convertMatrix(matrix CellMatrix, sheetName string, template 
 	colMap, unmapped := c.columnMapper.MapColumns(headers)
 
 	if len(unmapped) > 0 {
-		warnings = append(warnings, "Unmapped columns: "+joinStrings(unmapped, ", "))
+		warnings = append(warnings, newWarning(
+			"MAPPING_UNMAPPED_COLUMNS",
+			SeverityWarn,
+			CatMapping,
+			"Some columns could not be mapped to known fields.",
+			"Rename columns to match expected headers or choose a different template.",
+			map[string]any{"unmapped_columns": unmapped},
+		))
 	}
 
 	// Build SpecDoc

@@ -619,7 +619,7 @@ function TechnicalAnalysis({
     headerCount?: number;
     header_row?: number;
   } | null;
-  warnings: string[];
+  warnings: any[];
   mdflowOutput: string | null;
 }) {
   return (
@@ -690,12 +690,12 @@ function TechnicalAnalysis({
                 </span>
               </div>
               <div className="max-h-[52px] overflow-auto custom-scrollbar space-y-1.5">
-                {warnings.map((w: string, i: number) => (
+                {warnings.map((w: any, i: number) => (
                   <p
-                    key={`${i}-${w.slice(0, 20)}`}
+                    key={`${w.code || i}-${w.message?.slice(0, 20)}`}
                     className="text-[9px] font-medium text-accent-gold/90 leading-snug pl-2.5 border-l-2 border-accent-gold/40"
                   >
-                    {w}
+                    {w.message || w}
                   </p>
                 ))}
               </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { MDFlowMeta } from './mdflowApi';
+import { MDFlowMeta, MDFlowWarning } from './mdflowApi';
 
 export type InputMode = 'paste' | 'xlsx' | 'tsv';
 
@@ -12,11 +12,13 @@ interface MDFlowStore {
   template: string;
   
   mdflowOutput: string;
-  warnings: string[];
+  warnings: MDFlowWarning[];
   meta: MDFlowMeta | null;
   
   loading: boolean;
   error: string | null;
+  
+  dismissedWarningCodes: Record<string, boolean>;
   
   setMode: (mode: InputMode) => void;
   setPasteText: (text: string) => void;
@@ -24,9 +26,11 @@ interface MDFlowStore {
   setSheets: (sheets: string[]) => void;
   setSelectedSheet: (sheet: string) => void;
   setTemplate: (template: string) => void;
-  setResult: (output: string, warnings: string[], meta: MDFlowMeta) => void;
+  setResult: (output: string, warnings: MDFlowWarning[], meta: MDFlowMeta) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  dismissWarning: (code: string) => void;
+  clearDismissedWarnings: () => void;
   reset: () => void;
 }
 
@@ -42,6 +46,7 @@ const initialState = {
   meta: null,
   loading: false,
   error: null,
+  dismissedWarningCodes: {},
 };
 
 export const useMDFlowStore = create<MDFlowStore>((set) => ({
@@ -56,5 +61,9 @@ export const useMDFlowStore = create<MDFlowStore>((set) => ({
   setResult: (mdflowOutput, warnings, meta) => set({ mdflowOutput, warnings: warnings || [], meta }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
+  dismissWarning: (code) => set((state) => ({
+    dismissedWarningCodes: { ...state.dismissedWarningCodes, [code]: true },
+  })),
+  clearDismissedWarnings: () => set({ dismissedWarningCodes: {} }),
   reset: () => set(initialState),
 }));
