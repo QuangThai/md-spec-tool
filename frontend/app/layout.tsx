@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     siteName: "MDFlow Studio",
     images: [
       {
-        url: "/opengraph-image",
+        url: "https://md-spec-tool.vercel.app/opengraph-image",
         width: 1200,
         height: 630,
         alt: "MDFlow Studio",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     title: "MDFlow Studio | Technical Specification Automation",
     description:
       "Standardize engineering knowledge with automated MDFlow generation.",
-    images: ["/opengraph-image"],
+    images: ["https://md-spec-tool.vercel.app/opengraph-image"],
   },
 };
 

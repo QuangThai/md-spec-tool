@@ -16,7 +16,7 @@ export const metadata: Metadata = {
       "MDFlow documentation covering architecture, parsing logic, and templates.",
     images: [
       {
-        url: "/docs/opengraph-image",
+        url: "https://md-spec-tool.vercel.app/docs/opengraph-image",
         width: 1200,
         height: 630,
         alt: "MDFlow Docs",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: "Docs | MDFlow Studio",
     description:
       "MDFlow documentation covering architecture, parsing logic, and templates.",
-    images: ["/docs/opengraph-image"],
+    images: ["https://md-spec-tool.vercel.app/docs/opengraph-image"],
   },
 };
 

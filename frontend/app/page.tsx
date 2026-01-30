@@ -16,7 +16,7 @@ export const metadata: Metadata = {
       "Automate technical specifications from spreadsheets with MDFlow Studio.",
     images: [
       {
-        url: "/opengraph-image",
+        url: "https://md-spec-tool.vercel.app/opengraph-image",
         width: 1200,
         height: 630,
         alt: "MDFlow Studio",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: "MDFlow Studio | Technical Specification Automation",
     description:
       "Automate technical specifications from spreadsheets with MDFlow Studio.",
-    images: ["/opengraph-image"],
+    images: ["https://md-spec-tool.vercel.app/opengraph-image"],
   },
 };
 

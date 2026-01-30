@@ -16,11 +16,20 @@ export const metadata: Metadata = {
     url: "/studio",
     title: "Studio | MDFlow Studio",
     description: "Advanced technical specification transformation engine.",
+    images: [
+      {
+        url: "https://md-spec-tool.vercel.app/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "MDFlow Studio",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Studio | MDFlow Studio",
     description: "Advanced technical specification transformation engine.",
+    images: ["https://md-spec-tool.vercel.app/opengraph-image"],
   },
 };
 
