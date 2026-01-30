@@ -2,8 +2,9 @@
 
 import {
   convertPaste,
-  convertXLSX,
   convertTSV,
+  convertXLSX,
+  diffMDFlow,
   getMDFlowTemplates,
   getXLSXSheets,
 } from "@/lib/mdflowApi";
@@ -18,11 +19,16 @@ import {
   Database,
   Download,
   FileSpreadsheet,
+  FileText,
+  GitCompare,
+  Link2,
   RefreshCcw,
+  Save,
   Terminal,
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { DiffViewer } from "./DiffViewer";
 import { Select } from "./ui/Select";
 
 const stagger = {
@@ -70,6 +76,9 @@ export default function MDFlowWorkbench() {
   const [templates, setTemplates] = useState<string[]>(["default"]);
   const [copied, setCopied] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+  const [previousOutput, setPreviousOutput] = useState<string>("");
+  const [currentDiff, setCurrentDiff] = useState<any>(null);
 
   useEffect(() => {
     getMDFlowTemplates().then((res) => {
@@ -535,11 +544,11 @@ export default function MDFlowWorkbench() {
                   </span>
                 </div>
                 {mdflowOutput && (
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                     <button
                       type="button"
                       onClick={handleCopy}
-                      className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 cursor-pointer"
+                      className="flex items-center justify-center w-9 h-9 shrink-0 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 cursor-pointer"
                       title={copied ? "Copied" : "Copy"}
                       aria-label={copied ? "Copied" : "Copy to clipboard"}
                     >
@@ -549,12 +558,47 @@ export default function MDFlowWorkbench() {
                         <Copy className="w-3.5 h-3.5" />
                       )}
                     </button>
+                    {previousOutput && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const diff = await diffMDFlow(previousOutput, mdflowOutput);
+                          setCurrentDiff(diff);
+                          setShowDiff(true);
+                        }}
+                        className="flex items-center justify-center h-9 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 text-[10px] font-bold uppercase tracking-wider cursor-pointer shrink-0"
+                        title="Compare with saved output"
+                      >
+                        <span className="inline-flex items-center gap-1.5 leading-none">
+                          <GitCompare className="block w-3.5 h-3.5 shrink-0" />
+                          <span className="leading-none">Compare</span>
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviousOutput(mdflowOutput);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 1500);
+                      }}
+                      className="flex items-center justify-center h-9 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 text-[10px] font-bold uppercase tracking-wider cursor-pointer shrink-0"
+                      title="Save current output for comparison"
+                    >
+                      <span className="inline-flex items-center gap-1.5 leading-none">
+                        <Save className="block w-3.5 h-3.5 shrink-0" />
+                        <span className="leading-none">Save</span>
+                      </span>
+                    </button>
                     <button
                       type="button"
                       onClick={handleDownload}
-                      className="flex items-center gap-2 h-9 px-4 rounded-xl bg-accent-orange text-[10px] font-bold uppercase tracking-widest text-white shadow-lg shadow-accent-orange/30 hover:bg-accent-orange/90 active:scale-95 transition-all cursor-pointer"
+                      className="flex items-center justify-center h-9 px-4 rounded-xl bg-accent-orange text-[10px] font-bold uppercase tracking-widest text-white shadow-lg shadow-accent-orange/30 hover:bg-accent-orange/90 active:scale-95 transition-all cursor-pointer shrink-0"
                     >
-                      <Download className="w-3.5 h-3.5" /> Export
+                      <span className="inline-flex items-center gap-2 leading-none">
+                        <Download className="block w-3.5 h-3.5 shrink-0" />
+                        <span className="leading-none">Export</span>
+                      </span>
                     </button>
                   </div>
                 )}
@@ -603,6 +647,48 @@ export default function MDFlowWorkbench() {
           MDFlow Studio
         </div>
       </motion.div>
+
+      {/* Diff Viewer Modal */}
+      <AnimatePresence>
+        {showDiff && currentDiff && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowDiff(false)}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-black/60 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden"
+            >
+              <div className="flex items-center justify-between gap-4 px-6 py-3 border-b border-white/10 bg-white/3 shrink-0">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/80">
+                    MDFlow Diff Viewer
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowDiff(false)}
+                  className="p-2 h-auto -mr-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer text-white/60 hover:text-white"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+                <DiffViewer
+                  diff={currentDiff}
+                  onClose={() => setShowDiff(false)}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -618,6 +704,9 @@ function TechnicalAnalysis({
     total_rows?: number;
     headerCount?: number;
     header_row?: number;
+    source_type?: string;
+    parser?: string;
+    source_url?: string;
   } | null;
   warnings: any[];
   mdflowOutput: string | null;

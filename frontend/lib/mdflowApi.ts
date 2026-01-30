@@ -1,3 +1,6 @@
+import { TemplatePreset } from './templates';
+import { DiffResponse } from './diffTypes';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export type WarningSeverity = 'info' | 'warn' | 'error';
@@ -158,5 +161,30 @@ export async function getMDFlowTemplates(): Promise<{
     return { data };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+export async function diffMDFlow(
+  before: string,
+  after: string
+): Promise<DiffResponse | null> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/diff`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ before, after }),
+    });
+
+    if (!response.ok) {
+      console.error(`Diff failed: ${response.status}`);
+      return null;
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Diff error:', error);
+    return null;
   }
 }

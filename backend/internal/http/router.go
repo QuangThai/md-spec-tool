@@ -26,6 +26,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		mdflow.POST("/xlsx", mdflowHandler.ConvertXLSX)
 		mdflow.POST("/xlsx/sheets", mdflowHandler.GetXLSXSheets)
 		mdflow.GET("/templates", mdflowHandler.GetTemplates)
+		mdflow.POST("/diff", handlers.DiffMDFlow())
 	}
 
 	return router
