@@ -4,21 +4,12 @@ import { Player } from "@remotion/player";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight,
-  CheckCircle2,
   ChevronRight,
   Cpu,
   Database,
-  FileCode,
-  FileSearch,
-  Layers,
-  Layout,
-  MousePointer2,
-  Search,
   Shield,
-  Sparkles,
   Terminal,
   TrendingUp,
-  Workflow,
   Zap,
 } from "lucide-react";
 import Link from "next/link";

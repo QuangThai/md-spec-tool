@@ -1,10 +1,9 @@
 import AppHeader from "@/components/AppHeader";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { Command } from "lucide-react";
 import { Geist_Mono as GeistMono, Inter } from "next/font/google";
-import Image from "next/image";
 import Link from "next/link";
 import React from "react";
+import type { Metadata } from "next";
 import "../styles/globals.css";
 
 const inter = Inter({
@@ -19,10 +18,38 @@ const geistMono = GeistMono({
   display: "swap",
 });
 
-export const metadata = {
-  title: "MDFlow Studio | Technical Specification Automation",
+export const metadata: Metadata = {
+  metadataBase: new URL("https://md-spec-tool.vercel.app"),
+  title: {
+    default: "MDFlow Studio | Technical Specification Automation",
+    template: "%s | MDFlow Studio",
+  },
   description:
     "Standardize engineering knowledge with automated MDFlow generation.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    url: "/",
+    title: "MDFlow Studio | Technical Specification Automation",
+    description:
+      "Standardize engineering knowledge with automated MDFlow generation.",
+    siteName: "MDFlow Studio",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MDFlow Studio | Technical Specification Automation",
+    description:
+      "Standardize engineering knowledge with automated MDFlow generation.",
+  },
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "MDFlow Studio",
+  url: "https://md-spec-tool.vercel.app",
 };
 
 export default function RootLayout({
@@ -33,6 +60,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${geistMono.variable}`}>
       <body className="relative bg-bg-mesh">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         {/* Advanced Ambient Glows */}
         <div className="aurora-bg">
           <div className="aurora-blob left-[-10%] top-[-10%] h-[800px] w-[800px] bg-accent-orange/15 animate-pulse-soft" />
