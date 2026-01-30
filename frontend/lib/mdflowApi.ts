@@ -38,6 +38,18 @@ export interface TemplatesResponse {
   templates: string[];
 }
 
+export interface PreviewResponse {
+  headers: string[];
+  rows: string[][];
+  total_rows: number;
+  preview_rows: number;
+  header_row: number;
+  confidence: number;
+  column_mapping: Record<string, string>;
+  unmapped_columns: string[];
+  input_type: 'table' | 'markdown';
+}
+
 export async function convertPaste(
   pasteText: string,
   template?: string
@@ -185,5 +197,144 @@ export async function diffMDFlow(
   } catch (error) {
     console.error('Diff error:', error);
     return null;
+  }
+}
+
+export async function previewPaste(
+  pasteText: string
+): Promise<{ data?: PreviewResponse; error?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        paste_text: pasteText,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+export async function previewTSV(
+  file: File
+): Promise<{ data?: PreviewResponse; error?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_URL}/api/mdflow/tsv/preview`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+export async function previewXLSX(
+  file: File,
+  sheetName?: string
+): Promise<{ data?: PreviewResponse; error?: string }> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (sheetName) formData.append('sheet_name', sheetName);
+
+    const response = await fetch(`${API_URL}/api/mdflow/xlsx/preview`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+// Google Sheets integration
+export interface GoogleSheetResponse {
+  sheet_id: string;
+  sheet_name?: string;
+  data: string;
+}
+
+export function isGoogleSheetsURL(text: string): boolean {
+  return text.includes('docs.google.com/spreadsheets');
+}
+
+export async function fetchGoogleSheet(
+  url: string
+): Promise<{ data?: GoogleSheetResponse; error?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/gsheet`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}
+
+export async function convertGoogleSheet(
+  url: string,
+  template?: string
+): Promise<{ data?: MDFlowConvertResponse; error?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/gsheet/convert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        template: template || '',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
   }
 }

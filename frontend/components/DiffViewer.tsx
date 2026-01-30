@@ -37,7 +37,7 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
     totalLines > 0 ? Math.round((diff.added_lines / totalLines) * 100) : 0;
 
   return (
-    <div className="w-full h-full flex flex-col bg-linear-to-br from-white/2 to-white/1 border border-white/10 rounded-2xl overflow-hidden">
+    <div className="w-full h-full flex flex-col bg-linear-to-br from-white/2 to-white/1 border border-white/10  overflow-hidden">
       {/* Header */}
       <div className="border-b border-white/10 bg-white/3 backdrop-blur-md px-6 py-5 shrink-0">
         <div className="flex items-center justify-between gap-4 mb-4">
@@ -112,7 +112,7 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden bg-black/40 rounded-b-2xl">
         {viewMode === "inline" && (
           <InlineDiffView diff={diff} getLineClass={getLineClass} />
         )}
@@ -127,9 +127,9 @@ export function DiffViewer({ diff, onClose }: DiffViewerProps) {
 
 function InlineDiffView({ diff, getLineClass }: any) {
   return (
-    <div className="h-full overflow-y-auto overflow-x-auto custom-scrollbar">
+    <div className="h-full overflow-y-auto overflow-x-auto custom-scrollbar rounded-b-2xl">
       <div className="font-mono text-xs leading-relaxed">
-        <div className="sticky top-0 bg-white/3 backdrop-blur-md border-b border-white/10 px-4 py-3 flex gap-4 text-white/50">
+        <div className="sticky top-0 bg-white/3 backdrop-blur-md border-b border-white/10 px-4 py-3 flex gap-4 text-white/50 rounded-t-2xl">
           <span className="flex items-center gap-1">
             <span className="w-4 h-4 rounded bg-rose-500/20 border border-rose-500/50" />
             before
@@ -207,9 +207,9 @@ function SideBySideDiffView({ diff }: any) {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden rounded-b-2xl">
       {/* Header */}
-      <div className="flex border-b border-white/10 bg-white/2 shrink-0">
+      <div className="flex border-b border-white/10 bg-white/2 shrink-0 rounded-t-2xl">
         <div className="flex-1 px-4 py-3 border-r border-white/5">
           <span className="text-[10px] font-black uppercase tracking-wider text-rose-400/80">
             Removed

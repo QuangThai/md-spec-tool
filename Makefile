@@ -1,4 +1,4 @@
-.PHONY: help build up down logs clean test
+.PHONY: help build up down logs clean test cli
 
 help:
 	@echo "Available commands:"
@@ -8,9 +8,18 @@ help:
 	@echo "  make logs        - View logs"
 	@echo "  make clean       - Remove containers and volumes"
 	@echo "  make test        - Run tests"
+	@echo "  make cli         - Build CLI tool"
+	@echo "  make install-cli - Install CLI tool to /usr/local/bin"
 
 build:
 	docker-compose build
+
+cli:
+	cd backend && go build -o ../bin/mdflow ./cmd/cli
+
+install-cli: cli
+	cp bin/mdflow /usr/local/bin/mdflow
+	@echo "mdflow installed to /usr/local/bin/mdflow"
 
 up:
 	docker-compose up -d

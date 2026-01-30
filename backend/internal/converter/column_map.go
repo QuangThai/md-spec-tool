@@ -171,11 +171,18 @@ var HeaderSynonyms = map[string]CanonicalField{
 	// === Navigation Destination (Phase 3) ===
 	"navigation destination": FieldNavigationDest,
 	"navigation_destination": FieldNavigationDest,
+	"navigation dest":        FieldNavigationDest,
+	"nav destination":        FieldNavigationDest,
+	"nav dest":               FieldNavigationDest,
+	"dest":                   FieldNavigationDest,
 	"遷移先":                    FieldNavigationDest,
 	"画面遷移先":                  FieldNavigationDest,
 	"遷移先画面":                  FieldNavigationDest,
 	"destination":            FieldNavigationDest,
 	"link":                   FieldNavigationDest,
+	"link to":                FieldNavigationDest,
+	"target":                 FieldNavigationDest,
+	"navigate to":            FieldNavigationDest,
 }
 
 // ColumnMapper maps headers to canonical fields

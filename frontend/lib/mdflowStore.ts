@@ -1,7 +1,19 @@
 import { create } from 'zustand';
-import { MDFlowMeta, MDFlowWarning } from './mdflowApi';
+import { persist } from 'zustand/middleware';
+import { MDFlowMeta, MDFlowWarning, PreviewResponse } from './mdflowApi';
 
 export type InputMode = 'paste' | 'xlsx' | 'tsv';
+
+// History record for conversion history feature
+export interface ConversionRecord {
+  id: string;
+  timestamp: number;
+  mode: InputMode;
+  template: string;
+  inputPreview: string;
+  output: string;
+  meta: MDFlowMeta | null;
+}
 
 interface MDFlowStore {
   mode: InputMode;
@@ -14,6 +26,15 @@ interface MDFlowStore {
   mdflowOutput: string;
   warnings: MDFlowWarning[];
   meta: MDFlowMeta | null;
+  
+  // Preview state
+  preview: PreviewResponse | null;
+  previewLoading: boolean;
+  showPreview: boolean;
+  columnOverrides: Record<string, string>;
+  
+  // History state
+  history: ConversionRecord[];
   
   loading: boolean;
   error: string | null;
@@ -31,30 +52,82 @@ interface MDFlowStore {
   setError: (error: string | null) => void;
   dismissWarning: (code: string) => void;
   clearDismissedWarnings: () => void;
+  
+  // Preview actions
+  setPreview: (preview: PreviewResponse | null) => void;
+  setPreviewLoading: (loading: boolean) => void;
+  setShowPreview: (show: boolean) => void;
+  setColumnOverride: (column: string, field: string) => void;
+  clearColumnOverrides: () => void;
+  
+  // History actions
+  addToHistory: (record: Omit<ConversionRecord, 'id' | 'timestamp'>) => void;
+  clearHistory: () => void;
+  
   reset: () => void;
 }
 
 const initialState = {
   mode: 'paste' as InputMode,
   pasteText: '',
-  file: null,
-  sheets: [],
+  file: null as File | null,
+  sheets: [] as string[],
   selectedSheet: '',
   template: 'default',
   mdflowOutput: '',
-  warnings: [],
-  meta: null,
+  warnings: [] as MDFlowWarning[],
+  meta: null as MDFlowMeta | null,
+  preview: null as PreviewResponse | null,
+  previewLoading: false,
+  showPreview: false,
+  columnOverrides: {} as Record<string, string>,
   loading: false,
-  error: null,
-  dismissedWarningCodes: {},
+  error: null as string | null,
+  dismissedWarningCodes: {} as Record<string, boolean>,
 };
+
+// Separate persisted state for history
+interface PersistedState {
+  history: ConversionRecord[];
+}
+
+const persistedInitialState: PersistedState = {
+  history: [],
+};
+
+// Create history store with persistence
+export const useHistoryStore = create<PersistedState & {
+  addToHistory: (record: Omit<ConversionRecord, 'id' | 'timestamp'>) => void;
+  clearHistory: () => void;
+}>()(
+  persist(
+    (set) => ({
+      ...persistedInitialState,
+      addToHistory: (record) => set((state) => ({
+        history: [
+          {
+            ...record,
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            timestamp: Date.now(),
+          },
+          ...state.history,
+        ].slice(0, 50), // Keep only last 50 records
+      })),
+      clearHistory: () => set({ history: [] }),
+    }),
+    {
+      name: 'mdflow-history',
+    }
+  )
+);
 
 export const useMDFlowStore = create<MDFlowStore>((set) => ({
   ...initialState,
+  history: [],
   
-  setMode: (mode) => set({ mode, error: null }),
+  setMode: (mode) => set({ mode, error: null, preview: null, showPreview: false }),
   setPasteText: (pasteText) => set({ pasteText }),
-  setFile: (file) => set({ file, sheets: [], selectedSheet: '' }),
+  setFile: (file) => set({ file, sheets: [], selectedSheet: '', preview: null, showPreview: false }),
   setSheets: (sheets) => set({ sheets, selectedSheet: sheets[0] || '' }),
   setSelectedSheet: (selectedSheet) => set({ selectedSheet }),
   setTemplate: (template) => set({ template }),
@@ -65,5 +138,19 @@ export const useMDFlowStore = create<MDFlowStore>((set) => ({
     dismissedWarningCodes: { ...state.dismissedWarningCodes, [code]: true },
   })),
   clearDismissedWarnings: () => set({ dismissedWarningCodes: {} }),
-  reset: () => set(initialState),
+  
+  // Preview actions
+  setPreview: (preview) => set({ preview }),
+  setPreviewLoading: (previewLoading) => set({ previewLoading }),
+  setShowPreview: (showPreview) => set({ showPreview }),
+  setColumnOverride: (column, field) => set((state) => ({
+    columnOverrides: { ...state.columnOverrides, [column]: field },
+  })),
+  clearColumnOverrides: () => set({ columnOverrides: {} }),
+  
+  // History actions (delegated to persisted store)
+  addToHistory: () => {},
+  clearHistory: () => {},
+  
+  reset: () => set({ ...initialState, history: [] }),
 }));

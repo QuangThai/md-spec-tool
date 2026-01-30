@@ -124,6 +124,19 @@ func (c *Converter) GetXLSXSheets(filePath string) ([]string, error) {
 	return result.Sheets, nil
 }
 
+// ParseXLSX parses an XLSX file and returns the cell matrix
+func (c *Converter) ParseXLSX(filePath string, sheetName string) (CellMatrix, error) {
+	if sheetName == "" {
+		result, err := c.xlsxParser.ParseFile(filePath)
+		if err != nil {
+			return nil, err
+		}
+		sheetName = result.ActiveSheet
+		return result.GetMatrix(sheetName), nil
+	}
+	return c.xlsxParser.ParseSheet(filePath, sheetName)
+}
+
 // convertMatrix converts a CellMatrix to MDFlow
 func (c *Converter) convertMatrix(matrix CellMatrix, sheetName string, template string) (*ConvertResponse, error) {
 	if len(matrix) == 0 {

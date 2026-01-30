@@ -3,12 +3,22 @@
 import { motion } from "framer-motion";
 import {
   ChevronRight,
+  Clock,
+  Copy,
   Cpu,
   Database,
+  Download,
+  Eye,
   FileCode,
+  GitCompare,
+  History,
+  Keyboard,
+  Link2,
   Search,
   Shield,
+  Table,
   Terminal,
+  Zap,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -51,6 +61,31 @@ const docsSections = [
       },
     ],
   },
+  {
+    title: "Studio Features",
+    items: [
+      {
+        id: "preview",
+        title: "Data Preview",
+        icon: <Eye className="w-4 h-4" />,
+      },
+      {
+        id: "column-mapping",
+        title: "Column Mapping",
+        icon: <Table className="w-4 h-4" />,
+      },
+      {
+        id: "integrations",
+        title: "Integrations",
+        icon: <Link2 className="w-4 h-4" />,
+      },
+      {
+        id: "workflow",
+        title: "Workflow Tools",
+        icon: <Zap className="w-4 h-4" />,
+      },
+    ],
+  },
 ];
 
 const docContent: Record<string, { title: string; content: React.ReactNode }> =
@@ -60,11 +95,11 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
     content: (
       <div className="space-y-8">
         <p className="text-base sm:text-lg lg:text-xl text-muted leading-relaxed font-light">
-          MDFlow is a high-performance <strong>Engineering Studio</strong>{" "}
-          that bridges the gap between raw technical data (Excel/CSV) and
-          standardized documentation. It runs as a local web app with a
-          Next.js UI and a Go API, supporting both paste-based input and XLSX
-          conversions.
+          MDFlow Studio is a high-performance <strong>Engineering Studio</strong>{" "}
+          that bridges the gap between raw technical data (Excel/CSV/TSV) and
+          standardized documentation. It runs as a web app with a Next.js UI and
+          a Go API, supporting paste-based input, file uploads, Google Sheets integration,
+          and real-time preview with intelligent column mapping.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -77,7 +112,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </h4>
             <p className="text-xs sm:text-sm text-muted">
               Built with Next.js 16 and React 19. Handles the UI, local state
-              (Zustand), and the request flow for paste/XLSX conversions.
+              (Zustand), real-time preview, conversion history, diff viewer, and
+              the request flow for paste/XLSX/TSV/Google Sheets conversions.
             </p>
           </div>
 
@@ -90,7 +126,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </h4>
             <p className="text-xs sm:text-sm text-muted">
               Powered by Go (Golang) with Gin. Provides the MDFlow API for
-              template-based conversion and sheet discovery.
+              template-based conversion, sheet discovery, preview endpoints, and
+              CLI tool support for automation workflows.
             </p>
           </div>
         </div>
@@ -143,7 +180,20 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <strong className="text-white block mb-1">Zustand Store</strong>
               <span className="text-sm text-white/40">
                 Client-side state for file selection, sheet selection,
-                template choice, and parsed results (MDFlowStore).
+                template choice, parsed results, preview data, column overrides,
+                and conversion history (MDFlowStore + HistoryStore).
+              </span>
+            </div>
+          </li>
+          <li className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
+            <span className="text-accent-orange font-black text-xs uppercase tracking-widest mt-1">
+              UI
+            </span>
+            <div>
+              <strong className="text-white block mb-1">Framer Motion + Tailwind CSS</strong>
+              <span className="text-sm text-white/40">
+                Smooth animations, transitions, and modern UI components with
+                dark theme and responsive design.
               </span>
             </div>
           </li>
@@ -180,7 +230,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </h4>
             <p className="text-sm text-muted mb-4">
               Designed for quick prototyping. Accepts raw text buffer from CSV
-              or TSV sources (1MB limit). Use <code>detect_only=true</code> to
+              or TSV sources (1MB limit). Supports Google Sheets URLs. Use <code>detect_only=true</code> to
               return input type analysis without conversion.
             </p>
             <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
@@ -188,8 +238,12 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               {`{ "paste_text": "...", "template": "default" }`}
             </div>
             <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-              POST /api/mdflow/paste?detect_only=true <br />
+              POST /api/mdflow/preview <br />
               {`{ "paste_text": "..." }`}
+            </div>
+            <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/gsheet/convert <br />
+              {`{ "url": "https://docs.google.com/...", "template": "default" }`}
             </div>
           </div>
 
@@ -207,6 +261,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </ul>
             <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
               POST /api/mdflow/tsv (form-data: file, template?)
+            </div>
+            <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/tsv/preview (form-data: file)
             </div>
           </div>
 
@@ -227,6 +284,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </ul>
             <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
               POST /api/mdflow/xlsx (form-data: file, sheet_name?, template?)
+            </div>
+            <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/xlsx/preview (form-data: file, sheet_name?)
             </div>
           </div>
         </div>
@@ -397,6 +457,316 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
       </div>
     ),
   },
+  preview: {
+    title: "Data Preview",
+    content: (
+      <div className="space-y-6">
+        <p className="text-muted">
+          MDFlow Studio provides real-time preview functionality to help you verify
+          data parsing and column mapping before conversion. Preview is automatically
+          triggered with a 500ms debounce when pasting data.
+        </p>
+
+        <div className="space-y-6">
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <Eye className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">Preview Features</h4>
+            </div>
+            <ul className="space-y-3 text-sm text-white/70">
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Real-time Table Preview</strong> - Automatically shows parsed
+                  table structure with headers and sample rows (default: 4 rows)
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Column Mapping Display</strong> - Shows detected column mappings
+                  with visual indicators for unmapped columns
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Confidence Scoring</strong> - Displays header detection confidence
+                  (warns if &lt; 70%)
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Markdown Detection</strong> - Automatically detects markdown/prose
+                  content and shows appropriate message
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Multi-format Support</strong> - Works with paste, TSV, and XLSX
+                  inputs (including sheet selection changes)
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs space-y-3">
+            <div>
+              <span className="text-accent-green">Preview Response Structure:</span>
+              <pre className="mt-2 text-white/60 overflow-x-auto">
+{`{
+  headers: string[]
+  rows: string[][]
+  total_rows: number
+  preview_rows: number
+  header_row: number
+  confidence: number
+  column_mapping: Record<string, string>
+  unmapped_columns: string[]
+  input_type: 'table' | 'markdown'
+}`}
+              </pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  "column-mapping": {
+    title: "Column Mapping Override",
+    content: (
+      <div className="space-y-6">
+        <p className="text-muted">
+          The Studio provides manual column mapping override UI to correct auto-detection
+          errors. You can reassign columns to canonical fields directly in the preview table.
+        </p>
+
+        <div className="space-y-6">
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <Table className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">Manual Column Mapping</h4>
+            </div>
+            <ul className="space-y-3 text-sm text-white/70">
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Dropdown Selectors</strong> - Each column header has a dropdown
+                  to select the canonical field it should map to
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Visual Indicators</strong> - Unmapped columns are highlighted
+                  in gold/orange to draw attention
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>Canonical Fields</strong> - Supports all standard fields including
+                  navigation_destination, item_name, display_conditions, etc.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-accent-orange mt-1">•</span>
+                <span>
+                  <strong>State Persistence</strong> - Column overrides are stored in Zustand
+                  store and persist during the session
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-black/40 p-5 rounded-xl border border-white/10">
+            <div className="text-xs font-black uppercase tracking-widest text-accent-orange mb-3">
+              Supported Canonical Fields
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-white/60 font-mono">
+              <div>id</div>
+              <div>feature</div>
+              <div>scenario</div>
+              <div>instructions</div>
+              <div>inputs</div>
+              <div>expected</div>
+              <div>precondition</div>
+              <div>priority</div>
+              <div>type</div>
+              <div>status</div>
+              <div>endpoint</div>
+              <div>notes</div>
+              <div>no</div>
+              <div>item_name</div>
+              <div>item_type</div>
+              <div>required_optional</div>
+              <div>input_restrictions</div>
+              <div>display_conditions</div>
+              <div>action</div>
+              <div>navigation_destination</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  integrations: {
+    title: "Integrations",
+    content: (
+      <div className="space-y-6">
+        <p className="text-muted">
+          MDFlow Studio integrates with external services and provides multiple export
+          formats for seamless workflow integration.
+        </p>
+
+        <div className="space-y-6">
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <Link2 className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">Google Sheets Integration</h4>
+            </div>
+            <p className="text-sm text-white/70 mb-4">
+              Automatically detect and fetch data from public Google Sheets URLs.
+              Supports both conversion and preview modes.
+            </p>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li>• Paste Google Sheets URL directly into paste mode</li>
+              <li>• Auto-detection of sheet ID and optional gid parameter</li>
+              <li>• Fetches CSV export format from public sheets</li>
+              <li>• Supports preview and full conversion</li>
+            </ul>
+            <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/gsheet/convert<br />
+              {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "default" }`}
+            </div>
+          </div>
+
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <Download className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">Export Formats</h4>
+            </div>
+            <p className="text-sm text-white/70 mb-4">
+              Export conversion results in multiple formats for different use cases.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-3 rounded-lg bg-black/40 border border-white/5">
+                <div className="text-xs font-bold text-white mb-1">Markdown</div>
+                <div className="text-xs text-white/50">.mdflow.md</div>
+              </div>
+              <div className="p-3 rounded-lg bg-black/40 border border-white/5">
+                <div className="text-xs font-bold text-white mb-1">JSON</div>
+                <div className="text-xs text-white/50">.json</div>
+              </div>
+              <div className="p-3 rounded-lg bg-black/40 border border-white/5">
+                <div className="text-xs font-bold text-white mb-1">YAML</div>
+                <div className="text-xs text-white/50">.yaml</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <Terminal className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">CLI Tool</h4>
+            </div>
+            <p className="text-sm text-white/70 mb-4">
+              Command-line interface for automation and CI/CD workflows.
+            </p>
+            <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green space-y-2">
+              <div>
+                <span className="text-white/50"># Convert file</span><br />
+                mdflow convert --input spec.xlsx --output spec.mdflow.md --template test-plan
+              </div>
+              <div>
+                <span className="text-white/50"># Diff comparison</span><br />
+                mdflow diff before.md after.md --output diff.json
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  workflow: {
+    title: "Workflow Tools",
+    content: (
+      <div className="space-y-6">
+        <p className="text-muted">
+          MDFlow Studio includes powerful workflow tools to enhance productivity and
+          maintain conversion history.
+        </p>
+
+        <div className="space-y-6">
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <History className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">Conversion History</h4>
+            </div>
+            <p className="text-sm text-white/70 mb-4">
+              Automatically saves conversion history in localStorage. Each record includes
+              mode, template, input preview, output, and metadata.
+            </p>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li>• View all past conversions with timestamps</li>
+              <li>• Restore previous outputs with one click</li>
+              <li>• Copy output directly from history</li>
+              <li>• Clear history when needed</li>
+            </ul>
+          </div>
+
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <GitCompare className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">Diff Viewer</h4>
+            </div>
+            <p className="text-sm text-white/70 mb-4">
+              Compare different conversion outputs side-by-side or inline to track changes.
+            </p>
+            <ul className="space-y-2 text-sm text-white/60">
+              <li>• Save current output for comparison</li>
+              <li>• Side-by-side and inline diff views</li>
+              <li>• Visual highlighting of additions and deletions</li>
+              <li>• Copy diff results</li>
+            </ul>
+            <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+              POST /api/mdflow/diff<br />
+              {`{ "before": "...", "after": "..." }`}
+            </div>
+          </div>
+
+          <div className="p-5 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-3 mb-4">
+              <Keyboard className="w-5 h-5 text-accent-orange" />
+              <h4 className="text-white font-bold">Keyboard Shortcuts</h4>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5">
+                <span className="text-white">Convert</span>
+                <kbd className="px-2 py-1 rounded bg-white/10 text-white/70 font-mono text-xs">
+                  ⌘/Ctrl + Enter
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5">
+                <span className="text-white">Copy Output</span>
+                <kbd className="px-2 py-1 rounded bg-white/10 text-white/70 font-mono text-xs">
+                  ⌘/Ctrl + Shift + C
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5">
+                <span className="text-white">Download</span>
+                <kbd className="px-2 py-1 rounded bg-white/10 text-white/70 font-mono text-xs">
+                  ⌘/Ctrl + S
+                </kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
 };
 
 const DocsContentBody: React.FC = () => {
@@ -521,7 +891,7 @@ const DocsContentBody: React.FC = () => {
 
               <div className="pt-12 sm:pt-16 lg:pt-20 mt-12 sm:mt-16 lg:mt-20 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="text-xs sm:text-sm text-muted">
-                  Last updated: <span className="text-white">Jan 30, 2026</span>
+                  Last updated: <span className="text-white">January 30, 2026</span>
                 </div>
                 <div className="flex gap-4">
                   <button className="text-xs font-bold uppercase tracking-wider text-muted hover:text-accent-orange transition-colors">

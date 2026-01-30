@@ -111,6 +111,7 @@ type SpecDocMeta struct {
 	UnmappedColumns []string            `json:"unmapped_columns,omitempty"`
 	TotalRows       int                 `json:"total_rows"`
 	RowsByFeature   map[string]int      `json:"rows_by_feature,omitempty"`
+	SourceURL       string              `json:"source_url,omitempty"`
 }
 
 // ConvertRequest represents the API request for conversion
