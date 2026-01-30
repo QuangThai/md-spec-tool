@@ -9,11 +9,7 @@ export const size = {
 
 export const contentType = "image/png";
 
-export default async function OpenGraphImage() {
-  const fontData = await fetch(
-    "https://fonts.googleapis.com/css2?family=Inter:wght@700;800&display=swap",
-  ).then((res) => res.arrayBuffer());
-
+export default function OpenGraphImage() {
   return new ImageResponse(
     (
       <div
@@ -25,7 +21,7 @@ export default async function OpenGraphImage() {
           justifyContent: "center",
           background: "linear-gradient(135deg, #050505 0%, #0b0b0b 100%)",
           color: "#ffffff",
-          fontFamily: "Inter",
+          fontFamily: "sans-serif",
           position: "relative",
         }}
       >
@@ -59,14 +55,6 @@ export default async function OpenGraphImage() {
     {
       width: size.width,
       height: size.height,
-      fonts: [
-        {
-          name: "Inter",
-          data: fontData,
-          weight: 800,
-          style: "normal",
-        },
-      ],
     },
   );
 }
