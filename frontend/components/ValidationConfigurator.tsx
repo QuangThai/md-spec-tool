@@ -164,7 +164,7 @@ export function ValidationConfigurator({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
@@ -172,27 +172,27 @@ export function ValidationConfigurator({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2 }}
-          className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-[#0d0d0d] border border-white/10 shadow-2xl flex flex-col"
+          className="w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden rounded-xl sm:rounded-2xl bg-[#0d0d0d] border border-white/10 shadow-2xl flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10 bg-white/5 shrink-0">
-            <div className="flex items-center gap-2">
-              <Link2 className="w-5 h-5 text-accent-orange" />
-              <h2 className="text-sm font-black uppercase tracking-widest text-white">
+          <div className="flex items-center justify-between gap-3 px-3 sm:px-5 py-3 sm:py-4 border-b border-white/10 bg-white/5 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <Link2 className="w-4 h-4 sm:w-5 sm:h-5 text-accent-orange shrink-0" />
+              <h2 className="text-xs sm:text-sm font-black uppercase tracking-widest text-white truncate">
                 Validation Rules
               </h2>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
               aria-label="Close"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4 space-y-5 sm:space-y-6 custom-scrollbar">
             {/* Presets */}
             <section>
               <label className="label mb-2 block">Presets</label>
@@ -269,19 +269,19 @@ export function ValidationConfigurator({
                   </AnimatePresence>
                 </div>
               </div>
-              <div className="flex gap-2 mt-2">
+              <div className="flex flex-col xs:flex-row gap-2 mt-2">
                 <input
                   type="text"
                   value={presetName}
                   onChange={(e) => setPresetName(e.target.value)}
                   placeholder="Preset name"
-                  className="input flex-1 h-9 text-xs"
+                  className="input flex-1 min-w-0 h-9 text-xs"
                 />
                 <button
                   type="button"
                   onClick={saveCurrentPreset}
                   disabled={!presetName.trim()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-accent-orange/20 hover:bg-accent-orange/30 border border-accent-orange/30 text-accent-orange disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 xs:py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-accent-orange/20 hover:bg-accent-orange/30 border border-accent-orange/30 text-accent-orange disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 >
                   <Save className="w-3 h-3" />
                   Save
@@ -325,7 +325,7 @@ export function ValidationConfigurator({
             {/* Format rules */}
             <section>
               <label className="label mb-2 block">Format validation</label>
-              <div className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/10">
+              <div className="space-y-3 p-3 sm:p-4 rounded-xl bg-white/5 border border-white/10">
                 <div>
                   <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider block mb-1">
                     ID pattern (regex)
@@ -430,7 +430,7 @@ export function ValidationConfigurator({
                 {(localRules.cross_field || []).map((rule, index) => (
                   <div
                     key={index}
-                    className="flex flex-wrap items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/10"
+                    className="flex flex-wrap items-center gap-2 p-2 sm:p-3 rounded-lg bg-white/5 border border-white/10"
                   >
                     <select
                       value={rule.if_field}
@@ -439,7 +439,7 @@ export function ValidationConfigurator({
                           if_field: e.target.value,
                         })
                       }
-                      className="input h-8 text-[11px] w-28"
+                      className="input h-8 text-[11px] w-full min-w-0 xs:w-28 flex-1 xs:flex-none max-w-28 xs:max-w-none"
                     >
                       {CANONICAL_FIELDS.map((f) => (
                         <option key={f.value} value={f.value}>
@@ -447,7 +447,7 @@ export function ValidationConfigurator({
                         </option>
                       ))}
                     </select>
-                    <span className="text-white/50 text-[10px]">→</span>
+                    <span className="text-white/50 text-[10px] shrink-0">→</span>
                     <select
                       value={rule.then_field}
                       onChange={(e) =>
@@ -455,7 +455,7 @@ export function ValidationConfigurator({
                           then_field: e.target.value,
                         })
                       }
-                      className="input h-8 text-[11px] w-28"
+                      className="input h-8 text-[11px] w-full min-w-0 xs:w-28 flex-1 xs:flex-none max-w-28 xs:max-w-none"
                     >
                       {CANONICAL_FIELDS.map((f) => (
                         <option key={f.value} value={f.value}>
@@ -494,21 +494,21 @@ export function ValidationConfigurator({
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-white/10 bg-white/5 shrink-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-t border-white/10 bg-white/5 shrink-0">
             <button
               type="button"
               onClick={resetToEmpty}
-              className="text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white/70"
+              className="order-2 sm:order-1 w-full sm:w-auto flex items-center justify-center py-2 sm:py-0 rounded-lg sm:rounded-none text-[10px] font-bold uppercase tracking-wider text-white/50 hover:text-white/70 hover:bg-white/5 sm:hover:bg-transparent transition-colors touch-manipulation"
             >
               Reset to empty
             </button>
-            <div className="flex gap-2">
+            <div className="order-1 sm:order-2 flex flex-col xs:flex-row gap-2 w-full sm:w-auto">
               {showValidateAction && (
                 <button
                   type="button"
                   onClick={handleValidate}
                   disabled={!pasteText.trim() || validating}
-                  className="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/10 hover:bg-white/15 border border-white/10 text-white/80 disabled:opacity-50"
+                  className="flex-1 min-w-0 flex items-center justify-center px-4 py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/10 hover:bg-white/15 border border-white/10 text-white/80 disabled:opacity-50 touch-manipulation whitespace-nowrap"
                 >
                   {validating ? "Validating…" : "Validate"}
                 </button>
@@ -516,7 +516,7 @@ export function ValidationConfigurator({
               <button
                 type="button"
                 onClick={applyToStore}
-                className="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-accent-orange/20 hover:bg-accent-orange/30 border border-accent-orange/30 text-accent-orange"
+                className="flex-1 min-w-0 flex items-center justify-center px-4 py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-accent-orange/20 hover:bg-accent-orange/30 border border-accent-orange/30 text-accent-orange touch-manipulation whitespace-nowrap"
               >
                 Apply & close
               </button>

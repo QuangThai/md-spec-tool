@@ -15,19 +15,27 @@ import (
 	"unicode"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/md-spec-tool/internal/ai"
 	"github.com/yourorg/md-spec-tool/internal/converter"
 )
 
 type MDFlowHandler struct {
-	converter *converter.Converter
-	renderer  *converter.MDFlowRenderer
+	converter   *converter.Converter
+	renderer    *converter.MDFlowRenderer
+	aiSuggester *ai.Suggester
 }
 
 func NewMDFlowHandler() *MDFlowHandler {
 	return &MDFlowHandler{
-		converter: converter.NewConverter(),
-		renderer:  converter.NewMDFlowRenderer(),
+		converter:   converter.NewConverter(),
+		renderer:    converter.NewMDFlowRenderer(),
+		aiSuggester: nil, // Will be set via SetAISuggester
 	}
+}
+
+// SetAISuggester sets the AI suggester instance
+func (h *MDFlowHandler) SetAISuggester(suggester *ai.Suggester) {
+	h.aiSuggester = suggester
 }
 
 const (
@@ -1130,5 +1138,103 @@ func (h *MDFlowHandler) PreviewXLSX(c *gin.Context) {
 		ColumnMapping: columnMapping,
 		UnmappedCols:  unmapped,
 		InputType:     "table",
+	})
+}
+
+// AISuggestRequest represents the request for AI suggestions
+type AISuggestRequest struct {
+	PasteText string `json:"paste_text" binding:"required"`
+	Template  string `json:"template"`
+}
+
+// AISuggestResponse represents the AI suggestions response
+type AISuggestResponse struct {
+	Suggestions []ai.AISuggestion `json:"suggestions"`
+	Error       string            `json:"error,omitempty"`
+	Configured  bool              `json:"configured"`
+}
+
+// GetAISuggestions handles POST /api/mdflow/ai/suggest
+// Analyzes spec content and returns AI-powered improvement suggestions
+func (h *MDFlowHandler) GetAISuggestions(c *gin.Context) {
+	// Check if AI suggester is configured
+	if h.aiSuggester == nil {
+		c.JSON(http.StatusOK, AISuggestResponse{
+			Suggestions: []ai.AISuggestion{},
+			Error:       "AI suggestions not configured on server",
+			Configured:  false,
+		})
+		return
+	}
+
+	if !h.aiSuggester.IsConfigured() {
+		c.JSON(http.StatusOK, AISuggestResponse{
+			Suggestions: []ai.AISuggestion{},
+			Error:       "OpenAI API key not configured",
+			Configured:  false,
+		})
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxPasteBodyBytes)
+
+	var req AISuggestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{Error: "request body exceeds limit"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "paste_text is required"})
+		return
+	}
+
+	// Validate input size
+	if len(req.PasteText) > maxPasteBytes {
+		c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{Error: "paste_text exceeds 1MB limit"})
+		return
+	}
+
+	// Sanitize template
+	template := strings.TrimSpace(req.Template)
+	if len(template) > maxTemplateLen {
+		template = template[:maxTemplateLen]
+	}
+	if template == "" {
+		template = "default"
+	}
+
+	// Parse the paste text into a SpecDoc
+	specDoc, err := converter.BuildSpecDocFromPaste(req.PasteText)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "failed to parse input: " + err.Error()})
+		return
+	}
+
+	// Call AI suggester
+	suggestReq := &ai.SuggestionRequest{
+		SpecDoc:  specDoc,
+		Template: template,
+	}
+
+	resp, err := h.aiSuggester.GetSuggestions(suggestReq)
+	if err != nil {
+		log.Printf("AI suggestion error: %v", err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to get AI suggestions"})
+		return
+	}
+
+	if resp.Error != "" {
+		c.JSON(http.StatusOK, AISuggestResponse{
+			Suggestions: []ai.AISuggestion{},
+			Error:       resp.Error,
+			Configured:  true,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, AISuggestResponse{
+		Suggestions: resp.Suggestions,
+		Configured:  true,
 	})
 }

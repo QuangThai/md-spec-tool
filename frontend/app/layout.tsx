@@ -1,9 +1,9 @@
 import AppHeader from "@/components/AppHeader";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import type { Metadata } from "next";
 import { Geist_Mono as GeistMono, Inter } from "next/font/google";
 import Link from "next/link";
 import React from "react";
-import type { Metadata } from "next";
 import "../styles/globals.css";
 
 const inter = Inter({
@@ -73,7 +73,9 @@ export default function RootLayout({
       <body className="relative bg-bg-mesh">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationJsonLd),
+          }}
         />
         {/* Advanced Ambient Glows */}
         <div className="aurora-bg">
@@ -88,53 +90,54 @@ export default function RootLayout({
             {children}
           </main>
 
-          <footer className="relative mt-20 border-t border-white/5 bg-[#020202] overflow-hidden">
-            {/* Subtle top accent line */}
+          <footer className="relative mt-16 border-t border-white/5 bg-[#020202]/80 backdrop-blur-sm overflow-hidden">
+            {/* Top accent: thin gradient line */}
             <div
-              className="absolute left-0 right-0 top-0 h-px z-10 opacity-60"
+              className="absolute left-0 right-0 top-0 h-px z-10"
               style={{
                 background:
-                  "linear-gradient(90deg, transparent, rgba(242,123,47,0.4) 20%, rgba(242,123,47,0.6) 50%, rgba(242,123,47,0.4) 80%, transparent)",
+                  "linear-gradient(90deg, transparent 0%, rgba(242,123,47,0.35) 30%, rgba(242,123,47,0.5) 50%, rgba(242,123,47,0.35) 70%, transparent 100%)",
               }}
             />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(242,123,47,0.04),transparent)]" />
             <div
-              className="absolute inset-0 opacity-[0.02]"
+              className="absolute inset-0 opacity-[0.015]"
               style={{
                 backgroundImage:
                   "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-                backgroundSize: "24px 24px",
+                backgroundSize: "20px 20px",
               }}
             />
 
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-20">
-              {/* Compact CTA block */}
-              <div className="py-8 sm:py-10 lg:py-12 flex flex-col items-center text-center space-y-3 sm:space-y-4 border-b border-white/5">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-accent-orange/10 border border-accent-orange/20 text-accent-orange text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent-orange" />
-                  System v1.2.0 Live
+              {/* Single-row CTA strip: badge + copy + button — compact, one line on lg */}
+              <div className="py-5 sm:py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6 border-b border-white/5">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 min-w-0">
+                  <div className="inline-flex items-center gap-1.5 w-fit px-2 py-0.5 rounded-md bg-accent-orange/8 border border-accent-orange/15">
+                    <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-[9px] font-bold text-white/60 uppercase tracking-wider">
+                      v1.2.0
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm sm:text-base font-semibold text-white/95 tracking-tight">
+                      Ready to scale your spec?
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-muted mt-0.5">
+                      MDFlow precision engine · docs in minutes
+                    </p>
+                  </div>
                 </div>
-                <h2 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter leading-tight">
-                  Ready to{" "}
-                  <span className="text-transparent bg-clip-text bg-linear-to-br from-white to-white/70">
-                    Scale Your Spec?
-                  </span>
-                </h2>
-                <p className="max-w-md text-xs sm:text-sm lg:text-base text-muted font-medium">
-                  Automate technical documentation with MDFlow's precision
-                  engine.
-                </p>
                 <Link
                   href="/studio"
-                  className="mt-1 h-9 sm:h-10 px-4 sm:px-6 rounded-lg bg-white text-black font-bold text-xs sm:text-sm tracking-wide hover:bg-white/95 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 inline-flex items-center justify-center"
+                  className="shrink-0 h-9 px-5 rounded-lg bg-white text-black font-bold text-xs tracking-wide hover:bg-white/95 hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] transition-all duration-200 inline-flex items-center justify-center"
                 >
                   Launch Studio
                 </Link>
               </div>
 
               {/* Dense footer bar: logo · nav · status · legal */}
-              <div className="py-4 sm:py-5 lg:py-6 flex flex-wrap items-center justify-between gap-3 sm:gap-4 lg:gap-6">
-                <div className="flex items-center gap-6 sm:gap-8 min-w-0">
+              <div className="py-3 sm:py-4 flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-4 sm:gap-6 min-w-0">
                   <Link
                     href="/"
                     className="flex items-center gap-1 shrink-0 opacity-90 hover:opacity-100 transition-opacity"
@@ -144,7 +147,7 @@ export default function RootLayout({
                       viewBox="0 0 160 40"
                       fill="none"
                       xmlns="http://www.w3.org/2000/svg"
-                      className="h-10 sm:h-12 w-auto"
+                      className="h-8 sm:h-9 w-auto"
                       aria-label="MDFlow Logo"
                     >
                       <defs>
@@ -204,18 +207,17 @@ export default function RootLayout({
                   </nav>
                 </div>
 
-                <div className="flex items-center gap-4 sm:gap-6 shrink-0">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500/80" />
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/10">
+                    <span className="relative flex h-1.5 w-1.5 shrink-0">
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                     </span>
-                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">
-                      All Systems Normal
+                    <span className="text-[9px] font-semibold text-white/45 uppercase tracking-wider">
+                      Systems OK
                     </span>
                   </div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
-                    © 2026 MDFlow Inc.
+                  <p className="text-[9px] font-medium uppercase tracking-wider text-muted">
+                    © 2026 MDFlow
                   </p>
                 </div>
               </div>

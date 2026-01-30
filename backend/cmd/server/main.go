@@ -10,10 +10,21 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	// Try loading .env from multiple locations:
+	// 1. Current directory (when running from backend/)
+	// 2. Parent directory (when .env is in project root)
+	_ = godotenv.Load()
+	_ = godotenv.Load("../.env")
 
 	cfg := config.LoadConfig()
 	log.Printf("Starting server on %s:%s", cfg.Host, cfg.Port)
+	
+	// Log OpenAI configuration status
+	if cfg.OpenAIAPIKey != "" {
+		log.Printf("OpenAI API key configured (model: %s)", cfg.OpenAIModel)
+	} else {
+		log.Printf("Warning: OpenAI API key not configured - AI suggestions will be disabled")
+	}
 
 	// Setup router
 	router := http.SetupRouter(cfg)

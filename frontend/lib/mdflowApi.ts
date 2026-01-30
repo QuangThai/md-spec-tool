@@ -492,3 +492,54 @@ export async function previewTemplate(
     return { error: error instanceof Error ? error.message : 'Network error' };
   }
 }
+
+// AI Suggestions types and functions
+export type AISuggestionType =
+  | 'missing_field'
+  | 'vague_description'
+  | 'incomplete_steps'
+  | 'formatting'
+  | 'coverage';
+
+export interface AISuggestion {
+  type: AISuggestionType;
+  severity: 'info' | 'warn' | 'error';
+  message: string;
+  row_ref?: number;
+  field?: string;
+  suggestion: string;
+}
+
+export interface AISuggestResponse {
+  suggestions: AISuggestion[];
+  error?: string;
+  configured: boolean;
+}
+
+export async function getAISuggestions(
+  pasteText: string,
+  template?: string
+): Promise<{ data?: AISuggestResponse; error?: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/mdflow/ai/suggest`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        paste_text: pasteText,
+        template: template || 'default',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return { error: errorData.error || `HTTP ${response.status}` };
+    }
+
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Network error' };
+  }
+}

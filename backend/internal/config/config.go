@@ -5,9 +5,11 @@ import (
 )
 
 type Config struct {
-	Host        string
-	Port        string
-	CORSOrigins []string
+	Host         string
+	Port         string
+	CORSOrigins  []string
+	OpenAIAPIKey string
+	OpenAIModel  string
 }
 
 func LoadConfig() *Config {
@@ -18,9 +20,11 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		Host:        getEnv("HOST", "0.0.0.0"),
-		Port:        getEnv("PORT", "8080"),
-		CORSOrigins: parsedCORSOrigins,
+		Host:         getEnv("HOST", "0.0.0.0"),
+		Port:         getEnv("PORT", "8080"),
+		CORSOrigins:  parsedCORSOrigins,
+		OpenAIAPIKey: getEnv("OPENAI_API_KEY", ""),
+		OpenAIModel:  getEnv("OPENAI_MODEL", "gpt-4o-mini"),
 	}
 }
 

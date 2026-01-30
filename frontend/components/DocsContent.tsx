@@ -420,7 +420,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
     content: (
       <div className="space-y-6">
         <p className="text-muted">
-          MDFlow renders outputs using named templates. The API defaults to
+          MDFlow renders outputs using named templates. The API defaults to{" "}
           <code className="text-accent-orange">default</code> when no template
           is provided, and falls back to <code>default</code> when the template
           name is unknown. Markdown/prose inputs always render with the
@@ -809,13 +809,13 @@ const DocsContentBody: React.FC = () => {
   }, [filteredSections, activeSection]);
 
   return (
-    <div className="min-h-screen pt-8 sm:pt-12 pb-16 sm:pb-24">
+    <div className="min-h-screen pt-4 sm:pt-8 lg:pt-12 pb-0 sm:pb-16 lg:pb-24">
       <div className="app-container">
-        <div className="grid lg:grid-cols-[260px_1fr] xl:grid-cols-[280px_1fr] gap-8 sm:gap-12">
+        <div className="grid lg:grid-cols-[260px_1fr] xl:grid-cols-[280px_1fr] gap-6 sm:gap-8 lg:gap-12">
           <motion.aside
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="hidden lg:block space-y-6 lg:space-y-8 sticky top-24 lg:top-32 h-fit"
+            className="hidden lg:block space-y-6 lg:space-y-8 sticky top-20 lg:top-28 h-fit"
           >
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -864,16 +864,57 @@ const DocsContentBody: React.FC = () => {
             </nav>
           </motion.aside>
 
-          <main className="min-w-0">
+          {/* Mobile: refined search + section selector (sidebar replacement) */}
+          <div className="lg:hidden space-y-3 sticky top-14 sm:top-16 z-30 -mx-4 px-4 py-4 sm:mx-0 sm:px-0 sm:py-0 sm:relative pb-5 sm:pb-0">
+            <div className="rounded-2xl border border-white/10 bg-surface/90 backdrop-blur-xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] p-3 sm:p-0 sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none sm:backdrop-blur-none">
+              <div className="relative mb-3 sm:mb-0">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search docs..."
+                  className="w-full h-10 pl-10 pr-4 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-accent-orange/40 focus:ring-2 focus:ring-accent-orange/10 transition-all"
+                />
+              </div>
+              <label className="sr-only" htmlFor="docs-section-select">
+                Jump to section
+              </label>
+              <select
+                id="docs-section-select"
+                value={activeSection}
+                onChange={(e) => setActiveSection(e.target.value)}
+                className="w-full h-11 pl-4 pr-10 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white focus:outline-none focus:border-accent-orange/40 focus:ring-2 focus:ring-accent-orange/10 appearance-none cursor-pointer transition-all scheme-dark"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23f97316' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 0.75rem center",
+                }}
+              >
+                {filteredSections.map((section) => (
+                  <optgroup key={section.title} label={section.title}>
+                    {section.items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.title}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <main className="min-w-0 lg:col-start-2">
             <motion.div
               key={activeSection}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-8"
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="space-y-6 sm:space-y-8"
             >
-              <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-accent-orange mb-2">
-                Docs <ChevronRight className="w-3 h-3" />{" "}
+              <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-accent-orange/90 mb-1">
+                <span className="text-white/50">Docs</span>
+                <ChevronRight className="w-3 h-3 text-white/30" />
                 {
                   docsSections.find((s) =>
                     s.items.find((i) => i.id === activeSection),
@@ -881,7 +922,7 @@ const DocsContentBody: React.FC = () => {
                 }
               </div>
 
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-black text-white tracking-tighter uppercase">
+              <h1 className="text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-black text-white tracking-tighter uppercase leading-tight">
                 {docContent[activeSection]?.title || "Documentation"}
               </h1>
 

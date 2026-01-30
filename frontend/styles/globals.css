@@ -4,6 +4,9 @@
   --font-inter: var(--font-inter);
   --font-geist-mono: var(--font-geist-mono);
 
+  /* Custom Breakpoints */
+  --breakpoint-xs: 475px;
+
   /* Design Tokens from style.md */
   --color-primary: #f27b2f;
   --color-accent-blue: #3772cf;

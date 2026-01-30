@@ -2,6 +2,7 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/md-spec-tool/internal/ai"
 	"github.com/yourorg/md-spec-tool/internal/config"
 	"github.com/yourorg/md-spec-tool/internal/http/handlers"
 	"github.com/yourorg/md-spec-tool/internal/http/middleware"
@@ -19,6 +20,13 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 
 	// MDFlow converter routes (public, no auth required)
 	mdflowHandler := handlers.NewMDFlowHandler()
+
+	// Configure AI suggester if API key is available
+	if cfg.OpenAIAPIKey != "" {
+		aiSuggester := ai.NewSuggester(cfg.OpenAIAPIKey, cfg.OpenAIModel)
+		mdflowHandler.SetAISuggester(aiSuggester)
+	}
+
 	mdflow := router.Group("/api/mdflow")
 	{
 		mdflow.POST("/paste", mdflowHandler.ConvertPaste)
@@ -36,6 +44,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		mdflow.POST("/gsheet", mdflowHandler.FetchGoogleSheet)
 		mdflow.POST("/gsheet/convert", mdflowHandler.ConvertGoogleSheet)
 		mdflow.POST("/validate", mdflowHandler.Validate)
+		mdflow.POST("/ai/suggest", mdflowHandler.GetAISuggestions)
 	}
 
 	return router

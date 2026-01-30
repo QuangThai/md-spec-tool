@@ -265,10 +265,10 @@ export default function MDFlowLanding() {
       </section>
 
       {/* 🛠 Feature Grid - Bento Box Style */}
-      <section id="features" className="app-container py-8 sm:py-12">
+      <section id="features" className="app-container py-6 sm:py-10 lg:py-12">
         <motion.div
           {...fadeInUpSoft}
-          className="text-center max-w-4xl mx-auto mb-12 sm:mb-20 lg:mb-24 space-y-4 sm:space-y-6"
+          className="text-center max-w-4xl mx-auto mb-6 sm:mb-12 lg:mb-16 space-y-3 sm:space-y-5"
         >
           <div className="pill border-accent-orange/30 text-accent-orange mx-auto">
             Core Toolchain
@@ -288,7 +288,7 @@ export default function MDFlowLanding() {
           initial="initial"
           whileInView="whileInView"
           viewport={{ once: true, amount: 0.12 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
+          className="w-full grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 lg:gap-4"
         >
           {features.map((feature, i) => (
             <motion.div
@@ -296,34 +296,34 @@ export default function MDFlowLanding() {
               variants={fadeInUpSoft}
               transition={{ duration: 0.85, ease: [0.25, 0.46, 0.45, 0.94] }}
               whileHover={{ y: -4 }}
-              className={`bento-card group p-1 relative overflow-hidden min-h-[260px] sm:min-h-[300px] lg:h-[350px]`}
+              className="bento-card group p-1 relative overflow-hidden min-h-[200px] sm:min-h-[260px] md:min-h-[280px] lg:h-[320px]"
             >
               <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent" />
-              <div className="relative px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 lg:pt-10 pb-10 sm:pb-12 lg:pb-14 h-full flex flex-col z-10">
-                <div className="mb-auto">
-                  <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-8">
-                    <div className="p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-accent-orange/10 border border-accent-orange/20 text-accent-orange shadow-lg shadow-accent-orange/5 group-hover:scale-110 transition-transform duration-500">
+              <div className="relative px-2.5 sm:px-5 lg:px-8 pt-2.5 sm:pt-5 lg:pt-8 pb-5 sm:pb-8 lg:pb-10 h-full flex flex-col z-10">
+                <div className="mb-auto min-w-0">
+                  <div className="flex items-center justify-between gap-1 mb-2 sm:mb-4 lg:mb-6">
+                    <div className="p-1.5 sm:p-2.5 lg:p-3 rounded-lg sm:rounded-xl lg:rounded-2xl bg-accent-orange/10 border border-accent-orange/20 text-accent-orange shadow-lg shadow-accent-orange/5 group-hover:scale-110 transition-transform duration-500 shrink-0 [&>svg]:w-3 [&>svg]:h-3 sm:[&>svg]:w-4 sm:[&>svg]:h-4 lg:[&>svg]:w-5 lg:[&>svg]:h-5">
                       {feature.icon}
                     </div>
-                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-white/20 group-hover:text-accent-orange/40 transition-colors">
+                    <span className="text-[8px] sm:text-[9px] lg:text-[10px] font-black uppercase tracking-widest text-white/20 group-hover:text-accent-orange/40 transition-colors shrink-0 truncate">
                       {feature.tag}
                     </span>
                   </div>
-                  <h3 className="text-base sm:text-lg lg:text-xl font-black text-white uppercase tracking-tight mb-2 sm:mb-4">
+                  <h3 className="text-[11px] sm:text-base lg:text-xl font-black text-white uppercase tracking-tight mb-1 sm:mb-2 lg:mb-4 line-clamp-2 sm:line-clamp-none">
                     {feature.title}
                   </h3>
-                  <p className="text-xs sm:text-sm lg:text-[15px] text-muted leading-relaxed font-medium">
+                  <p className="text-[10px] sm:text-xs lg:text-[15px] text-muted leading-snug sm:leading-relaxed font-medium line-clamp-2 sm:line-clamp-3 lg:line-clamp-none">
                     {feature.desc}
                   </p>
                 </div>
 
                 <div
-                  className="mt-4 sm:mt-6 lg:mt-8 flex items-center gap-2 text-[9px] sm:text-[10px] font-black text-accent-orange uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0 cursor-pointer"
+                  className="mt-2 sm:mt-4 lg:mt-6 flex items-center gap-1 sm:gap-2 text-[8px] sm:text-[9px] lg:text-[10px] font-black text-accent-orange uppercase tracking-widest opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-all -translate-x-1 sm:-translate-x-2 sm:group-hover:translate-x-0 cursor-pointer active:opacity-100"
                   onClick={() => {
                     router.push(`/docs?section=${feature.docId}`);
                   }}
                 >
-                  Learn Detail <ChevronRight className="w-3 h-3" />
+                  Learn Detail <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
                 </div>
               </div>
             </motion.div>

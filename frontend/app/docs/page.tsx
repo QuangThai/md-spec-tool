@@ -2,18 +2,29 @@ import DocsContent from "@/components/DocsContent";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Docs",
+  title: "Documentation | MDFlow Studio",
   description:
-    "MDFlow documentation covering architecture, parsing logic, and templates.",
+    "Complete MDFlow documentation covering architecture, API reference, features, input formats, conversion engine, AI suggestions, batch processing, and deployment guide.",
   alternates: {
     canonical: "/docs",
   },
+  keywords: [
+    "MDFlow",
+    "documentation",
+    "API reference",
+    "architecture",
+    "features",
+    "batch processing",
+    "AI suggestions",
+    "technical specifications",
+    "Excel to Markdown",
+  ],
   openGraph: {
     type: "article",
     url: "/docs",
-    title: "Docs | MDFlow Studio",
+    title: "Documentation | MDFlow Studio",
     description:
-      "MDFlow documentation covering architecture, parsing logic, and templates.",
+      "Complete MDFlow documentation: architecture, API reference, features guide, input formats, conversion engine, templates, AI suggestions, batch processing, Google Sheets integration, diff & comparison, and deployment.",
     images: [
       {
         url: "https://md-spec-tool.vercel.app/docs/opengraph-image",
@@ -21,25 +32,37 @@ export const metadata: Metadata = {
         type: "image/png",
         width: 1200,
         height: 630,
-        alt: "MDFlow Docs",
+        alt: "MDFlow Documentation",
       },
     ],
+    siteName: "MDFlow Studio",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Docs | MDFlow Studio",
+    title: "Documentation | MDFlow Studio",
     description:
-      "MDFlow documentation covering architecture, parsing logic, and templates.",
+      "Complete MDFlow documentation: architecture, API, features, batch processing, AI suggestions, and deployment guide.",
     images: ["https://md-spec-tool.vercel.app/docs/opengraph-image"],
+    creator: "@mdflow",
   },
 };
 
 const docsJsonLd = {
   "@context": "https://schema.org",
   "@type": "TechArticle",
-  headline: "MDFlow Documentation",
+  headline: "MDFlow Studio - Complete Documentation",
   description:
-    "MDFlow documentation covering architecture, parsing logic, and templates.",
+    "Complete documentation covering system architecture, API reference, features guide, batch processing, AI suggestions, Google Sheets integration, diff & comparison tools, conversion engine mechanics, templates, input formats, and deployment guide.",
+  image: "https://md-spec-tool.vercel.app/docs/opengraph-image",
+  keywords: [
+    "MDFlow",
+    "technical specifications",
+    "Excel to Markdown",
+    "API documentation",
+    "batch processing",
+    "AI suggestions",
+    "Google Sheets",
+  ],
   author: {
     "@type": "Organization",
     name: "MDFlow Studio",
@@ -51,6 +74,8 @@ const docsJsonLd = {
     url: "https://md-spec-tool.vercel.app",
   },
   url: "https://md-spec-tool.vercel.app/docs",
+  datePublished: "2024-01-01",
+  dateModified: new Date().toISOString().split("T")[0],
 };
 
 const docsBreadcrumbJsonLd = {
@@ -66,7 +91,13 @@ const docsBreadcrumbJsonLd = {
     {
       "@type": "ListItem",
       position: 2,
-      name: "Docs",
+      name: "Studio",
+      item: "https://md-spec-tool.vercel.app/studio",
+    },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: "Documentation",
       item: "https://md-spec-tool.vercel.app/docs",
     },
   ],

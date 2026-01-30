@@ -6,6 +6,7 @@ import {
   convertTSV,
   convertXLSX,
   diffMDFlow,
+  getAISuggestions,
   getMDFlowTemplates,
   getXLSXSheets,
   isGoogleSheetsURL,
@@ -41,6 +42,7 @@ import {
   Save,
   Share2,
   ShieldCheck,
+  Sparkles,
   Table,
   Terminal,
   X,
@@ -49,11 +51,13 @@ import {
 import Link from "next/link";
 import { generateShareURL, isShareDataTooLong, ShareData } from "@/lib/shareUtils";
 import { useCallback, useEffect, useState } from "react";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { DiffViewer } from "./DiffViewer";
 import { OnboardingTour, RestartTourButton } from "./OnboardingTour";
 import { TemplateCards } from "./TemplateCards";
 import { TemplateEditor } from "./TemplateEditor";
 import { ValidationConfigurator } from "./ValidationConfigurator";
+import { AISuggestionsPanel } from "./AISuggestionsPanel";
 import { WarningPanel } from "./WarningPanel";
 import { ResizablePanels } from "./ui/ResizablePanels";
 import { Select } from "./ui/Select";
@@ -106,6 +110,14 @@ export default function MDFlowWorkbench() {
     setShowPreview,
     setColumnOverride,
     clearColumnOverrides,
+    aiSuggestions,
+    aiSuggestionsLoading,
+    aiSuggestionsError,
+    aiConfigured,
+    setAISuggestions,
+    setAISuggestionsLoading,
+    setAISuggestionsError,
+    clearAISuggestions,
     reset,
   } = useMDFlowStore();
 
@@ -120,6 +132,7 @@ export default function MDFlowWorkbench() {
   const [showHistory, setShowHistory] = useState(false);
   const [showValidationConfigurator, setShowValidationConfigurator] = useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const isNarrow = useMediaQuery("(max-width: 480px)");
 
   useEffect(() => {
     getMDFlowTemplates().then((res) => {
@@ -326,6 +339,38 @@ export default function MDFlowWorkbench() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, [mdflowOutput]);
+
+  const handleGetAISuggestions = useCallback(async () => {
+    if (!pasteText.trim() || aiSuggestionsLoading) return;
+    
+    setAISuggestionsLoading(true);
+    setAISuggestionsError(null);
+    clearAISuggestions();
+    
+    const result = await getAISuggestions(pasteText, template);
+    
+    setAISuggestionsLoading(false);
+    
+    if (result.error) {
+      setAISuggestionsError(result.error);
+      return;
+    }
+    
+    if (result.data) {
+      setAISuggestions(result.data.suggestions, result.data.configured);
+      if (result.data.error) {
+        setAISuggestionsError(result.data.error);
+      }
+    }
+  }, [
+    pasteText,
+    template,
+    aiSuggestionsLoading,
+    setAISuggestionsLoading,
+    setAISuggestionsError,
+    setAISuggestions,
+    clearAISuggestions,
+  ]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -829,26 +874,26 @@ export default function MDFlowWorkbench() {
 
               <div className="px-5 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8 border-t border-white/5 bg-white/2 flex flex-col gap-4 shrink-0">
                 <div className="w-full space-y-2" data-tour="template-selector">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <label className="label">Template</label>
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-2">
+                    <label className="label mb-0">Template</label>
+                    <div className="flex flex-col xs:flex-row gap-2 xs:gap-2">
                       <button
                         type="button"
                         onClick={() => setShowTemplateEditor(true)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all"
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all touch-manipulation min-w-0"
                         title="Create custom templates"
                       >
-                        <FileCode className="w-3 h-3" />
-                        Template Editor
+                        <FileCode className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{isNarrow ? "Editor" : "Template Editor"}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowValidationConfigurator(true)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all"
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all touch-manipulation min-w-0"
                         title="Configure validation rules"
                       >
-                        <ShieldCheck className="w-3 h-3" />
-                        Validation rules
+                        <ShieldCheck className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{isNarrow ? "Rules" : "Validation rules"}</span>
                       </button>
                     </div>
                   </div>
@@ -878,7 +923,7 @@ export default function MDFlowWorkbench() {
                             whileHover={!isDisabled ? { scale: 1.02 } : {}}
                             whileTap={!isDisabled ? { scale: 0.98 } : {}}
                             onClick={handleConvert}
-                            disabled={isDisabled}
+                            disabled={isDisabled || loading}
                             className={`
                               h-12 w-full sm:w-auto min-w-[140px] sm:min-w-[160px] px-6 sm:px-8 
                               uppercase tracking-[0.18em] rounded-xl shrink-0
@@ -901,15 +946,13 @@ export default function MDFlowWorkbench() {
                             {loading ? (
                               <>
                                 <RefreshCcw
-                                  className="w-4 h-4 animate-spin text-accent-orange"
+                                  className="w-4 h-4 animate-spin"
                                   aria-hidden
                                 />
-                                <span className="text-accent-orange">
-                                  Processing...
-                                </span>
+                                <span>Running</span>
                               </>
                             ) : (
-                              <span className="flex items-center gap-2.5">
+                              <>
                                 <Zap
                                   className={`w-4 h-4 transition-transform ${
                                     isDisabled
@@ -917,11 +960,8 @@ export default function MDFlowWorkbench() {
                                       : "group-hover:scale-110 group-hover:rotate-12"
                                   }`}
                                 />
-                                Run
-                                {!isDisabled && (
-                                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                                )}
-                              </span>
+                                <span>Run</span>
+                              </>
                             )}
                           </motion.button>
                           {!isDisabled && (
@@ -1005,6 +1045,20 @@ export default function MDFlowWorkbench() {
                     >
                       <Save className="w-3 h-3 shrink-0" />
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleGetAISuggestions}
+                      disabled={!pasteText.trim() || aiSuggestionsLoading}
+                      className={`flex items-center justify-center h-8 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 gap-1.5 ${
+                        !pasteText.trim() || aiSuggestionsLoading
+                          ? "bg-white/5 text-white/30 cursor-not-allowed border border-white/10"
+                          : "bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 hover:border-purple-500/40"
+                      }`}
+                      title="Get AI suggestions for quality improvements"
+                    >
+                      <Sparkles className={`w-3 h-3 shrink-0 ${aiSuggestionsLoading ? "animate-pulse" : ""}`} />
+                      <span className="hidden sm:inline">AI</span>
+                    </button>
                     <ShareButton
                       mdflowOutput={mdflowOutput}
                       template={template}
@@ -1057,6 +1111,10 @@ export default function MDFlowWorkbench() {
                   meta={meta}
                   warnings={warnings}
                   mdflowOutput={mdflowOutput}
+                  aiSuggestions={aiSuggestions}
+                  aiSuggestionsLoading={aiSuggestionsLoading}
+                  aiSuggestionsError={aiSuggestionsError}
+                  aiConfigured={aiConfigured}
                 />
               </div>
             </div>
@@ -1157,12 +1215,16 @@ export default function MDFlowWorkbench() {
 }
 
 /* Footer analytics panel */
-import { MDFlowWarning } from "@/lib/mdflowApi";
+import { AISuggestion, MDFlowWarning } from "@/lib/mdflowApi";
 
 function TechnicalAnalysis({
   meta,
   warnings,
   mdflowOutput,
+  aiSuggestions,
+  aiSuggestionsLoading,
+  aiSuggestionsError,
+  aiConfigured,
 }: {
   meta: {
     nodeCount?: number;
@@ -1175,6 +1237,10 @@ function TechnicalAnalysis({
   } | null;
   warnings: MDFlowWarning[];
   mdflowOutput: string | null;
+  aiSuggestions: AISuggestion[];
+  aiSuggestionsLoading: boolean;
+  aiSuggestionsError: string | null;
+  aiConfigured: boolean | null;
 }) {
   return (
     <AnimatePresence mode="wait">
@@ -1240,6 +1306,16 @@ function TechnicalAnalysis({
           {/* Enhanced Warning Panel */}
           {warnings && warnings.length > 0 && (
             <WarningPanel warnings={warnings} />
+          )}
+
+          {/* AI Suggestions Panel */}
+          {(aiSuggestions.length > 0 || aiSuggestionsLoading || aiSuggestionsError) && (
+            <AISuggestionsPanel
+              suggestions={aiSuggestions}
+              loading={aiSuggestionsLoading}
+              error={aiSuggestionsError}
+              configured={aiConfigured}
+            />
           )}
         </motion.div>
       )}

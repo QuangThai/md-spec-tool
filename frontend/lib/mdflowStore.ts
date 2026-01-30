@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { MDFlowMeta, MDFlowWarning, PreviewResponse, ValidationRules } from './mdflowApi';
+import { AISuggestion, MDFlowMeta, MDFlowWarning, PreviewResponse, ValidationRules } from './mdflowApi';
 
 export type InputMode = 'paste' | 'xlsx' | 'tsv';
 
@@ -48,6 +48,12 @@ interface MDFlowStore {
   // Validation rules (custom validation configurator)
   validationRules: ValidationRules;
   
+  // AI Suggestions state
+  aiSuggestions: AISuggestion[];
+  aiSuggestionsLoading: boolean;
+  aiSuggestionsError: string | null;
+  aiConfigured: boolean | null; // null = unknown, true = configured, false = not configured
+  
   loading: boolean;
   error: string | null;
   
@@ -77,6 +83,12 @@ interface MDFlowStore {
   addToHistory: (record: Omit<ConversionRecord, 'id' | 'timestamp'>) => void;
   clearHistory: () => void;
   
+  // AI Suggestions actions
+  setAISuggestions: (suggestions: AISuggestion[], configured: boolean) => void;
+  setAISuggestionsLoading: (loading: boolean) => void;
+  setAISuggestionsError: (error: string | null) => void;
+  clearAISuggestions: () => void;
+  
   reset: () => void;
 }
 
@@ -99,6 +111,10 @@ const initialState = {
     format_rules: null,
     cross_field: [],
   } as ValidationRules,
+  aiSuggestions: [] as AISuggestion[],
+  aiSuggestionsLoading: false,
+  aiSuggestionsError: null as string | null,
+  aiConfigured: null as boolean | null,
   loading: false,
   error: null as string | null,
   dismissedWarningCodes: {} as Record<string, boolean>,
@@ -170,6 +186,12 @@ export const useMDFlowStore = create<MDFlowStore>((set) => ({
   // History actions (delegated to persisted store)
   addToHistory: () => {},
   clearHistory: () => {},
+  
+  // AI Suggestions actions
+  setAISuggestions: (aiSuggestions, aiConfigured) => set({ aiSuggestions, aiConfigured, aiSuggestionsError: null }),
+  setAISuggestionsLoading: (aiSuggestionsLoading) => set({ aiSuggestionsLoading }),
+  setAISuggestionsError: (aiSuggestionsError) => set({ aiSuggestionsError }),
+  clearAISuggestions: () => set({ aiSuggestions: [], aiSuggestionsError: null }),
   
   reset: () => set({ ...initialState, history: [], validationRules: initialState.validationRules }),
 }));
