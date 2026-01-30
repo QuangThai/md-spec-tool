@@ -107,71 +107,32 @@ export default function RootLayout({
                     >
                       <defs>
                         <linearGradient
-                          id="footer-prism-light"
-                          x1="0%"
-                          y1="0%"
-                          x2="100%"
-                          y2="100%"
-                        >
-                          <stop offset="0%" stopColor="#FFF7ED" />
-                          <stop offset="100%" stopColor="#FCD34D" />
-                        </linearGradient>
-                        <linearGradient
-                          id="footer-prism-mid"
+                          id="footer-flow-gradient"
                           x1="0%"
                           y1="0%"
                           x2="100%"
                           y2="0%"
                         >
                           <stop offset="0%" stopColor="#F59E0B" />
-                          <stop offset="100%" stopColor="#D97706" />
-                        </linearGradient>
-                        <linearGradient
-                          id="footer-prism-dark"
-                          x1="100%"
-                          y1="0%"
-                          x2="0%"
-                          y2="100%"
-                        >
-                          <stop offset="0%" stopColor="#B45309" />
-                          <stop offset="100%" stopColor="#78350F" />
+                          <stop offset="100%" stopColor="#F97316" />
                         </linearGradient>
                       </defs>
                       <g opacity="0.9">
-                        <g transform="translate(4, 4)">
-                          <path
-                            d="M6 32V12L16 6L16 26L6 32Z"
-                            fill="url(#footer-prism-dark)"
-                          />
-                          <path
-                            d="M6 12L16 6L22 10L12 16L6 12Z"
-                            fill="url(#footer-prism-light)"
-                          />
-                          <path
-                            d="M16 26L22 22V10L16 6V26Z"
-                            fill="url(#footer-prism-mid)"
-                          />
-                          <path d="M22 10L28 14L22 22Z" fill="#78350F" />
-                          <path
-                            d="M38 32V12L28 6L28 26L38 32Z"
-                            fill="url(#footer-prism-dark)"
-                          />
-                          <path
-                            d="M38 12L28 6L22 10L32 16L38 12Z"
-                            fill="url(#footer-prism-light)"
-                          />
-                          <path
-                            d="M28 26L22 22V10L28 6V26Z"
-                            fill="url(#footer-prism-mid)"
-                          />
-                        </g>
+                        <path
+                          d="M10 30V14C10 10.6863 12.6863 8 16 8C19.3137 8 22 10.6863 22 14V22C22 23.1046 22.8954 24 24 24C25.1046 24 26 23.1046 26 22V14C26 10.6863 28.6863 8 32 8C35.3137 8 38 10.6863 38 14V30"
+                          stroke="url(#footer-flow-gradient)"
+                          strokeWidth="5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <circle cx="24" cy="31" r="2.5" fill="#F97316" />
                         <text
-                          x="52"
-                          y="29"
+                          x="54"
+                          y="28"
                           fill="white"
                           fontSize="22"
-                          fontWeight="800"
-                          letterSpacing="-0.01em"
+                          fontWeight="700"
+                          letterSpacing="-0.02em"
                           style={{ fontFamily: "'Inter', sans-serif" }}
                         >
                           MDFlow

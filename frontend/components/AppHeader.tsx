@@ -13,69 +13,45 @@ const MDFlowLogo = ({ className }: { className?: string }) => (
     aria-label="MDFlow Logo"
   >
     <defs>
-      {/* Prism Facet 1: Light Gold */}
-      <linearGradient id="prism-light" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFF7ED" />
-        <stop offset="100%" stopColor="#FCD34D" />
-      </linearGradient>
-
-      {/* Prism Facet 2: Mid Gold */}
-      <linearGradient id="prism-mid" x1="0%" y1="0%" x2="100%" y2="0%">
+      <linearGradient id="flow-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" stopColor="#F59E0B" />
-        <stop offset="100%" stopColor="#D97706" />
+        <stop offset="100%" stopColor="#F97316" />
       </linearGradient>
-
-      {/* Prism Facet 3: Dark Gold (Shadow) */}
-      <linearGradient id="prism-dark" x1="100%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#B45309" />
-        <stop offset="100%" stopColor="#78350F" />
-      </linearGradient>
-
-      <filter id="crisp-shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow
-          dx="0"
-          dy="1"
-          stdDeviation="1"
-          floodColor="#000"
-          floodOpacity="0.4"
-        />
+      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+        <feComposite in="coloredBlur" in2="SourceGraphic" operator="in" />
+        <feMerge>
+          <feMergeNode in="coloredBlur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
       </filter>
     </defs>
 
-    <g filter="url(#crisp-shadow)">
-      {/* 3D Isometric 'M' Symbol */}
-      <g transform="translate(4, 4)">
-        {/* Left Leg: Dark Side */}
-        <path d="M6 32V12L16 6L16 26L6 32Z" fill="url(#prism-dark)" />
-        {/* Left Leg: Light Top */}
-        <path d="M6 12L16 6L22 10L12 16L6 12Z" fill="url(#prism-light)" />
-        {/* Left Leg: Face */}
-        <path d="M16 26L22 22V10L16 6V26Z" fill="url(#prism-mid)" />
-
-        {/* V-Connector: Deep Shadow */}
-        <path d="M22 10L28 14L22 22Z" fill="#78350F" />
-
-        {/* Right Leg: Dark Side */}
-        <path d="M38 32V12L28 6L28 26L38 32Z" fill="url(#prism-dark)" />
-        {/* Right Leg: Light Top */}
-        <path d="M38 12L28 6L22 10L32 16L38 12Z" fill="url(#prism-light)" />
-        {/* Right Leg: Face */}
-        <path d="M28 26L22 22V10L28 6V26Z" fill="url(#prism-mid)" />
-      </g>
-
-      {/* Text: Technical & Precise */}
-      <text
-        x="52"
-        y="29"
-        fill="white"
-        fontSize="22"
-        fontWeight="800"
-        letterSpacing="-0.01em"
-        style={{ fontFamily: "'Inter', sans-serif" }}
-      >
-        MDFlow
-      </text>
+    {/* Fluid 'M' Symbol */}
+    <g filter="url(#glow)">
+      <path
+        d="M10 30V14C10 10.6863 12.6863 8 16 8C19.3137 8 22 10.6863 22 14V22C22 23.1046 22.8954 24 24 24C25.1046 24 26 23.1046 26 22V14C26 10.6863 28.6863 8 32 8C35.3137 8 38 10.6863 38 14V30"
+        stroke="url(#flow-gradient)"
+        strokeWidth="5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Subtle accent dot for 'spec' precision */}
+      <circle cx="24" cy="31" r="2.5" fill="#F97316" />
     </g>
+
+    {/* Text: Modern & Clean */}
+    <text
+      x="54"
+      y="28"
+      fill="white"
+      fontSize="22"
+      fontWeight="700"
+      letterSpacing="-0.02em"
+      style={{ fontFamily: "'Inter', sans-serif" }}
+    >
+      MDFlow
+    </text>
   </svg>
 );
 
