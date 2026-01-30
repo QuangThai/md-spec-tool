@@ -129,7 +129,7 @@ export default function RootLayout({
                 </div>
                 <Link
                   href="/studio"
-                  className="shrink-0 h-9 px-5 rounded-lg bg-white text-black font-bold text-xs tracking-wide hover:bg-white/95 hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] transition-all duration-200 inline-flex items-center justify-center"
+                  className="shrink-0 h-9 px-5 rounded-lg bg-white/20 text-white font-bold text-xs tracking-wide hover:bg-white/95 hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] transition-all duration-200 inline-flex items-center justify-center"
                 >
                   Launch Studio
                 </Link>
