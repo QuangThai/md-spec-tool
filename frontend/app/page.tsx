@@ -14,12 +14,21 @@ export const metadata: Metadata = {
     title: "MDFlow Studio | Technical Specification Automation",
     description:
       "Automate technical specifications from spreadsheets with MDFlow Studio.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "MDFlow Studio",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "MDFlow Studio | Technical Specification Automation",
     description:
       "Automate technical specifications from spreadsheets with MDFlow Studio.",
+    images: ["/opengraph-image"],
   },
 };
 

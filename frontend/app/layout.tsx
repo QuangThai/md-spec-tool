@@ -36,12 +36,21 @@ export const metadata: Metadata = {
     description:
       "Standardize engineering knowledge with automated MDFlow generation.",
     siteName: "MDFlow Studio",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "MDFlow Studio",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "MDFlow Studio | Technical Specification Automation",
     description:
       "Standardize engineering knowledge with automated MDFlow generation.",
+    images: ["/opengraph-image"],
   },
 };
 
