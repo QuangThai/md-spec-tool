@@ -73,7 +73,7 @@ export default function AppHeader() {
       className="sticky top-2 sm:top-3 lg:top-5 z-50 px-2 sm:px-4 lg:px-6"
     >
       <div className="mx-auto max-w-7xl">
-        <div className="glass relative z-60 flex h-14 sm:h-12 lg:h-14 items-center justify-between px-3 sm:px-5 lg:px-8 rounded-xl sm:rounded-2xl border border-white/8 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.25)] overflow-hidden">
+        <div className="glass relative z-60 flex h-14 sm:h-12 lg:h-14 items-center justify-between px-3 sm:px-5 lg:px-4 rounded-xl sm:rounded-2xl border border-white/8 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.25)] overflow-hidden">
           {/* Subtle brand glow */}
           <div className="absolute left-0 top-0 h-full w-32 bg-accent-orange/5 blur-[60px] pointer-events-none" />
 

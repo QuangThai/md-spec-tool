@@ -128,6 +128,15 @@
   @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes float {
   0%,
   100% {

@@ -31,7 +31,7 @@ export default function AppShell({ children }: AppShellProps) {
       </div>
 
       <AppHeader />
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-0 pt-4 sm:pt-6 lg:pt-8 min-h-[80vh]">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-0 pt-8 sm:pt-10 lg:pt-12 min-h-[80vh]">
         {children}
       </main>
 

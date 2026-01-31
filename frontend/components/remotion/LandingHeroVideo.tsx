@@ -834,6 +834,8 @@ export const LandingHeroVideo: React.FC = () => {
         fontFamily: "var(--font-inter), system-ui, sans-serif",
         color: ink,
         background: `radial-gradient(circle at ${22 + driftX * 0.6}% ${18 + driftY * 0.4}%, rgba(242,123,47,0.2), transparent 45%), radial-gradient(circle at ${78 - driftX * 0.4}% ${8 + driftY * 0.2}%, rgba(195,125,13,0.22), transparent 50%), #0a0a0a`,
+        borderRadius: 24,
+        overflow: "hidden",
       }}
     >
       <AmbientParticles />

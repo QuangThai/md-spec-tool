@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import {
+  ChevronLeft,
   ChevronRight,
   Cpu,
   Database,
@@ -19,7 +20,14 @@ import {
   Zap,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 // Documentation Data - Auto-Generated from System Truth
 const docsSections = [
@@ -792,6 +800,177 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
     },
   };
 
+// Mobile Navigation Component with Scroll Indicators
+const MobileDocsNav: React.FC<{
+  filteredSections: typeof docsSections;
+  activeSection: string;
+  setActiveSection: (id: string) => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}> = ({
+  filteredSections,
+  activeSection,
+  setActiveSection,
+  searchQuery,
+  setSearchQuery,
+}) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    checkScroll();
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    window.addEventListener("resize", checkScroll);
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [checkScroll, filteredSections]);
+
+  const scroll = (direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const scrollAmount = el.clientWidth * 0.6;
+    el.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
+
+  return (
+    <div className="lg:hidden sticky top-14 sm:top-16 z-30 overflow-hidden">
+      {/* Background with blur */}
+      <div className="absolute inset-0 bg-background/95 backdrop-blur-xl border-b border-white/5" />
+      <div className="absolute inset-0 bg-linear-to-b from-background via-background/80 to-background/60 pointer-events-none" />
+
+      {/* Search Bar */}
+      <div className="relative mb-3 pt-3">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search documentation..."
+            className="w-full h-11 pl-10 pr-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-accent-orange/40 focus:bg-white/8 transition-all"
+          />
+        </div>
+      </div>
+
+      {/* Horizontal Scrollable Navigation with Arrows */}
+      <div className="relative pb-3">
+        {/* Left Scroll Button */}
+        {/* <motion.button
+          initial={false}
+          animate={{ 
+            opacity: canScrollLeft ? 1 : 0,
+            scale: canScrollLeft ? 1 : 0.8,
+          }}
+          transition={{ duration: 0.15 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            scroll("left");
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/15 active:bg-white/20 border border-white/20 shadow-xl cursor-pointer transition-colors"
+          style={{ pointerEvents: canScrollLeft ? "auto" : "none" }}
+        >
+          <ChevronLeft className="w-5 h-5 text-white" strokeWidth={2.5} />
+        </motion.button> */}
+
+        {/* Right Scroll Button */}
+        {/* <motion.button
+          initial={false}
+          animate={{ 
+            opacity: canScrollRight ? 1 : 0,
+            scale: canScrollRight ? 1 : 0.8,
+          }}
+          transition={{ duration: 0.15 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            scroll("right");
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/15 active:bg-white/20 border border-white/20 shadow-xl cursor-pointer transition-colors"
+          style={{ pointerEvents: canScrollRight ? "auto" : "none" }}
+        >
+          <ChevronRight className="w-5 h-5 text-white" strokeWidth={2.5} />
+        </motion.button> */}
+
+        {/* Left Fade */}
+        <div
+          className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-background to-transparent z-5 transition-opacity duration-200"
+          style={{ opacity: canScrollLeft ? 1 : 0 }}
+        />
+
+        {/* Right Fade */}
+        <div
+          className="pointer-events-none absolute right-0 top-0 bottom-0 w-12 bg-linear-to-l from-background to-transparent z-5 transition-opacity duration-200"
+          style={{ opacity: canScrollRight ? 1 : 0 }}
+        />
+
+        {/* Scrollable Tabs */}
+        <div
+          ref={scrollRef}
+          className="overflow-x-auto scrollbar-hide scroll-smooth w-full"
+        >
+          <div className="inline-flex gap-2 px-4 sm:px-6 py-1">
+            {filteredSections.map((section) =>
+              section.items.map((item) => {
+                const isActive = activeSection === item.id;
+                return (
+                  <motion.button
+                    key={item.id}
+                    onClick={() => setActiveSection(item.id)}
+                    whileTap={{ scale: 0.96 }}
+                    className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
+                        ? "text-white"
+                        : "text-white/50 hover:text-white/70 active:bg-white/5"
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="mobile-active-tab"
+                        className="absolute inset-0 rounded-xl bg-accent-orange/15 border border-accent-orange/25"
+                        transition={{
+                          type: "spring",
+                          damping: 30,
+                          stiffness: 400,
+                        }}
+                      />
+                    )}
+                    <span
+                      className={`relative z-10 transition-colors ${
+                        isActive ? "text-accent-orange" : "text-white/40"
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    <span className="relative z-10">{item.title}</span>
+                  </motion.button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DocsContentBody: React.FC = () => {
   const [activeSection, setActiveSection] = useState("intro");
   const [searchQuery, setSearchQuery] = useState("");
@@ -835,13 +1014,13 @@ const DocsContentBody: React.FC = () => {
   }, [filteredSections, activeSection]);
 
   return (
-    <div className="min-h-screen pt-4 sm:pt-8 lg:pt-12 pb-0 sm:pb-16 lg:pb-24">
-      <div className="app-container">
+    <div className="min-h-screen pb-0">
+      <div className="">
         <div className="grid lg:grid-cols-[260px_1fr] xl:grid-cols-[280px_1fr] gap-6 sm:gap-8 lg:gap-12">
           <motion.aside
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="hidden lg:block space-y-6 lg:space-y-8 sticky top-20 lg:top-28 h-fit"
+            className="hidden lg:block space-y-6 lg:space-y-8 sticky top-0 h-fit"
           >
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -895,45 +1074,14 @@ const DocsContentBody: React.FC = () => {
             </nav>
           </motion.aside>
 
-          {/* Mobile: refined search + section selector (sidebar replacement) */}
-          <div className="lg:hidden space-y-3 sticky top-14 sm:top-16 z-30 -mx-4 px-4 py-4 sm:mx-0 sm:px-0 sm:py-0 sm:relative pb-5 sm:pb-0">
-            <div className="rounded-2xl border border-white/10 bg-surface/90 backdrop-blur-xl shadow-[0_8px_32px_-8px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] p-3 sm:p-0 sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none sm:backdrop-blur-none">
-              <div className="relative mb-3 sm:mb-0">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search docs..."
-                  className="w-full h-10 pl-10 pr-4 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-accent-orange/40 focus:ring-2 focus:ring-accent-orange/10 transition-all"
-                />
-              </div>
-              <label className="sr-only" htmlFor="docs-section-select">
-                Jump to section
-              </label>
-              <select
-                id="docs-section-select"
-                value={activeSection}
-                onChange={(e) => setActiveSection(e.target.value)}
-                className="w-full h-11 pl-4 pr-10 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white focus:outline-none focus:border-accent-orange/40 focus:ring-2 focus:ring-accent-orange/10 appearance-none cursor-pointer transition-all scheme-dark"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23f97316' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-                  backgroundRepeat: "no-repeat",
-                  backgroundPosition: "right 0.75rem center",
-                }}
-              >
-                {filteredSections.map((section) => (
-                  <optgroup key={section.title} label={section.title}>
-                    {section.items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.title}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-          </div>
+          {/* Mobile Navigation - Horizontal Scrollable Tabs */}
+          <MobileDocsNav
+            filteredSections={filteredSections}
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
 
           <main className="min-w-0 lg:col-start-2">
             <motion.div
