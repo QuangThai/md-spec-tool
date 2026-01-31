@@ -1,24 +1,26 @@
 import type { MetadataRoute } from "next";
 
+const baseUrl = "https://md-spec-tool.vercel.app";
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://md-spec-tool.vercel.app";
+  const lastModified = new Date();
 
   return [
     {
       url: `${baseUrl}/`,
-      lastModified: new Date(),
+      lastModified,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${baseUrl}/batch`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
+      url: `${baseUrl}/docs`,
+      lastModified,
+      changeFrequency: "weekly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/docs`,
-      lastModified: new Date(),
+      url: `${baseUrl}/batch`,
+      lastModified,
       changeFrequency: "monthly",
       priority: 0.7,
     },

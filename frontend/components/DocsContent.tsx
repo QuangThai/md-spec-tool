@@ -314,10 +314,10 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <h4 className="text-white font-bold mb-2">
                 3. XLSX Mode (Binary)
               </h4>
-                <p className="text-sm text-muted mb-4">
-                  Designed for production specifications. Accepts
-                  `multipart/form-data` binary streams (10MB limit, .xlsx only).
-                </p>
+              <p className="text-sm text-muted mb-4">
+                Designed for production specifications. Accepts
+                `multipart/form-data` binary streams (10MB limit, .xlsx only).
+              </p>
               <ul className="list-disc list-inside text-sm text-white/60 space-y-2 mb-4">
                 <li>
                   Supports multi-sheet discovery (`/api/mdflow/xlsx/sheets`)
@@ -850,8 +850,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
         <div className="space-y-6">
           <p className="text-muted">
             AI suggestions are optional and only activate when the backend is
-            configured with <code>OPENAI_API_KEY</code>. The Studio calls the
-            AI endpoint to return actionable improvements for clarity,
+            configured with <code>OPENAI_API_KEY</code>. The Studio calls the AI
+            endpoint to return actionable improvements for clarity,
             completeness, and formatting.
           </p>
           <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green space-y-2">
@@ -860,7 +860,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           </div>
           <ul className="space-y-2 text-sm text-white/60">
             <li>
-              • Returns <code>{`{ suggestions: [], configured: boolean }`}</code>
+              • Returns{" "}
+              <code>{`{ suggestions: [], configured: boolean }`}</code>
             </li>
             <li>• Safe to call even when AI is disabled (configured=false)</li>
             <li>• Suggestions are not stored server-side</li>
@@ -889,7 +890,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           </div>
           <ul className="space-y-2 text-sm text-white/60">
             <li>• Preview renders server-side using the same converter</li>
-            <li>• Built-in templates remain available even after customization</li>
+            <li>
+              • Built-in templates remain available even after customization
+            </li>
             <li>• Export or copy rendered output for quick iteration</li>
           </ul>
         </div>
@@ -907,7 +910,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           <ul className="space-y-2 text-sm text-white/60">
             <li>• Supports .xlsx and .tsv uploads</li>
             <li>• Optional “process all sheets” for multi-sheet workbooks</li>
-            <li>• ZIP export names files as <code>*.mdflow.md</code></li>
+            <li>
+              • ZIP export names files as <code>*.mdflow.md</code>
+            </li>
           </ul>
           <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green">
             Uses /api/mdflow/xlsx and /api/mdflow/tsv under the hood
@@ -1228,6 +1233,9 @@ const DocsContentBody: React.FC = () => {
               transition={{ type: "spring", damping: 28, stiffness: 300 }}
               className="space-y-6 sm:space-y-8"
             >
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tighter uppercase leading-tight">
+                Documentation
+              </h1>
               <div className="flex items-center gap-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] text-accent-orange/90 mb-1">
                 <span className="text-white/50">Docs</span>
                 <ChevronRight className="w-3 h-3 text-white/30" />
@@ -1238,9 +1246,9 @@ const DocsContentBody: React.FC = () => {
                 }
               </div>
 
-              <h1 className="text-xl sm:text-3xl lg:text-4xl xl:text-5xl font-black text-white tracking-tighter uppercase leading-tight">
+              <h2 className="text-xl sm:text-3xl lg:text-4xl font-black text-white tracking-tighter uppercase leading-tight">
                 {docContent[activeSection]?.title || "Documentation"}
-              </h1>
+              </h2>
 
               <div className="prose prose-invert prose-sm sm:prose-base lg:prose-lg max-w-none">
                 {docContent[activeSection]?.content}

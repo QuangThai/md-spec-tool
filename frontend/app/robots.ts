@@ -1,14 +1,16 @@
 import type { MetadataRoute } from "next";
 
+const baseUrl = "https://md-spec-tool.vercel.app";
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/docs", "/batch"],
+        allow: "/",
         disallow: ["/studio", "/share", "/api"],
       },
     ],
-    sitemap: "https://md-spec-tool.vercel.app/sitemap.xml",
+    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }

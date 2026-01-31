@@ -25,8 +25,8 @@ export const metadata: Metadata = {
       "Process multiple spreadsheets in one run and download all outputs as a ZIP.",
     images: [
       {
-        url: "https://md-spec-tool.vercel.app/opengraph-image",
-        secureUrl: "https://md-spec-tool.vercel.app/opengraph-image",
+        url: "https://md-spec-tool.vercel.app/batch/opengraph-image",
+        secureUrl: "https://md-spec-tool.vercel.app/batch/opengraph-image",
         type: "image/png",
         width: 1200,
         height: 630,
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     title: "Batch Processing | MDFlow Studio",
     description:
       "Process multiple spreadsheets in one run and download all outputs as a ZIP.",
-    images: ["https://md-spec-tool.vercel.app/opengraph-image"],
+    images: ["https://md-spec-tool.vercel.app/batch/opengraph-image"],
   },
 };
 

@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     title: "MDFlow Studio | Technical Specification Automation",
     description:
       "Convert Excel, CSV, or pasted tables into clear, standardized Markdown specifications with MDFlow Studio.",
+    siteName: "MDFlow Studio",
     images: [
       {
         url: "https://md-spec-tool.vercel.app/opengraph-image",
