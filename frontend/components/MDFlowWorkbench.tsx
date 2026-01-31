@@ -1,6 +1,5 @@
 "use client";
 
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { isGoogleSheetsURL } from "@/lib/mdflowApi";
 import {
   useAISuggestionsMutation,
@@ -23,10 +22,9 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
-  Boxes,
   Check,
   Copy,
-  Database,
+  Download,
   Eye,
   EyeOff,
   FileCode,
@@ -42,7 +40,6 @@ import {
   Terminal,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { DiffViewer } from "./DiffViewer";
 import HistoryModal, { KeyboardShortcutsTooltip } from "./HistoryModal";
@@ -50,30 +47,20 @@ import { OnboardingTour } from "./OnboardingTour";
 import { TemplateCards } from "./TemplateCards";
 import { TemplateEditor } from "./TemplateEditor";
 import { ValidationConfigurator } from "./ValidationConfigurator";
-import {
-  ExportDropdown,
-  PreviewTable,
-  ShareButton,
-  TechnicalAnalysis,
-} from "./index";
+import { PreviewTable, TechnicalAnalysis } from "./index";
 import { Select } from "./ui/Select";
+import { Tooltip } from "./ui/Tooltip";
 
 const stagger = {
   container: {
-    animate: { transition: { staggerChildren: 0.08, delayChildren: 0.12 } },
+    animate: { transition: { staggerChildren: 0.05, delayChildren: 0.08 } },
   },
   item: {
-    initial: { opacity: 0, y: 20 },
+    initial: { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
   },
 };
-
-const steps = [
-  { title: "Import", label: "Paste or upload", icon: Database },
-  { title: "Configure", label: "Sheet & template", icon: Terminal },
-  { title: "Generate", label: "Run engine", icon: Zap },
-];
 
 export default function MDFlowWorkbench() {
   const {
@@ -129,7 +116,6 @@ export default function MDFlowWorkbench() {
     useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
-  const isNarrow = useMediaQuery("(max-width: 480px)");
 
   const { data: templateList = ["default"] } = useMDFlowTemplatesQuery();
   const getSheetsMutation = useGetXLSXSheetsMutation();
@@ -213,7 +199,9 @@ export default function MDFlowWorkbench() {
         setSheets(result.sheets);
         setSelectedSheet(result.active_sheet);
       } catch (error) {
-        setError(error instanceof Error ? error.message : "Failed to read sheets");
+        setError(
+          error instanceof Error ? error.message : "Failed to read sheets"
+        );
       } finally {
         setLoading(false);
       }
@@ -446,7 +434,9 @@ export default function MDFlowWorkbench() {
             setSelectedSheet(result.active_sheet);
           })
           .catch((error) => {
-            setError(error instanceof Error ? error.message : "Failed to read sheets");
+            setError(
+              error instanceof Error ? error.message : "Failed to read sheets"
+            );
           })
           .finally(() => {
             setLoading(false);
@@ -470,157 +460,89 @@ export default function MDFlowWorkbench() {
       variants={stagger.container}
       initial="initial"
       animate="animate"
-      className="flex flex-col gap-6 sm:gap-8 lg:gap-12 relative"
+      className="flex flex-col gap-3 sm:gap-4 relative h-[calc(100vh-6rem)] sm:h-[calc(100vh-7rem)] lg:h-[calc(100vh-8rem)]"
     >
       {/* Onboarding Tour */}
       <OnboardingTour />
 
-      {/* Step flow strip */}
-      <motion.div
-        variants={stagger.item}
-        className="flex justify-center"
-        aria-label="Workflow steps"
+      {/* Main workspace: optimized for immediate visibility */}
+      <div
+        className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5 items-stretch flex-1 min-h-0"
         data-tour="welcome"
       >
-        <div className="inline-flex items-center rounded-xl sm:rounded-2xl border border-white/10 bg-white/2 p-1 sm:p-1.5 shadow-lg">
-          {steps.map((s, i) => {
-            const StepIcon = s.icon;
-            const active = currentStep >= i + 1;
-            return (
-              <div key={s.title} className="flex items-center">
-                <div
-                  className={`
-                    flex items-center gap-1.5 sm:gap-2.5 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl transition-all duration-300
-                    ${
-                      active
-                        ? "bg-accent-orange/15 text-accent-orange border border-accent-orange/30 shadow-[0_0_20px_rgba(242,123,47,0.15)]"
-                        : "text-muted/70 border border-transparent"
-                    }
-                  `}
-                >
-                  <div
-                    className={`
-                      flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-md sm:rounded-lg
-                      ${active ? "bg-accent-orange/20" : "bg-white/5"}
-                    `}
-                  >
-                    <StepIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  </div>
-                  <div className="hidden sm:block">
-                    <span className="text-[10px] font-black uppercase tracking-widest block">
-                      {s.title}
-                    </span>
-                    <span className="text-[9px] text-muted/80 font-medium uppercase tracking-wider">
-                      {s.label}
-                    </span>
-                  </div>
-                </div>
-                {i < steps.length - 1 && (
-                  <div
-                    className={`
-                      mx-0.5 h-px w-6 sm:w-8 rounded-full transition-colors
-                      ${active ? "bg-accent-orange/40" : "bg-white/10"}
-                    `}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </motion.div>
-
-      {/* Main workspace: fixed height on lg so only the two content areas scroll, footer stays at bottom */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1fr] gap-5 sm:gap-6 lg:gap-10 items-stretch min-h-[360px] sm:min-h-[420px] h-full sm:h-[70vh] md:h-full lg:h-screen lg:min-h-[80vh]">
-        {/* Left: Source & config — scrollable body, footer (Template + Run) stays at bottom */}
+        {/* Left: Source & config — compact header with integrated controls */}
         <motion.div
           variants={stagger.item}
           className="flex flex-col min-h-0 h-full overflow-hidden"
         >
-          <section className="surface p-0 flex flex-col h-full min-h-0 border-white/10 bg-white/2 relative overflow-hidden rounded-2xl">
+          <section className="p-0 flex flex-col h-full min-h-0 border border-white/10 bg-black/30 backdrop-blur-xl relative overflow-hidden rounded-xl sm:rounded-2xl">
             <div className="studio-grain" aria-hidden />
             <div className="relative z-10 flex flex-col h-full min-h-0">
-              <div className="flex items-center justify-between gap-4 p-5 sm:p-6 lg:p-8 border-b border-white/5 bg-white/2 shrink-0">
-                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                  <div className="h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 rounded-lg sm:rounded-xl bg-accent-orange/10 flex items-center justify-center border border-accent-orange/20 shadow-[0_0_24px_rgba(242,123,47,0.08)] shrink-0">
-                    <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent-orange" />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-xs sm:text-sm font-black uppercase tracking-widest text-white">
-                      Source
-                    </h2>
-                    <p className="text-[8px] sm:text-[9px] text-muted/80 uppercase tracking-wider mt-0.5">
-                      Paste or upload
-                    </p>
-                  </div>
-                </div>
+              {/* Compact header with mode toggle */}
+              <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-white/5 bg-white/2 shrink-0">
                 <div
-                  className="flex bg-black/50 p-1.5 rounded-lg sm:rounded-xl border border-white/5 shadow-inner shrink-0"
+                  className="flex bg-black/40 rounded-lg border border-white/5 shrink-0"
                   data-tour="input-mode"
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("paste");
-                      setFile(null);
-                    }}
-                    className={`
-                      px-4 sm:px-5 py-2 sm:py-2.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md sm:rounded-lg transition-all duration-200
-                      ${
-                        mode === "paste"
-                          ? "bg-accent-orange text-white shadow-lg shadow-accent-orange/25"
-                          : "text-muted hover:text-white hover:bg-white/5"
-                      }
-                    `}
-                  >
-                    Paste
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("xlsx");
-                      setFile(null);
-                    }}
-                    className={`
-                      px-4 sm:px-5 py-2 sm:py-2.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md sm:rounded-lg transition-all duration-200
-                      ${
-                        mode === "xlsx"
-                          ? "bg-accent-orange text-white shadow-lg shadow-accent-orange/25"
-                          : "text-muted hover:text-white hover:bg-white/5"
-                      }
-                    `}
-                  >
-                    Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode("tsv");
-                      setFile(null);
-                    }}
-                    className={`
-                      px-4 sm:px-5 py-2 sm:py-2.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md sm:rounded-lg transition-all duration-200
-                      ${
-                        mode === "tsv"
-                          ? "bg-accent-orange text-white shadow-lg shadow-accent-orange/25"
-                          : "text-muted hover:text-white hover:bg-white/5"
-                      }
-                    `}
-                  >
-                    TSV
-                  </button>
+                  {[
+                    { key: "paste", label: "Paste" },
+                    { key: "xlsx", label: "Excel" },
+                    { key: "tsv", label: "TSV" },
+                  ].map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => {
+                        setMode(m.key as "paste" | "xlsx" | "tsv");
+                        setFile(null);
+                      }}
+                      className={`
+                        px-3 sm:px-4 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all duration-200
+                        ${
+                          mode === m.key
+                            ? "bg-accent-orange text-white shadow-lg shadow-accent-orange/25"
+                            : "text-muted hover:text-white hover:bg-white/5"
+                        }
+                      `}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Quick actions */}
+                <div className="flex items-center gap-1.5">
+                  <Tooltip content="Template Editor">
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateEditor(true)}
+                      className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
+                    >
+                      <FileCode className="w-3.5 h-3.5" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content="Validation Rules">
+                    <button
+                      type="button"
+                      onClick={() => setShowValidationConfigurator(true)}
+                      className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6 custom-scrollbar bg-black/3">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3 custom-scrollbar bg-black/3">
                 <AnimatePresence mode="wait" initial={false}>
                   {error && (
                     <motion.div
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
-                      className="mb-6 p-4 bg-accent-red/10 border border-accent-red/25 rounded-xl flex items-center gap-3 text-accent-red text-[10px] font-black uppercase tracking-widest shrink-0"
+                      className="mb-3 p-2.5 bg-accent-red/10 border border-accent-red/25 rounded-lg flex items-center gap-2 text-accent-red text-[9px] font-bold uppercase tracking-wider shrink-0"
                     >
-                      <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {error}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -629,47 +551,46 @@ export default function MDFlowWorkbench() {
                   {mode === "paste" ? (
                     <motion.div
                       key="paste"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: 0.25 }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
                       className="h-full flex flex-col min-h-0"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[10px] uppercase font-bold text-muted/60 mb-3 shrink-0">
-                        <span>Paste TSV / CSV / URL</span>
-                        <div className="flex items-center gap-2">
-                          {isGoogleSheetsURL(pasteText.trim()) && (
-                            <span className="flex items-center gap-1.5 text-green-400/80 font-medium">
-                              <Link2 className="w-3 h-3" />
-                              Google Sheet detected
-                            </span>
+                      {/* Compact status bar */}
+                      <div className="flex flex-wrap items-center gap-2 text-[9px] uppercase font-bold text-muted/50 mb-2 shrink-0">
+                        {isGoogleSheetsURL(pasteText.trim()) && (
+                          <span className="flex items-center gap-1 text-green-400/80 bg-green-400/10 px-2 py-0.5 rounded">
+                            <Link2 className="w-3 h-3" />
+                            Google Sheet
+                          </span>
+                        )}
+                        {preview &&
+                          preview.input_type === "table" &&
+                          preview.headers.length > 0 &&
+                          !isGoogleSheetsURL(pasteText.trim()) && (
+                            <button
+                              type="button"
+                              onClick={() => setShowPreview(!showPreview)}
+                              className="flex items-center gap-1 text-accent-orange/70 hover:text-accent-orange transition-colors cursor-pointer bg-accent-orange/10 px-2 py-0.5 rounded"
+                            >
+                              {showPreview ? (
+                                <EyeOff className="w-3 h-3" />
+                              ) : (
+                                <Eye className="w-3 h-3" />
+                              )}
+                              {showPreview ? "Hide" : "Show"} Preview
+                            </button>
                           )}
-                          {preview &&
-                            preview.input_type === "table" &&
-                            preview.headers.length > 0 &&
-                            !isGoogleSheetsURL(pasteText.trim()) && (
-                              <button
-                                type="button"
-                                onClick={() => setShowPreview(!showPreview)}
-                                className="flex items-center gap-1 text-accent-orange/70 hover:text-accent-orange transition-colors cursor-pointer"
-                              >
-                                {showPreview ? (
-                                  <EyeOff className="w-3 h-3" />
-                                ) : (
-                                  <Eye className="w-3 h-3" />
-                                )}
-                                {showPreview ? "Hide" : "Show"} Preview
-                              </button>
-                            )}
-                          {!isGoogleSheetsURL(pasteText.trim()) && (
-                            <span className="text-accent-orange/50 font-medium sm:text-right">
-                              Tab-separated, comma, or Google Sheets URL
-                            </span>
-                          )}
-                        </div>
+                        {previewLoading && (
+                          <span className="flex items-center gap-1 text-accent-orange/60">
+                            <RefreshCcw className="w-3 h-3 animate-spin" />
+                            Analyzing...
+                          </span>
+                        )}
                       </div>
 
-                      {/* Preview Table */}
+                      {/* Preview Table - Collapsible */}
                       <AnimatePresence>
                         {showPreview &&
                           preview &&
@@ -679,7 +600,7 @@ export default function MDFlowWorkbench() {
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
                               exit={{ opacity: 0, height: 0 }}
-                              className="mb-4 shrink-0"
+                              className="mb-3 shrink-0 max-h-[30vh] overflow-auto custom-scrollbar"
                               data-tour="preview-table"
                             >
                               <PreviewTable
@@ -694,19 +615,13 @@ export default function MDFlowWorkbench() {
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto" }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="mb-4 shrink-0"
+                            className="mb-3 shrink-0"
                           >
-                            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 flex items-center gap-3">
-                              <FileText className="w-4 h-4 text-blue-400/80 shrink-0" />
-                              <div>
-                                <span className="text-[10px] font-bold text-blue-400/90 uppercase tracking-wider">
-                                  Markdown/Prose detected
-                                </span>
-                                <p className="text-[9px] text-blue-400/60 mt-0.5">
-                                  Content will be passed through with minimal
-                                  formatting. No table preview available.
-                                </p>
-                              </div>
+                            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 flex items-center gap-2">
+                              <FileText className="w-3.5 h-3.5 text-blue-400/80 shrink-0" />
+                              <span className="text-[9px] font-bold text-blue-400/90 uppercase tracking-wider">
+                                Markdown detected - passthrough mode
+                              </span>
                             </div>
                           </motion.div>
                         )}
@@ -715,28 +630,24 @@ export default function MDFlowWorkbench() {
                       <textarea
                         value={pasteText}
                         onChange={(e) => setPasteText(e.target.value)}
-                        placeholder="Paste your table data here…"
-                        className="input flex-1 font-mono text-[13px] leading-relaxed resize-none border-white/5 bg-black/20 focus:bg-black/30 focus:border-accent-orange/30 custom-scrollbar min-h-[200px] rounded-xl"
+                        placeholder="Paste your table data here (TSV, CSV, or Google Sheets URL)…"
+                        className="input flex-1 font-mono text-[12px] leading-relaxed resize-none border-white/5 bg-black/30 focus:bg-black/40 focus:border-accent-orange/30 custom-scrollbar min-h-[120px] rounded-lg"
                         aria-label="Paste TSV or CSV data"
                         data-tour="paste-area"
                       />
-
-                      {previewLoading && (
-                        <div className="absolute bottom-4 right-4 flex items-center gap-2 text-[10px] text-accent-orange/60">
-                          <RefreshCcw className="w-3 h-3 animate-spin" />
-                          Analyzing...
-                        </div>
-                      )}
                     </motion.div>
                   ) : (
                     <motion.div
                       key={mode}
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -8 }}
-                      transition={{ duration: 0.25 }}
-                      className="h-full flex flex-col justify-center gap-6 min-h-0"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className={`h-full flex flex-col gap-4 min-h-0 ${
+                        !file ? "justify-center items-center" : "justify-start"
+                      }`}
                     >
+                      {/* File drop zone - centered when no file, shrink when file uploaded */}
                       <div
                         onDragOver={(e) => {
                           e.preventDefault();
@@ -745,12 +656,14 @@ export default function MDFlowWorkbench() {
                         onDragLeave={() => setDragOver(false)}
                         onDrop={onDrop}
                         className={`
-                          relative rounded-2xl border-2 border-dashed p-6 sm:p-8 lg:p-12 text-center transition-all duration-300 cursor-pointer
-                          overflow-hidden
+                          relative rounded-2xl border-2 border-dashed transition-all duration-300 cursor-pointer w-full shrink-0
+                          ${file ? "p-4" : "p-8 sm:p-12 max-w-lg"}
                           ${
                             dragOver
                               ? "border-accent-orange/50 bg-accent-orange/10 scale-[1.02]"
-                              : "border-white/10 hover:border-white/20 hover:bg-white/3"
+                              : file
+                              ? "border-accent-orange/30 bg-accent-orange/5"
+                              : "border-white/20 hover:border-accent-orange/40 hover:bg-white/5"
                           }
                         `}
                       >
@@ -765,62 +678,64 @@ export default function MDFlowWorkbench() {
                               : "Upload Excel file"
                           }
                         />
-                        <motion.div
-                          animate={{ scale: dragOver ? 1.05 : 1 }}
-                          className="flex flex-col items-center gap-4"
+                        <div
+                          className={`flex items-center gap-4 ${
+                            file ? "justify-start" : "justify-center flex-col"
+                          }`}
                         >
                           <div
                             className={`
-                              h-16 w-16 rounded-2xl flex items-center justify-center transition-all duration-300
+                              rounded-2xl flex items-center justify-center transition-all
                               ${
-                                dragOver
-                                  ? "bg-accent-orange/20"
-                                  : "bg-white/5 group-hover:bg-white/10"
+                                file
+                                  ? "h-12 w-12 bg-accent-orange/20"
+                                  : "h-16 w-16 bg-white/10"
                               }
                             `}
                           >
-                            <FileSpreadsheet
-                              className={`w-8 h-8 transition-colors ${
-                                dragOver
-                                  ? "text-accent-orange"
-                                  : "text-muted/50"
-                              }`}
-                            />
+                            {file ? (
+                              <Check className="w-6 h-6 text-accent-orange" />
+                            ) : (
+                              <FileSpreadsheet
+                                className={`w-8 h-8 ${
+                                  dragOver
+                                    ? "text-accent-orange"
+                                    : "text-white/40"
+                                }`}
+                              />
+                            )}
                           </div>
-                          <div>
-                            <p className="text-sm font-black text-white uppercase tracking-widest">
-                              {dragOver
-                                ? "Drop file here"
-                                : mode === "tsv"
-                                ? "Upload .tsv"
-                                : "Upload .xlsx or .xls"}
-                            </p>
-                            <p className="text-[10px] text-muted mt-1.5 uppercase font-medium">
-                              Click or drag & drop
-                            </p>
+                          <div className={file ? "text-left" : "text-center"}>
+                            {file ? (
+                              <>
+                                <p className="text-sm font-bold text-white truncate max-w-[250px]">
+                                  {file.name}
+                                </p>
+                                <p className="text-xs text-white/50 font-mono">
+                                  {(file.size / 1024).toFixed(1)} KB
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm font-black text-white uppercase tracking-widest">
+                                  {dragOver
+                                    ? "Drop file here"
+                                    : mode === "tsv"
+                                    ? "Upload .TSV"
+                                    : "Upload .XLSX or .XLS"}
+                                </p>
+                                <p className="text-xs text-white/50 mt-1">
+                                  Click or drag & drop
+                                </p>
+                              </>
+                            )}
                           </div>
-                        </motion.div>
+                        </div>
                       </div>
 
-                      {file && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center gap-4 p-4 rounded-xl bg-accent-orange/5 border border-accent-orange/20 shrink-0"
-                        >
-                          <Check className="w-4 h-4 text-accent-orange shrink-0" />
-                          <span className="text-[11px] font-bold text-white uppercase truncate flex-1">
-                            {file.name}
-                          </span>
-                          <span className="text-[10px] text-muted font-mono">
-                            {(file.size / 1024).toFixed(1)} KB
-                          </span>
-                        </motion.div>
-                      )}
-
+                      {/* Sheet selector */}
                       {mode === "xlsx" && sheets.length > 0 && (
-                        <div className="space-y-3 shrink-0">
-                          <label className="label mb-2">Sheet</label>
+                        <div className="shrink-0">
                           <Select
                             value={selectedSheet}
                             onValueChange={setSelectedSheet}
@@ -829,50 +744,52 @@ export default function MDFlowWorkbench() {
                               value: s,
                             }))}
                             placeholder="Choose sheet"
-                            className="h-12"
+                            className="h-10"
                           />
                         </div>
                       )}
 
-                      {/* File Preview Table */}
+                      {/* File Preview Table - takes remaining space */}
                       <AnimatePresence>
                         {file &&
                           preview &&
                           preview.input_type === "table" &&
                           preview.headers.length > 0 && (
                             <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="shrink-0"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="flex-1 min-h-0 flex flex-col"
                             >
-                              <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center justify-between mb-2 shrink-0">
                                 <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider">
                                   Data Preview
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => setShowPreview(!showPreview)}
-                                  className="flex items-center gap-1 text-[9px] text-accent-orange/70 hover:text-accent-orange transition-colors cursor-pointer font-bold uppercase"
+                                  className="flex items-center gap-1.5 text-[10px] text-accent-orange/70 hover:text-accent-orange transition-colors cursor-pointer font-bold uppercase"
                                 >
                                   {showPreview ? (
-                                    <EyeOff className="w-3 h-3" />
+                                    <EyeOff className="w-3.5 h-3.5" />
                                   ) : (
-                                    <Eye className="w-3 h-3" />
+                                    <Eye className="w-3.5 h-3.5" />
                                   )}
                                   {showPreview ? "Hide" : "Show"}
                                 </button>
                               </div>
                               {showPreview && (
-                                <PreviewTable
-                                  preview={preview}
-                                  columnOverrides={columnOverrides}
-                                  onColumnOverride={setColumnOverride}
-                                />
+                                <div className="flex-1 min-h-0 overflow-auto custom-scrollbar rounded-lg border border-white/10">
+                                  <PreviewTable
+                                    preview={preview}
+                                    columnOverrides={columnOverrides}
+                                    onColumnOverride={setColumnOverride}
+                                  />
+                                </div>
                               )}
                               {previewLoading && (
-                                <div className="flex items-center gap-2 text-[10px] text-accent-orange/60 mt-2">
-                                  <RefreshCcw className="w-3 h-3 animate-spin" />
+                                <div className="flex items-center gap-2 text-[10px] text-accent-orange/60 mt-2 shrink-0">
+                                  <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
                                   Loading preview...
                                 </div>
                               )}
@@ -884,44 +801,24 @@ export default function MDFlowWorkbench() {
                 </AnimatePresence>
               </div>
 
-              <div className="px-5 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8 border-t border-white/5 bg-white/2 flex flex-col gap-4 shrink-0">
-                <div className="w-full space-y-2" data-tour="template-selector">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-2">
-                    <label className="label mb-0">Template</label>
-                    <div className="flex flex-col xs:flex-row gap-2 xs:gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowTemplateEditor(true)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all touch-manipulation min-w-0"
-                        title="Create custom templates"
-                      >
-                        <FileCode className="w-3 h-3 shrink-0" />
-                        <span className="truncate">
-                          {isNarrow ? "Editor" : "Template Editor"}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowValidationConfigurator(true)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 sm:px-2.5 sm:py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/70 hover:text-accent-orange transition-all touch-manipulation min-w-0"
-                        title="Configure validation rules"
-                      >
-                        <ShieldCheck className="w-3 h-3 shrink-0" />
-                        <span className="truncate">
-                          {isNarrow ? "Rules" : "Validation rules"}
-                        </span>
-                      </button>
-                    </div>
+              {/* Compact footer with template & run */}
+              <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-white/5 bg-white/2 shrink-0">
+                <div
+                  className="flex items-center gap-2 sm:gap-3"
+                  data-tour="template-selector"
+                >
+                  {/* Template dropdown - collapsible on mobile */}
+                  <div className="flex-1 min-w-0">
+                    <TemplateCards
+                      templates={templates}
+                      selected={template}
+                      onSelect={setTemplate}
+                      compact
+                    />
                   </div>
-                  <TemplateCards
-                    templates={templates}
-                    selected={template}
-                    onSelect={setTemplate}
-                    compact
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <div className="relative group/button" data-tour="run-button">
+
+                  {/* Run button */}
+                  <div className="shrink-0" data-tour="run-button">
                     {(() => {
                       const isDisabled =
                         loading ||
@@ -933,61 +830,40 @@ export default function MDFlowWorkbench() {
                       const modKey = isMac ? "⌘" : "Ctrl";
 
                       return (
-                        <>
-                          <motion.button
-                            type="button"
-                            whileHover={!isDisabled ? { scale: 1.02 } : {}}
-                            whileTap={!isDisabled ? { scale: 0.98 } : {}}
-                            onClick={handleConvert}
-                            disabled={isDisabled || loading}
-                            className={`
-                              h-12 w-full sm:w-auto min-w-[140px] sm:min-w-[160px] px-6 sm:px-8 
-                              uppercase tracking-[0.18em] rounded-xl shrink-0
-                              flex items-center justify-center gap-2.5
-                              transition-all duration-200
-                              ${
-                                isDisabled
-                                  ? "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed shadow-none"
-                                  : "btn-primary shadow-xl shadow-accent-orange/25 group cursor-pointer hover:shadow-2xl hover:shadow-accent-orange/30"
-                              }
-                            `}
-                            title={
+                        <motion.button
+                          type="button"
+                          whileHover={!isDisabled ? { scale: 1.02 } : {}}
+                          whileTap={!isDisabled ? { scale: 0.98 } : {}}
+                          onClick={handleConvert}
+                          disabled={isDisabled || loading}
+                          className={`
+                            h-9 sm:h-10 px-4 sm:px-6
+                            uppercase tracking-wider text-[10px] sm:text-xs font-bold rounded-lg
+                            flex items-center justify-center gap-2
+                            transition-all duration-200
+                            ${
                               isDisabled
-                                ? mode === "paste"
-                                  ? "Paste data to continue"
-                                  : "Upload a file to continue"
-                                : `Run conversion (${modKey}+Enter)`
+                                ? "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
+                                : "btn-primary shadow-lg shadow-accent-orange/20 cursor-pointer hover:shadow-xl hover:shadow-accent-orange/30"
                             }
-                          >
-                            {loading ? (
-                              <>
-                                <RefreshCcw
-                                  className="w-4 h-4 animate-spin"
-                                  aria-hidden
-                                />
-                                <span>Running</span>
-                              </>
-                            ) : (
-                              <>
-                                <Zap
-                                  className={`w-4 h-4 transition-transform ${
-                                    isDisabled
-                                      ? ""
-                                      : "group-hover:scale-110 group-hover:rotate-12"
-                                  }`}
-                                />
-                                <span>Run</span>
-                              </>
-                            )}
-                          </motion.button>
-                          {!isDisabled && (
-                            <div className="absolute -top-8 right-0 opacity-0 group-hover/button:opacity-100 transition-opacity duration-200 pointer-events-none">
-                              <div className="bg-black/90 backdrop-blur-sm border border-white/20 rounded-lg px-2 py-1 text-[9px] font-mono text-white/70 whitespace-nowrap">
-                                {modKey}+Enter
-                              </div>
-                            </div>
+                          `}
+                          title={
+                            isDisabled
+                              ? mode === "paste"
+                                ? "Paste data"
+                                : "Upload file"
+                              : `${modKey}+Enter`
+                          }
+                        >
+                          {loading ? (
+                            <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Zap className="w-3.5 h-3.5" />
                           )}
-                        </>
+                          <span className="hidden xs:inline">
+                            {loading ? "Running" : "Run"}
+                          </span>
+                        </motion.button>
                       );
                     })()}
                   </div>
@@ -997,163 +873,176 @@ export default function MDFlowWorkbench() {
           </section>
         </motion.div>
 
-        {/* Right: Output — scrollable pre, footer (Stats) stays at bottom */}
+        {/* Right: Output — compact and efficient */}
         <motion.div
           variants={stagger.item}
           className="flex flex-col min-h-0 h-full overflow-hidden"
           data-tour="output-panel"
         >
-          <div className="code-editor p-0 border-white/10 h-full min-h-0 flex flex-col shadow-2xl bg-black/40 backdrop-blur-2xl relative overflow-hidden rounded-2xl">
+          <div className="p-0 flex flex-col h-full min-h-0 border border-white/10 bg-black/30 backdrop-blur-xl relative overflow-hidden rounded-xl sm:rounded-2xl">
             <div className="studio-grain" aria-hidden />
             <div className="relative z-10 flex flex-col h-full min-h-0">
-              <div className="flex items-center justify-between gap-3 p-3 sm:p-4 border-b border-white/10 bg-white/6 shrink-0">
+              {/* Header - synced with Source section */}
+              <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-white/5 bg-white/2 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="flex gap-1 shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-red/80 shadow-[0_0_4px_rgba(239,68,68,0.4)]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-gold/80 shadow-[0_0_4px_rgba(251,191,36,0.4)]" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-orange/80 shadow-[0_0_4px_rgba(242,123,47,0.4)]" />
+                  <div className="flex gap-0.5 shrink-0">
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full bg-red-400/80`}
+                    />
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400/80" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400/80" />
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/80 font-mono">
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white/70">
                     Output
                   </span>
+                  {mdflowOutput && meta && (
+                    <span className="text-[8px] sm:text-[9px] hidden sm:inline text-muted/50 font-mono">
+                      {meta.total_rows || 0} rows
+                    </span>
+                  )}
                 </div>
-                {mdflowOutput && (
-                  <div className="flex items-center gap-3 shrink-0">
+                {/* Action buttons - always visible, disabled when no output */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Tooltip content={copied ? "Copied!" : "Copy"}>
                     <button
                       type="button"
                       onClick={handleCopy}
-                      className="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 cursor-pointer"
-                      title={copied ? "Copied" : "Copy (⌘+Shift+C)"}
-                      aria-label={copied ? "Copied" : "Copy to clipboard"}
+                      disabled={!mdflowOutput}
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
+                        mdflowOutput
+                          ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
+                          : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                      }`}
                     >
                       {copied ? (
-                        <Check className="w-3 h-3 text-accent-orange" />
+                        <Check className="w-3.5 h-3.5 text-accent-orange" />
                       ) : (
-                        <Copy className="w-3 h-3" />
+                        <Copy className="w-3.5 h-3.5" />
                       )}
                     </button>
-                    {previousOutput && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const diff = await diffMDFlowMutation.mutateAsync({
-                            before: previousOutput,
-                            after: mdflowOutput,
-                          });
-                          setCurrentDiff(diff);
-                          setShowDiff(true);
-                        }}
-                        className="flex items-center justify-center h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 text-[9px] font-bold uppercase tracking-wider cursor-pointer shrink-0"
-                        title="Compare with saved output"
-                      >
-                        <GitCompare className="w-3 h-3 shrink-0" />
-                      </button>
-                    )}
+                  </Tooltip>
+                  <Tooltip content="Save snapshot">
                     <button
                       type="button"
                       onClick={() => {
-                        setPreviousOutput(mdflowOutput);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 1500);
+                        if (mdflowOutput) {
+                          setPreviousOutput(mdflowOutput);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 1500);
+                        }
                       }}
-                      className="flex items-center justify-center h-8 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 text-[9px] font-bold uppercase tracking-wider cursor-pointer shrink-0"
-                      title="Save current output for comparison"
+                      disabled={!mdflowOutput}
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
+                        mdflowOutput
+                          ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
+                          : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                      }`}
                     >
-                      <Save className="w-3 h-3 shrink-0" />
+                      <Save className="w-3.5 h-3.5" />
                     </button>
+                  </Tooltip>
+                  {previousOutput && (
+                    <Tooltip content="Compare">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (mdflowOutput) {
+                            const diff = await diffMDFlowMutation.mutateAsync({
+                              before: previousOutput,
+                              after: mdflowOutput,
+                            });
+                            setCurrentDiff(diff);
+                            setShowDiff(true);
+                          }
+                        }}
+                        disabled={!mdflowOutput}
+                        className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
+                      >
+                        <GitCompare className="w-3.5 h-3.5" />
+                      </button>
+                    </Tooltip>
+                  )}
+                  <Tooltip content="Export">
                     <button
                       type="button"
-                      onClick={handleGetAISuggestions}
-                      disabled={!pasteText.trim() || aiSuggestionsLoading}
-                      className={`flex items-center justify-center h-8 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 gap-1.5 ${
-                        !pasteText.trim() || aiSuggestionsLoading
-                          ? "bg-white/5 text-white/30 cursor-not-allowed border border-white/10"
-                          : "bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 hover:border-purple-500/40"
+                      disabled={!mdflowOutput}
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
+                        mdflowOutput
+                          ? "bg-accent-orange/90 hover:bg-accent-orange border-accent-orange/50 text-white"
+                          : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
                       }`}
-                      title="Get AI suggestions for quality improvements"
+                      onClick={() => {
+                        if (mdflowOutput) {
+                          const blob = new Blob([mdflowOutput], {
+                            type: "text/markdown",
+                          });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "spec.mdflow.md";
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      }}
                     >
-                      <Sparkles
-                        className={`w-3 h-3 shrink-0 ${
-                          aiSuggestionsLoading ? "animate-pulse" : ""
-                        }`}
-                      />
-                      <span className="hidden sm:inline">AI</span>
+                      <Download className="w-3.5 h-3.5" />
                     </button>
-                    <ShareButton
-                      mdflowOutput={mdflowOutput}
-                      template={template}
-                    />
-                    <ExportDropdown
-                      mdflowOutput={mdflowOutput}
-                    />
-                    {history.length > 0 && (
+                  </Tooltip>
+                  {history.length > 0 && (
+                    <Tooltip content="History">
                       <button
                         type="button"
                         onClick={() => setShowHistory(true)}
-                        className="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/80 transition-all border border-white/5 hover:border-white/10 cursor-pointer"
-                        title="View history"
+                        className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
                       >
-                        <History className="w-3 h-3" />
+                        <History className="w-3.5 h-3.5" />
                       </button>
-                    )}
-                  </div>
-                )}
+                    </Tooltip>
+                  )}
+                </div>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-5 sm:px-6 lg:px-8 py-4 sm:py-5 lg:py-6 custom-scrollbar">
+              {/* Output content */}
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3 custom-scrollbar">
                 {mdflowOutput ? (
-                  <pre className="whitespace-pre-wrap wrap-break-word font-mono text-xs sm:text-[13px] leading-relaxed text-white/95 selection:bg-accent-orange/30 selection:text-white">
+                  <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[11px] sm:text-[12px] leading-relaxed text-white/90 selection:bg-accent-orange/30">
                     {mdflowOutput}
                   </pre>
                 ) : (
-                  <div className="h-full min-h-[240px] sm:min-h-[280px] flex flex-col items-center justify-center text-center py-8">
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                      className="rounded-2xl bg-white/5 border border-white/5 p-6 sm:p-8 mb-4 sm:mb-6"
-                    >
-                      <Terminal className="w-10 h-10 text-white/25" />
-                    </motion.div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.25em] text-white/50">
+                  <div className="h-full flex flex-col items-center justify-center text-center py-6">
+                    <div className="rounded-xl bg-white/5 border border-white/5 p-4 mb-3">
+                      <Terminal className="w-8 h-8 text-white/20" />
+                    </div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-white/40">
                       Output will appear here
                     </p>
-                    <p className="text-[10px] text-muted/70 mt-1.5 uppercase tracking-wider">
-                      Run the engine to generate MDFlow
+                    <p className="text-[9px] text-muted/50 mt-1">
+                      Paste data and run to generate
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-white/10 bg-white/2 px-4 sm:px-5 lg:px-6 py-4 sm:py-5 shrink-0 min-h-[100px] sm:min-h-[120px] flex flex-col justify-center">
-                <TechnicalAnalysis
-                  meta={meta}
-                  warnings={warnings}
-                  mdflowOutput={mdflowOutput}
-                  aiSuggestions={aiSuggestions}
-                  aiSuggestionsLoading={aiSuggestionsLoading}
-                  aiSuggestionsError={aiSuggestionsError}
-                  aiConfigured={aiConfigured}
-                />
-              </div>
+              {/* Compact stats footer - only show when there's output */}
+              {(mdflowOutput ||
+                warnings.length > 0 ||
+                aiSuggestions.length > 0) && (
+                <div className="border-t border-white/10 bg-white/2 px-3 sm:px-4 py-2 sm:py-2.5 shrink-0">
+                  <TechnicalAnalysis
+                    meta={meta}
+                    warnings={warnings}
+                    mdflowOutput={mdflowOutput}
+                    aiSuggestions={aiSuggestions}
+                    aiSuggestionsLoading={aiSuggestionsLoading}
+                    aiSuggestionsError={aiSuggestionsError}
+                    aiConfigured={aiConfigured}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
       </div>
-
-      <motion.div variants={stagger.item} className="flex justify-center gap-3">
-        <Link
-          href="/batch"
-          className="inline-flex items-center gap-2 text-[8px] sm:text-[9px] font-bold text-muted/50 hover:text-accent-orange uppercase tracking-[0.25em] sm:tracking-[0.3em] bg-white/3 hover:bg-white/5 border border-white/5 hover:border-accent-orange/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full transition-all"
-        >
-          <Boxes className="w-3 h-3" />
-          Batch Mode
-        </Link>
-        <div className="inline-flex items-center gap-2 text-[8px] sm:text-[9px] font-bold text-muted/50 uppercase tracking-[0.3em] sm:tracking-[0.35em] bg-white/3 border border-white/5 px-3 sm:px-5 py-1.5 sm:py-2 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent-orange/80 animate-pulse" />
-          MDFlow Studio
-        </div>
-      </motion.div>
 
       {/* Diff Viewer Modal */}
       <AnimatePresence>
@@ -1187,9 +1076,7 @@ export default function MDFlowWorkbench() {
                 </button>
               </div>
               <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-                <DiffViewer
-                  diff={currentDiff}
-                />
+                <DiffViewer diff={currentDiff} />
               </div>
             </motion.div>
           </motion.div>

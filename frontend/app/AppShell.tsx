@@ -31,7 +31,7 @@ export default function AppShell({ children }: AppShellProps) {
       </div>
 
       <AppHeader />
-      <main className="max-w-7xl mx-auto pt-8 sm:pt-12 lg:pt-20 min-h-[80vh]">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-0 pt-4 sm:pt-6 lg:pt-8 min-h-[80vh]">
         {children}
       </main>
 
@@ -61,7 +61,6 @@ export default function AppShell({ children }: AppShellProps) {
         />
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-20">
-          {/* Single-row CTA strip: badge + copy + button — compact, one line on lg */}
           <div className="py-6 sm:py-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6 border-b border-white/3">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 min-w-0">
               <div className="inline-flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-sm bg-accent-orange/5 border border-accent-orange/20 hover:border-accent-orange/40 transition-colors">

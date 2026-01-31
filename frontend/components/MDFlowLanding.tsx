@@ -101,7 +101,10 @@ export default function MDFlowLanding() {
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-16 sm:gap-24 lg:gap-12">
+    <div
+      ref={containerRef}
+      className="flex flex-col gap-16 sm:gap-24 lg:gap-12"
+    >
       {/* 🚀 Hero Section - The Grand Entrance */}
       <section className="relative min-h-[70vh] sm:min-h-[80vh] lg:min-h-[90vh] flex flex-col items-center justify-center px-4 overflow-hidden pt-8 sm:pt-12">
         {/* Advanced Background Gradients - Liquid Glass Influence */}
@@ -237,7 +240,7 @@ export default function MDFlowLanding() {
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 1.2 }}
-          className="mt-12 sm:mt-16 lg:mt-24 relative w-full max-w-6xl aspect-21/9 rounded-xl sm:rounded-2xl lg:rounded-3xl border border-white/10 bg-black/40 backdrop-blur-3xl shadow-3xl overflow-hidden group"
+          className="mt-12 sm:mt-16 lg:mt-24 relative w-full max-w-7xl aspect-21/9 px-3 sm:px-5 lg:px-8 rounded-xl sm:rounded-2xl lg:rounded-3xl border border-white/10 bg-black/40 backdrop-blur-3xl shadow-3xl overflow-hidden group"
         >
           <div className="absolute top-0 left-0 w-full h-px bg-linear-to-r from-transparent via-accent-orange/50 to-transparent" />
           <div className="absolute inset-0 bg-linear-to-b from-accent-orange/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
@@ -323,7 +326,8 @@ export default function MDFlowLanding() {
                     router.push(`/docs?section=${feature.docId}`);
                   }}
                 >
-                  Learn Detail <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
+                  Learn Detail{" "}
+                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
                 </div>
               </div>
             </motion.div>
@@ -332,7 +336,7 @@ export default function MDFlowLanding() {
       </section>
 
       {/* 📊 The Pipeline - Kinetic Workflow */}
-      <section className="relative py-16 sm:py-24 lg:py-32 overflow-hidden bg-white/1 border-y border-white/5">
+      <section className="relative py-10 rounded-xl sm:rounded-2xl lg:rounded-3xl overflow-hidden bg-white/1 border-y border-white/5">
         <div className="app-container grid lg:grid-cols-2 gap-12 sm:gap-16 lg:gap-24 items-center">
           <motion.div {...fadeInUp} className="space-y-8 sm:space-y-12">
             <div className="pill border-accent-gold/30 text-accent-gold">
@@ -422,7 +426,9 @@ export default function MDFlowLanding() {
                     </span>
                   </div>
                   <div className="space-y-0.5 sm:space-y-1">
-                    <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white tabular-nums leading-none">+84%</p>
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white tabular-nums leading-none">
+                      +84%
+                    </p>
                     <p className="text-[8px] sm:text-[9px] text-white/50 font-medium uppercase tracking-wider">
                       time saved vs manual spec
                     </p>
@@ -433,7 +439,11 @@ export default function MDFlowLanding() {
                       initial={{ width: 0 }}
                       whileInView={{ width: "84%" }}
                       viewport={{ once: true }}
-                      transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{
+                        duration: 0.8,
+                        delay: 0.2,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
                     />
                   </div>
                 </div>
@@ -449,7 +459,9 @@ export default function MDFlowLanding() {
                     </span>
                   </div>
                   <div className="space-y-0.5 sm:space-y-1">
-                    <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white tabular-nums leading-none">12×</p>
+                    <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white tabular-nums leading-none">
+                      12×
+                    </p>
                     <p className="text-[8px] sm:text-[9px] text-white/50 font-medium uppercase tracking-wider">
                       faster than manual mapping
                     </p>
@@ -460,7 +472,11 @@ export default function MDFlowLanding() {
                       initial={{ width: 0 }}
                       whileInView={{ width: "100%" }}
                       viewport={{ once: true }}
-                      transition={{ duration: 0.8, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                      transition={{
+                        duration: 0.8,
+                        delay: 0.35,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
                     />
                   </div>
                 </div>

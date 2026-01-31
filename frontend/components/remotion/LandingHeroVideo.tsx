@@ -199,9 +199,9 @@ const WindowShell: React.FC<React.PropsWithChildren> = ({ children }) => {
         }}
       >
         <div style={{ display: "flex", gap: 8 }}>
-          <div style={{ width: 10, height: 10, borderRadius: 999, background: "#5c2b2b" }} />
-          <div style={{ width: 10, height: 10, borderRadius: 999, background: "#6a4a1b" }} />
-          <div style={{ width: 10, height: 10, borderRadius: 999, background: "#5a3a1d" }} />
+          <div style={{ width: 10, height: 10, borderRadius: 999, background: "rgba(239, 68, 68, 0.8)" }} />
+          <div style={{ width: 10, height: 10, borderRadius: 999, background: "rgba(234, 179, 8, 0.8)" }} />
+          <div style={{ width: 10, height: 10, borderRadius: 999, background: "rgba(34, 197, 94, 0.8)" }} />
         </div>
         <div style={{ display: "flex", gap: 16, opacity: 0.6 }}>
           <div style={{ width: 90, height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)" }} />
@@ -899,7 +899,7 @@ export const LandingHeroVideo: React.FC = () => {
             position: "absolute",
             left: "50%",
             top: "50%",
-            transform: `translate(-50%, -50%) perspective(1200px) rotateX(1.2deg) rotateY(-2deg) scale(${0.96 + windowReveal * 0.04}) rotate(${tilt}deg) translate(${driftX}px, ${driftY}px)`,
+            transform: `translate(-50%, -50%) scale(${0.96 + windowReveal * 0.04})`,
             width: "92%",
             height: "70%",
           }}

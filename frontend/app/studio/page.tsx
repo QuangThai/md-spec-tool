@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 
 export default function StudioPage() {
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto">
+    <div className="max-w-7xl mx-auto">
       <MDFlowWorkbench />
     </div>
   );

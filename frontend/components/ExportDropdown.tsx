@@ -14,6 +14,7 @@ type ExportFormat = "md" | "json" | "yaml";
  */
 export function ExportDropdown({ mdflowOutput }: ExportDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const downloadAs = (format: ExportFormat) => {
     let content = mdflowOutput;
@@ -61,17 +62,32 @@ export function ExportDropdown({ mdflowOutput }: ExportDropdownProps) {
   };
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onMouseEnter={() => !open && setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center justify-center h-8 px-3 rounded-lg bg-accent-orange text-[9px] font-bold uppercase tracking-wider text-white shadow-md shadow-accent-orange/25 hover:bg-accent-orange/90 active:scale-95 transition-all cursor-pointer shrink-0"
+        onClick={() => { setOpen(!open); setShowTooltip(false); }}
+        className="p-1.5 sm:p-2 rounded-lg bg-accent-orange/90 hover:bg-accent-orange text-white border border-accent-orange/50 shadow-sm shadow-accent-orange/25 active:scale-95 transition-all cursor-pointer"
       >
-        <span className="inline-flex items-center gap-1.5 leading-none">
-          <Download className="block w-3 h-3 shrink-0" />
-          <span className="leading-none">Export</span>
-        </span>
+        <Download className="w-3.5 h-3.5" />
       </button>
+
+      <AnimatePresence>
+        {showTooltip && !open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 px-2 py-1 rounded-md bg-black/95 backdrop-blur-sm border border-white/10 shadow-xl text-[9px] font-medium text-white/90 whitespace-nowrap pointer-events-none"
+          >
+            Export
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {open && (
