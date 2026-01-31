@@ -4,16 +4,17 @@ import {
   usePreviewTSVQuery,
   usePreviewXLSXQuery,
 } from "@/lib/mdflowQueries";
+import { InputMode, PreviewResponse } from "@/lib/types";
 
 interface PreviewManagementProps {
-  mode: string;
+  mode: InputMode;
   pasteText: string;
   file: File | null;
   selectedSheet: string;
-  preview: any;
+  preview: PreviewResponse | null;
   previewLoading: boolean;
   showPreview: boolean;
-  setPreview: (preview: any) => void;
+  setPreview: (preview: PreviewResponse | null) => void;
   setPreviewLoading: (loading: boolean) => void;
   setShowPreview: (show: boolean) => void;
 }

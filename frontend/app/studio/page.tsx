@@ -1,5 +1,4 @@
 import MDFlowWorkbench from "@/components/MDFlowWorkbench";
-import StudioPageHeader from "@/components/StudioPageHeader";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -40,9 +39,6 @@ export const metadata: Metadata = {
 export default function StudioPage() {
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="mb-8 sm:mb-10 lg:mb-12">
-        <StudioPageHeader />
-      </div>
       <MDFlowWorkbench />
     </div>
   );

@@ -1,33 +1,17 @@
 import { DiffResponse } from './diffTypes';
+import {
+  AISuggestResponse,
+  ApiResult,
+  MDFlowConvertResponse,
+  PreviewResponse,
+  TemplateContentResponse,
+  TemplateInfo,
+  TemplatePreviewResponse,
+  ValidationResult,
+  ValidationRules
+} from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
-export type WarningSeverity = 'info' | 'warn' | 'error';
-export type WarningCategory = 'input' | 'detect' | 'header' | 'mapping' | 'rows' | 'render';
-
-export interface MDFlowWarning {
-  code: string;
-  message: string;
-  severity: WarningSeverity;
-  category: WarningCategory;
-  hint?: string;
-  details?: Record<string, unknown>;
-}
-
-export interface MDFlowMeta {
-  sheet_name?: string;
-  header_row: number;
-  column_map: Record<string, number>;
-  unmapped_columns?: string[];
-  total_rows: number;
-  rows_by_feature?: Record<string, number>;
-}
-
-export interface MDFlowConvertResponse {
-  mdflow: string;
-  warnings: MDFlowWarning[];
-  meta: MDFlowMeta;
-}
 
 export interface SheetsResponse {
   sheets: string[];
@@ -38,285 +22,213 @@ export interface TemplatesResponse {
   templates: string[];
 }
 
-export interface PreviewResponse {
-  headers: string[];
-  rows: string[][];
-  total_rows: number;
-  preview_rows: number;
-  header_row: number;
-  confidence: number;
-  column_mapping: Record<string, string>;
-  unmapped_columns: string[];
-  input_type: 'table' | 'markdown';
-}
-
-export async function convertPaste(
-  pasteText: string,
-  template?: string
-): Promise<{ data?: MDFlowConvertResponse; error?: string }> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/paste`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        paste_text: pasteText,
-        template: template || '',
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-export async function convertXLSX(
-  file: File,
-  sheetName?: string,
-  template?: string
-): Promise<{ data?: MDFlowConvertResponse; error?: string }> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (sheetName) formData.append('sheet_name', sheetName);
-    if (template) formData.append('template', template);
-
-    const response = await fetch(`${API_URL}/api/mdflow/xlsx`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-export async function convertTSV(
-  file: File,
-  template?: string
-): Promise<{ data?: MDFlowConvertResponse; error?: string }> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (template) formData.append('template', template);
-
-    const response = await fetch(`${API_URL}/api/mdflow/tsv`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-export async function getXLSXSheets(
-  file: File
-): Promise<{ data?: SheetsResponse; error?: string }> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(`${API_URL}/api/mdflow/xlsx/sheets`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-export async function getMDFlowTemplates(): Promise<{
-  data?: TemplatesResponse;
-  error?: string;
-}> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/templates`);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-export async function diffMDFlow(
-  before: string,
-  after: string
-): Promise<DiffResponse | null> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/diff`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ before, after }),
-    });
-
-    if (!response.ok) {
-      console.error(`Diff failed: ${response.status}`);
-      return null;
-    }
-
-    return response.json();
-  } catch (error) {
-    console.error('Diff error:', error);
-    return null;
-  }
-}
-
-export async function previewPaste(
-  pasteText: string
-): Promise<{ data?: PreviewResponse; error?: string }> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/preview`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        paste_text: pasteText,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-export async function previewTSV(
-  file: File
-): Promise<{ data?: PreviewResponse; error?: string }> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(`${API_URL}/api/mdflow/tsv/preview`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-export async function previewXLSX(
-  file: File,
-  sheetName?: string
-): Promise<{ data?: PreviewResponse; error?: string }> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (sheetName) formData.append('sheet_name', sheetName);
-
-    const response = await fetch(`${API_URL}/api/mdflow/xlsx/preview`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
-// Google Sheets integration
 export interface GoogleSheetResponse {
   sheet_id: string;
   sheet_name?: string;
   data: string;
 }
 
-export function isGoogleSheetsURL(text: string): boolean {
-  return text.includes('docs.google.com/spreadsheets');
-}
-
-export async function fetchGoogleSheet(
-  url: string
-): Promise<{ data?: GoogleSheetResponse; error?: string }> {
+/**
+ * Helper to make API calls and handle errors consistently
+ */
+async function apiCall<T>(
+  url: string,
+  options?: RequestInit
+): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(`${API_URL}/api/mdflow/gsheet`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ url }),
-    });
+    const response = await fetch(url, options);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
+      return {
+        error: errorData.error || `HTTP ${response.status}`,
+      };
     }
 
     const data = await response.json();
     return { data };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
+    return {
+      error: error instanceof Error ? error.message : 'Network error',
+    };
   }
 }
 
+/**
+ * Convert pasted TSV/CSV data to MDFlow markdown
+ */
+export async function convertPaste(
+  pasteText: string,
+  template?: string
+): Promise<ApiResult<MDFlowConvertResponse>> {
+  return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/paste`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      paste_text: pasteText,
+      template: template || '',
+    }),
+  });
+}
+
+/**
+ * Convert XLSX file to MDFlow markdown
+ */
+export async function convertXLSX(
+  file: File,
+  sheetName?: string,
+  template?: string
+): Promise<ApiResult<MDFlowConvertResponse>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (sheetName) formData.append('sheet_name', sheetName);
+  if (template) formData.append('template', template);
+
+  return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/xlsx`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+/**
+ * Convert TSV file to MDFlow markdown
+ */
+export async function convertTSV(
+  file: File,
+  template?: string
+): Promise<ApiResult<MDFlowConvertResponse>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (template) formData.append('template', template);
+
+  return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/tsv`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+/**
+ * Get sheets from XLSX file
+ */
+export async function getXLSXSheets(
+  file: File
+): Promise<ApiResult<SheetsResponse>> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return apiCall<SheetsResponse>(`${API_URL}/api/mdflow/xlsx/sheets`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+/**
+ * Get available MDFlow templates
+ */
+export async function getMDFlowTemplates(): Promise<ApiResult<TemplatesResponse>> {
+  return apiCall<TemplatesResponse>(`${API_URL}/api/mdflow/templates`);
+}
+
+/**
+ * Get diff between two MDFlow markdown documents
+ * Returns null on error (preserving backward compatibility)
+ */
+export async function diffMDFlow(
+  before: string,
+  after: string
+): Promise<DiffResponse | null> {
+  const result = await apiCall<DiffResponse>(`${API_URL}/api/mdflow/diff`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ before, after }),
+  });
+
+  return result.error ? null : result.data || null;
+}
+
+/**
+ * Preview pasted TSV/CSV data
+ */
+export async function previewPaste(
+  pasteText: string
+): Promise<ApiResult<PreviewResponse>> {
+  return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/preview`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      paste_text: pasteText,
+    }),
+  });
+}
+
+/**
+ * Preview TSV file
+ */
+export async function previewTSV(
+  file: File
+): Promise<ApiResult<PreviewResponse>> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/tsv/preview`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+/**
+ * Preview XLSX file
+ */
+export async function previewXLSX(
+  file: File,
+  sheetName?: string
+): Promise<ApiResult<PreviewResponse>> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (sheetName) formData.append('sheet_name', sheetName);
+
+  return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/xlsx/preview`, {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+/**
+ * Check if a text is a Google Sheets URL
+ */
+export function isGoogleSheetsURL(text: string): boolean {
+  return text.includes('docs.google.com/spreadsheets');
+}
+
+/**
+ * Fetch Google Sheet data
+ */
+export async function fetchGoogleSheet(
+  url: string
+): Promise<ApiResult<GoogleSheetResponse>> {
+  return apiCall<GoogleSheetResponse>(`${API_URL}/api/mdflow/gsheet`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ url }),
+  });
+}
+
+/**
+ * Convert Google Sheet to MDFlow markdown
+ */
 export async function convertGoogleSheet(
   url: string,
   template?: string
-): Promise<{ data?: MDFlowConvertResponse; error?: string }> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/gsheet/convert`, {
+): Promise<ApiResult<MDFlowConvertResponse>> {
+  return apiCall<MDFlowConvertResponse>(
+    `${API_URL}/api/mdflow/gsheet/convert`,
+    {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -325,152 +237,57 @@ export async function convertGoogleSheet(
         url,
         template: template || '',
       }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
     }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
+  );
 }
 
-// Validation Rules (custom validation configurator)
-export interface ValidationFormatRules {
-  id_pattern?: string;
-  date_format?: string;
-  email_fields?: string[];
-  url_fields?: string[];
-}
-
-export interface ValidationCrossFieldRule {
-  if_field: string;
-  then_field: string;
-  message?: string;
-}
-
-export interface ValidationRules {
-  required_fields: string[];
-  format_rules?: ValidationFormatRules | null;
-  cross_field?: ValidationCrossFieldRule[];
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  warnings: MDFlowWarning[];
-}
-
-export interface ValidationPreset {
-  id: string;
-  name: string;
-  rules: ValidationRules;
-  createdAt: number;
-}
-
+/**
+ * Validate pasted data against custom validation rules
+ */
 export async function validatePaste(
   pasteText: string,
   rules: ValidationRules
-): Promise<{ data?: ValidationResult; error?: string }> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/validate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        paste_text: pasteText,
-        validation_rules: rules,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
+): Promise<ApiResult<ValidationResult>> {
+  return apiCall<ValidationResult>(`${API_URL}/api/mdflow/validate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      paste_text: pasteText,
+      validation_rules: rules,
+    }),
+  });
 }
 
-// Template Editor types and functions
-export interface TemplateVariable {
-  name: string;
-  type: string;
-  description: string;
+/**
+ * Get template info (variables and functions)
+ */
+export async function getTemplateInfo(): Promise<ApiResult<TemplateInfo>> {
+  return apiCall<TemplateInfo>(`${API_URL}/api/mdflow/templates/info`);
 }
 
-export interface TemplateFunction {
-  name: string;
-  signature: string;
-  description: string;
-}
-
-export interface TemplateInfo {
-  variables: TemplateVariable[];
-  functions: TemplateFunction[];
-}
-
-export interface TemplatePreviewResponse {
-  output: string;
-  error?: string;
-  warnings: MDFlowWarning[];
-}
-
-export interface TemplateContentResponse {
-  name: string;
-  content: string;
-}
-
-export async function getTemplateInfo(): Promise<{
-  data?: TemplateInfo;
-  error?: string;
-}> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/templates/info`);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
-}
-
+/**
+ * Get template content by name
+ */
 export async function getTemplateContent(
   name: string
-): Promise<{ data?: TemplateContentResponse; error?: string }> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/templates/${name}`);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
+): Promise<ApiResult<TemplateContentResponse>> {
+  return apiCall<TemplateContentResponse>(
+    `${API_URL}/api/mdflow/templates/${name}`
+  );
 }
 
+/**
+ * Preview template with sample data
+ */
 export async function previewTemplate(
   templateContent: string,
   sampleData?: string
-): Promise<{ data?: TemplatePreviewResponse; error?: string }> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/templates/preview`, {
+): Promise<ApiResult<TemplatePreviewResponse>> {
+  return apiCall<TemplatePreviewResponse>(
+    `${API_URL}/api/mdflow/templates/preview`,
+    {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -479,67 +296,25 @@ export async function previewTemplate(
         template_content: templateContent,
         sample_data: sampleData || '',
       }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
     }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
+  );
 }
 
-// AI Suggestions types and functions
-export type AISuggestionType =
-  | 'missing_field'
-  | 'vague_description'
-  | 'incomplete_steps'
-  | 'formatting'
-  | 'coverage';
-
-export interface AISuggestion {
-  type: AISuggestionType;
-  severity: 'info' | 'warn' | 'error';
-  message: string;
-  row_ref?: number;
-  field?: string;
-  suggestion: string;
-}
-
-export interface AISuggestResponse {
-  suggestions: AISuggestion[];
-  error?: string;
-  configured: boolean;
-}
-
+/**
+ * Get AI suggestions for data improvement
+ */
 export async function getAISuggestions(
   pasteText: string,
   template?: string
-): Promise<{ data?: AISuggestResponse; error?: string }> {
-  try {
-    const response = await fetch(`${API_URL}/api/mdflow/ai/suggest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        paste_text: pasteText,
-        template: template || 'default',
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return { error: errorData.error || `HTTP ${response.status}` };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'Network error' };
-  }
+): Promise<ApiResult<AISuggestResponse>> {
+  return apiCall<AISuggestResponse>(`${API_URL}/api/mdflow/ai/suggest`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      paste_text: pasteText,
+      template: template || 'default',
+    }),
+  });
 }

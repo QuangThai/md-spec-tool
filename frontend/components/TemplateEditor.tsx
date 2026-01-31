@@ -7,7 +7,7 @@ import {
   STORAGE_KEY,
 } from "@/constants/template-editor";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
-import { TemplateFunction, TemplateVariable } from "@/lib/mdflowApi";
+import { TemplateFunction, TemplateVariable } from "@/lib/types";
 import {
   usePreviewTemplateMutation,
   useTemplateContentQuery,

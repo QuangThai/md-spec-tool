@@ -1,6 +1,6 @@
 "use client";
 
-import { AISuggestion, AISuggestionType } from "@/lib/mdflowApi";
+import { AISuggestion, AISuggestionType } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,

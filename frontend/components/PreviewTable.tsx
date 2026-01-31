@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Table } from "lucide-react";
-import { PreviewResponse } from "@/lib/mdflowApi";
+import { PreviewResponse } from "@/lib/types";
 import { CANONICAL_FIELDS } from "@/constants/mdflow";
 
 interface PreviewTableProps {

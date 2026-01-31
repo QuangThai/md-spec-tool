@@ -14,11 +14,8 @@ import {
   usePreviewTSVQuery,
   usePreviewXLSXQuery,
 } from "@/lib/mdflowQueries";
-import {
-  ConversionRecord,
-  useHistoryStore,
-  useMDFlowStore,
-} from "@/lib/mdflowStore";
+import { useHistoryStore, useMDFlowStore } from "@/lib/mdflowStore";
+import { ConversionRecord } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -36,20 +33,20 @@ import {
   RefreshCcw,
   Save,
   ShieldCheck,
-  Sparkles,
   Terminal,
-  Zap,
+  Zap
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { DiffViewer } from "./DiffViewer";
 import HistoryModal, { KeyboardShortcutsTooltip } from "./HistoryModal";
 import { OnboardingTour } from "./OnboardingTour";
+import { PreviewTable } from "./PreviewTable";
+import { TechnicalAnalysis } from "./TechnicalAnalysis";
 import { TemplateCards } from "./TemplateCards";
 import { TemplateEditor } from "./TemplateEditor";
-import { ValidationConfigurator } from "./ValidationConfigurator";
-import { PreviewTable, TechnicalAnalysis } from "./index";
 import { Select } from "./ui/Select";
 import { Tooltip } from "./ui/Tooltip";
+import { ValidationConfigurator } from "./ValidationConfigurator";
 
 const stagger = {
   container: {

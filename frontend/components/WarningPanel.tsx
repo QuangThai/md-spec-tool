@@ -1,6 +1,6 @@
 "use client";
 
-import { MDFlowWarning } from "@/lib/mdflowApi";
+import { MDFlowWarning } from "@/lib/types";
 import { useMDFlowStore } from "@/lib/mdflowStore";
 import { AnimatePresence, motion } from "framer-motion";
 import {

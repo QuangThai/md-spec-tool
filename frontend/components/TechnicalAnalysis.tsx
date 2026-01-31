@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity } from "lucide-react";
-import { AISuggestion, MDFlowWarning } from "@/lib/mdflowApi";
+import { AISuggestion, MDFlowWarning } from "@/lib/types";
 import { AISuggestionsPanel } from "./AISuggestionsPanel";
 import { WarningPanel } from "./WarningPanel";
 

@@ -1,5 +1,6 @@
 "use client";
-import { ConversionRecord, useHistoryStore } from "@/lib/mdflowStore";
+import { useHistoryStore } from "@/lib/mdflowStore";
+import { ConversionRecord } from "@/lib/types";
 import { useOnboardingStore } from "@/lib/onboardingStore";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, Check, Clock, Copy, History, Keyboard, X } from "lucide-react";

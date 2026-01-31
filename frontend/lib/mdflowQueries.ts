@@ -16,8 +16,8 @@ import {
   previewTSV,
   previewXLSX,
   validatePaste,
-  ValidationRules,
 } from "@/lib/mdflowApi";
+import { ApiResult, ValidationRules } from "@/lib/types";
 
 const queryKeys = {
   templates: ["mdflow", "templates"] as const,
@@ -29,7 +29,10 @@ const queryKeys = {
     ["mdflow", "preview", "xlsx", fileKey, sheet] as const,
 };
 
-function unwrap<T>(result: { data?: T; error?: string }): T {
+/**
+ * Unwrap ApiResult - throw on error, return data on success
+ */
+function unwrap<T>(result: ApiResult<T>): T {
   if (result.error) {
     throw new Error(result.error);
   }

@@ -1,4 +1,4 @@
-import type { ValidationPreset, ValidationRules } from "./mdflowApi";
+import type { ValidationPreset, ValidationRules } from "./types";
 
 const STORAGE_KEY = "mdflow-validation-presets";
 
@@ -14,7 +14,7 @@ export function loadPresets(): ValidationPreset[] {
   }
 }
 
-export function savePreset(preset: Omit<ValidationPreset, "id" | "createdAt">): ValidationPreset {
+export function savePreset(preset: { name: string } & ValidationRules): ValidationPreset {
   const presets = loadPresets();
   const newPreset: ValidationPreset = {
     ...preset,

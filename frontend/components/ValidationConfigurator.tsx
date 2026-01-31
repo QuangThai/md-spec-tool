@@ -4,7 +4,7 @@ import {
   ValidationCrossFieldRule,
   ValidationFormatRules,
   ValidationRules,
-} from "@/lib/mdflowApi";
+} from "@/lib/types";
 import { useValidatePasteMutation } from "@/lib/mdflowQueries";
 import { useMDFlowStore } from "@/lib/mdflowStore";
 import {
@@ -127,7 +127,10 @@ export function ValidationConfigurator({
 
   const loadPresetRules = (presetId: string) => {
     const preset = presets.find((p) => p.id === presetId);
-    if (preset) setLocalRules(preset.rules);
+    if (preset) {
+      const { id, name, createdAt, ...rules } = preset;
+      setLocalRules(rules as ValidationRules);
+    }
     setPresetDropdownOpen(false);
   };
 
@@ -139,7 +142,7 @@ export function ValidationConfigurator({
 
   const saveCurrentPreset = () => {
     if (!presetName.trim()) return;
-    savePreset({ name: presetName.trim(), rules: localRules });
+    savePreset({ name: presetName.trim(), ...localRules });
     setPresets(loadPresets());
     setPresetName("");
   };

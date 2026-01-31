@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { isGoogleSheetsURL } from "@/lib/mdflowApi";
 import {
   useAISuggestionsMutation,
   useConvertGoogleSheetMutation,
@@ -8,19 +9,26 @@ import {
   useDiffMDFlowMutation,
 } from "@/lib/mdflowQueries";
 import { useHistoryStore } from "@/lib/mdflowStore";
+import {
+  AISuggestion,
+  InputMode,
+  MDFlowMeta,
+  MDFlowWarning,
+} from "@/lib/types";
+import { DiffResponse } from "@/lib/diffTypes";
 
 interface ConversionFlowProps {
-  mode: string;
+  mode: InputMode;
   pasteText: string;
   file: File | null;
   selectedSheet: string;
   template: string;
   columnOverrides: Record<string, string>;
-  aiConfigured: boolean;
-  setResult: (output: string, warnings: any[], meta: any) => void;
+  aiConfigured: boolean | null;
+  setResult: (output: string, warnings: MDFlowWarning[], meta: MDFlowMeta) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  setAISuggestions: (suggestions: any, configured: boolean) => void;
+  setAISuggestions: (suggestions: AISuggestion[], configured: boolean) => void;
   setAISuggestionsLoading: (loading: boolean) => void;
   setAISuggestionsError: (error: string | null) => void;
 }
@@ -45,7 +53,7 @@ export function useConversionFlow({
   setAISuggestionsError,
 }: ConversionFlowProps) {
   const { addToHistory } = useHistoryStore();
-  const [currentDiff, setCurrentDiff] = useState<any>(null);
+  const [currentDiff, setCurrentDiff] = useState<DiffResponse | null>(null);
   const [previousOutput, setPreviousOutput] = useState<string>("");
   const convertPasteMutation = useConvertPasteMutation();
   const convertXLSXMutation = useConvertXLSXMutation();
@@ -62,10 +70,11 @@ export function useConversionFlow({
       let result;
 
         if (mode === "paste") {
-          if (pasteText.trim().startsWith("http")) {
+          const trimmedPaste = pasteText.trim();
+          if (isGoogleSheetsURL(trimmedPaste)) {
             // Google Sheets URL
             result = await convertGoogleSheetMutation.mutateAsync({
-              url: pasteText,
+              url: trimmedPaste,
               template,
             });
           } else {
@@ -97,7 +106,7 @@ export function useConversionFlow({
 
           // Add to history
           addToHistory({
-            mode: mode as "paste" | "xlsx" | "tsv",
+            mode,
             inputPreview: mode === "paste" ? pasteText.substring(0, 100) : file?.name || "file",
             template,
             output: result.mdflow,
@@ -156,7 +165,7 @@ export function useConversionFlow({
         const result = await aiSuggestionsMutation.mutateAsync({
           pasteText: output,
         });
-        setAISuggestions(result, true);
+        setAISuggestions(result.suggestions, result.configured);
         setAISuggestionsError(null);
       } catch (err) {
         setAISuggestionsError(

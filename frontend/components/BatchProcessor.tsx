@@ -1,6 +1,6 @@
 "use client";
 
-import { MDFlowConvertResponse } from "@/lib/mdflowApi";
+import { MDFlowConvertResponse } from "@/lib/types";
 import {
   useConvertTSVMutation,
   useConvertXLSXMutation,

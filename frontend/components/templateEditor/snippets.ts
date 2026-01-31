@@ -1,4 +1,4 @@
-import type { TemplateFunction } from "@/lib/mdflowApi";
+import type { TemplateFunction } from "@/lib/types";
 
 export function normalizeVariableName(name: string) {
   if (name.startsWith("$.")) return name;
