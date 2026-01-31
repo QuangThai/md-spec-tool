@@ -21,27 +21,20 @@
 ## Architecture & Codebase
 
 **Tech Stack**:
-- **Backend**: Go 1.20 + Gin web framework + PostgreSQL 15
+- **Backend**: Go 1.20+ + Gin web framework (stateless conversion API)
 - **Frontend**: Next.js 14 + React 18 + TypeScript + Tailwind CSS + Zustand
-- **Authentication**: JWT tokens
 
 **Key Directories**:
 - `backend/cmd/server/`: Entry point (main.go)
 - `backend/internal/`: Business logic
-  - `http/`: Routes & handlers
-  - `services/`: Business logic layer
-  - `repositories/`: Data access layer
-  - `models/`: Domain models
-  - `converters/`: Excel→Markdown conversion
-  - `database/`: DB connection & migrations
+  - `http/`: Routes & handlers (HTTP transport layer)
+  - `converter/`: Excel→Markdown + Markdown diff conversion logic
   - `config/`: Configuration management
 - `frontend/app/`: Next.js app router
 - `frontend/components/`: React components
 - `frontend/lib/`: Utilities
 
-**Database**: PostgreSQL. Migrations auto-run on startup; manual: `backend/migrations/001_create_users.up.sql`
-
-**Ports**: Frontend 3000, Backend 8080, PostgreSQL 5432
+**Ports**: Frontend 3000, Backend 8080
 
 ## Code Style & Guidelines
 

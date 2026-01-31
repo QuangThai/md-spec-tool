@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -20,16 +22,32 @@ import (
 )
 
 type MDFlowHandler struct {
-	converter   *converter.Converter
-	renderer    *converter.MDFlowRenderer
-	aiSuggester *ai.Suggester
+	converter    *converter.Converter
+	renderer     *converter.MDFlowRenderer
+	aiSuggester  *ai.Suggester
+	httpClient   *http.Client
 }
 
-func NewMDFlowHandler() *MDFlowHandler {
+// NewMDFlowHandler creates a new MDFlowHandler with injected dependencies
+// httpClient is optional (can be nil); if nil, a default client will be used internally
+func NewMDFlowHandler(conv *converter.Converter, rend *converter.MDFlowRenderer, httpClient *http.Client) *MDFlowHandler {
+	if conv == nil {
+		conv = converter.NewConverter()
+	}
+	if rend == nil {
+		rend = converter.NewMDFlowRenderer()
+	}
+	if httpClient == nil {
+		httpClient = &http.Client{
+			Timeout: 30 * time.Second,
+		}
+	}
+	
 	return &MDFlowHandler{
-		converter:   converter.NewConverter(),
-		renderer:    converter.NewMDFlowRenderer(),
-		aiSuggester: nil, // Will be set via SetAISuggester
+		converter:   conv,
+		renderer:    rend,
+		aiSuggester: nil,
+		httpClient:  httpClient,
 	}
 }
 
@@ -133,14 +151,7 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 		return
 	}
 
-	log.Printf(
-		"mdflow.ConvertPaste detectOnly=%t template=%q pasteBytes=%d type=%s confidence=%d",
-		detectOnly,
-		req.Template,
-		len(req.PasteText),
-		string(analysis.Type),
-		analysis.Confidence,
-	)
+	slog.Info("mdflow.ConvertPaste", "detectOnly", detectOnly, "template", req.Template, "pasteBytes", len(req.PasteText), "type", string(analysis.Type), "confidence", analysis.Confidence)
 	if detectOnly {
 		typeStr := "unknown"
 		switch analysis.Type {
@@ -161,7 +172,7 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 	// Full conversion
 	result, err := h.converter.ConvertPaste(req.PasteText, req.Template)
 	if err != nil {
-		log.Printf("mdflow.ConvertPaste failed: %v", err)
+		slog.Error("mdflow.ConvertPaste failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert input"})
 		return
 	}
@@ -262,7 +273,7 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 
 	result, err := h.converter.ConvertXLSX(tempName, sheetName, template)
 	if err != nil {
-		log.Printf("mdflow.ConvertXLSX failed: %v", err)
+		slog.Error("mdflow.ConvertXLSX failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
 		return
 	}
@@ -328,7 +339,7 @@ func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
 
 	result, err := h.converter.ConvertPaste(string(content), template)
 	if err != nil {
-		log.Printf("mdflow.ConvertTSV failed: %v", err)
+		slog.Error("mdflow.ConvertTSV failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
 		return
 	}
@@ -407,7 +418,7 @@ func (h *MDFlowHandler) GetXLSXSheets(c *gin.Context) {
 
 	sheets, err := h.converter.GetXLSXSheets(tempName)
 	if err != nil {
-		log.Printf("mdflow.GetXLSXSheets failed: %v", err)
+		slog.Error("mdflow.GetXLSXSheets failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to read file"})
 		return
 	}
@@ -615,37 +626,55 @@ type GoogleSheetResponse struct {
 }
 
 // parseGoogleSheetURL extracts the sheet ID from various Google Sheets URL formats
-func parseGoogleSheetURL(url string) (sheetID string, gid string, ok bool) {
+// Returns sheetID, gid, and a boolean indicating success
+func parseGoogleSheetURL(urlStr string) (sheetID string, gid string, ok bool) {
 	// Format 1: https://docs.google.com/spreadsheets/d/SHEET_ID/edit#gid=GID
 	// Format 2: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
 	// Format 3: https://docs.google.com/spreadsheets/d/SHEET_ID
 	
-	if !strings.Contains(url, "docs.google.com/spreadsheets") {
+	// Parse URL properly
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		slog.Warn("Invalid URL format", "url", urlStr, "error", err)
 		return "", "", false
 	}
 	
-	// Extract sheet ID
-	parts := strings.Split(url, "/d/")
-	if len(parts) < 2 {
+	// Verify host is docs.google.com
+	if u.Host != "docs.google.com" {
+		slog.Warn("Not a Google Docs URL", "host", u.Host)
 		return "", "", false
 	}
 	
-	idPart := parts[1]
-	// Remove anything after the ID (like /edit, /export, etc.)
-	if idx := strings.Index(idPart, "/"); idx != -1 {
-		idPart = idPart[:idx]
+	// Path should contain /spreadsheets/d/{id}
+	// Use regex to extract SHEET_ID pattern (alphanumeric, hyphens, underscores)
+	sheetIDPattern := regexp.MustCompile(`/spreadsheets/d/([a-zA-Z0-9\-_]+)`)
+	matches := sheetIDPattern.FindStringSubmatch(u.Path)
+	
+	if len(matches) < 2 {
+		slog.Warn("Sheet ID not found in URL path", "path", u.Path)
+		return "", "", false
 	}
 	
-	sheetID = idPart
+	sheetID = matches[1]
 	
-	// Extract gid if present
-	if idx := strings.Index(url, "gid="); idx != -1 {
-		gidPart := url[idx+4:]
-		if endIdx := strings.IndexAny(gidPart, "&# "); endIdx != -1 {
-			gid = gidPart[:endIdx]
-		} else {
-			gid = gidPart
+	// Validate sheet ID length (Google Sheet IDs are typically 40+ chars but vary)
+	if len(sheetID) == 0 {
+		return "", "", false
+	}
+	
+	// Extract gid from fragment or query parameter
+	// Fragment takes precedence (e.g., #gid=123)
+	if u.Fragment != "" {
+		gidPattern := regexp.MustCompile(`gid=(\d+)`)
+		gidMatches := gidPattern.FindStringSubmatch(u.Fragment)
+		if len(gidMatches) >= 2 {
+			gid = gidMatches[1]
 		}
+	}
+	
+	// If not found in fragment, check query parameters
+	if gid == "" {
+		gid = u.Query().Get("gid")
 	}
 	
 	return sheetID, gid, true
@@ -672,7 +701,7 @@ func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 		exportURL += "&gid=" + gid
 	}
 	
-	log.Printf("mdflow.FetchGoogleSheet sheetID=%s gid=%s", sheetID, gid)
+	slog.Info("mdflow.FetchGoogleSheet", "sheetID", sheetID, "gid", gid)
 	
 	// Fetch the sheet
 	client := &http.Client{
@@ -681,7 +710,7 @@ func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 	
 	resp, err := client.Get(exportURL)
 	if err != nil {
-		log.Printf("mdflow.FetchGoogleSheet fetch error: %v", err)
+		slog.Error("mdflow.FetchGoogleSheet fetch error", "error", err)
 		c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet"})
 		return
 	}
@@ -737,7 +766,7 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 		exportURL += "&gid=" + gid
 	}
 	
-	log.Printf("mdflow.ConvertGoogleSheet sheetID=%s gid=%s template=%s", sheetID, gid, req.Template)
+	slog.Info("mdflow.ConvertGoogleSheet", "sheetID", sheetID, "gid", gid, "template", req.Template)
 	
 	// Fetch the sheet
 	client := &http.Client{
@@ -746,7 +775,7 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	
 	resp, err := client.Get(exportURL)
 	if err != nil {
-		log.Printf("mdflow.ConvertGoogleSheet fetch error: %v", err)
+		slog.Error("mdflow.ConvertGoogleSheet fetch error", "error", err)
 		c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet"})
 		return
 	}
@@ -771,7 +800,7 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	// Convert the CSV data
 	result, err := h.converter.ConvertPaste(string(body), req.Template)
 	if err != nil {
-		log.Printf("mdflow.ConvertGoogleSheet conversion error: %v", err)
+		slog.Error("mdflow.ConvertGoogleSheet conversion error", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert data"})
 		return
 	}
@@ -1079,7 +1108,7 @@ func (h *MDFlowHandler) PreviewXLSX(c *gin.Context) {
 	// Parse XLSX
 	matrix, err := h.converter.ParseXLSX(tempName, sheetName)
 	if err != nil {
-		log.Printf("mdflow.PreviewXLSX parse error: %v", err)
+		slog.Error("mdflow.PreviewXLSX parse error", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to parse file"})
 		return
 	}
@@ -1219,7 +1248,7 @@ func (h *MDFlowHandler) GetAISuggestions(c *gin.Context) {
 
 	resp, err := h.aiSuggester.GetSuggestions(suggestReq)
 	if err != nil {
-		log.Printf("AI suggestion error: %v", err)
+		slog.Error("AI suggestion error", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to get AI suggestions"})
 		return
 	}

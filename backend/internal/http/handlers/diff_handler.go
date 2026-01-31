@@ -24,9 +24,9 @@ type DiffResponse struct {
 func DiffMDFlow() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req DiffRequest
-		if err := c.BindJSON(&req); err != nil {
-			slog.Error("diff request binding error", "err", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if err := c.ShouldBindJSON(&req); err != nil {
+			slog.Error("diff request binding error", "error", err)
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request format"})
 			return
 		}
 

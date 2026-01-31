@@ -1,9 +1,13 @@
 package http
 
 import (
+	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/md-spec-tool/internal/ai"
 	"github.com/yourorg/md-spec-tool/internal/config"
+	"github.com/yourorg/md-spec-tool/internal/converter"
 	"github.com/yourorg/md-spec-tool/internal/http/handlers"
 	"github.com/yourorg/md-spec-tool/internal/http/middleware"
 )
@@ -18,8 +22,19 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// Public routes
 	router.GET("/health", handlers.HealthHandler)
 
+	// Create shared HTTP client for outbound requests (Google Sheets, OpenAI, etc.)
+	// This avoids creating new clients per request and ensures proper timeout handling
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
 	// MDFlow converter routes (public, no auth required)
-	mdflowHandler := handlers.NewMDFlowHandler()
+	// Inject dependencies: converter, renderer, httpClient
+	mdflowHandler := handlers.NewMDFlowHandler(
+		converter.NewConverter(),
+		converter.NewMDFlowRenderer(),
+		httpClient,
+	)
 
 	// Configure AI suggester if API key is available
 	if cfg.OpenAIAPIKey != "" {

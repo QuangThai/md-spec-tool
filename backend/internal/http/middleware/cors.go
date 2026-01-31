@@ -18,14 +18,14 @@ func CORS(cfg *config.Config) gin.HandlerFunc {
 			}
 		}
 		
+		// Only set Access-Control-Allow-Origin if origin is in allowlist (deny by default)
 		if isAllowed {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if len(cfg.CORSOrigins) > 0 {
-			// Fallback to first allowed origin if no match
-			c.Writer.Header().Set("Access-Control-Allow-Origin", cfg.CORSOrigins[0])
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		}
 		
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		// Always include Vary: Origin to prevent caching issues with different origins
+		c.Writer.Header().Set("Vary", "Origin")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 
