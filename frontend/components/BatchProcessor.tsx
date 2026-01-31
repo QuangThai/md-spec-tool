@@ -1,11 +1,11 @@
 "use client";
 
+import { MDFlowConvertResponse } from "@/lib/mdflowApi";
 import {
-  convertTSV,
-  convertXLSX,
-  getXLSXSheets,
-  MDFlowConvertResponse,
-} from "@/lib/mdflowApi";
+  useConvertTSVMutation,
+  useConvertXLSXMutation,
+  useGetXLSXSheetsMutation,
+} from "@/lib/mdflowQueries";
 import { AnimatePresence, motion } from "framer-motion";
 import JSZip from "jszip";
 import {
@@ -46,43 +46,47 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [processAllSheets, setProcessAllSheets] = useState(true);
+  const getSheetsMutation = useGetXLSXSheetsMutation();
+  const convertXLSXMutation = useConvertXLSXMutation();
+  const convertTSVMutation = useConvertTSVMutation();
 
   // Add files to the batch
-  const addFiles = useCallback(async (newFiles: FileList | File[]) => {
-    const fileArray = Array.from(newFiles);
-    const validFiles = fileArray.filter((f) =>
-      /\.(xlsx|xls|tsv|csv)$/i.test(f.name)
-    );
+  const addFiles = useCallback(
+    async (newFiles: FileList | File[]) => {
+      const fileArray = Array.from(newFiles);
+      const validFiles = fileArray.filter((f) =>
+        /\.(xlsx|xls|tsv|csv)$/i.test(f.name)
+      );
 
-    const batchFiles: BatchFile[] = [];
+      const batchFiles: BatchFile[] = [];
 
-    for (const file of validFiles) {
-      const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const batchFile: BatchFile = {
-        id,
-        file,
-        status: "pending",
-        progress: 0,
-      };
+      for (const file of validFiles) {
+        const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const batchFile: BatchFile = {
+          id,
+          file,
+          status: "pending",
+          progress: 0,
+        };
 
-      // Get sheets for XLSX files
-      if (/\.xlsx?$/i.test(file.name)) {
-        try {
-          const sheetsResult = await getXLSXSheets(file);
-          if (sheetsResult.data) {
-            batchFile.sheets = sheetsResult.data.sheets;
-            batchFile.selectedSheet = sheetsResult.data.active_sheet;
+        // Get sheets for XLSX files
+        if (/\.xlsx?$/i.test(file.name)) {
+          try {
+            const sheetsResult = await getSheetsMutation.mutateAsync(file);
+            batchFile.sheets = sheetsResult.sheets;
+            batchFile.selectedSheet = sheetsResult.active_sheet;
+          } catch (e) {
+            // Ignore sheet detection errors
           }
-        } catch (e) {
-          // Ignore sheet detection errors
         }
+
+        batchFiles.push(batchFile);
       }
 
-      batchFiles.push(batchFile);
-    }
-
-    setFiles((prev) => [...prev, ...batchFiles]);
-  }, []);
+      setFiles((prev) => [...prev, ...batchFiles]);
+    },
+    [getSheetsMutation]
+  );
 
   // Remove a file from the batch
   const removeFile = useCallback((id: string) => {
@@ -114,48 +118,51 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
         let result;
         const isExcel = /\.xlsx?$/i.test(batchFile.file.name);
 
-        if (isExcel && processAllSheets && batchFile.sheets && batchFile.sheets.length > 1) {
+        if (
+          isExcel &&
+          processAllSheets &&
+          batchFile.sheets &&
+          batchFile.sheets.length > 1
+        ) {
           // Process all sheets - combine results
           const allResults: string[] = [];
           const allWarnings: any[] = [];
 
           for (const sheet of batchFile.sheets) {
-            const sheetResult = await convertXLSX(batchFile.file, sheet, template);
-            if (sheetResult.data) {
-              allResults.push(`\n\n<!-- Sheet: ${sheet} -->\n\n${sheetResult.data.mdflow}`);
-              allWarnings.push(...(sheetResult.data.warnings || []));
-            }
+            const sheetResult = await convertXLSXMutation.mutateAsync({
+              file: batchFile.file,
+              sheetName: sheet,
+              template,
+            });
+            allResults.push(
+              `\n\n<!-- Sheet: ${sheet} -->\n\n${sheetResult.mdflow}`
+            );
+            allWarnings.push(...(sheetResult.warnings || []));
           }
 
           result = {
-            data: {
-              mdflow: allResults.join("\n---\n"),
-              warnings: allWarnings,
-              meta: { total_rows: 0, header_row: 0, column_map: {} },
-            },
+            mdflow: allResults.join("\n---\n"),
+            warnings: allWarnings,
+            meta: { total_rows: 0, header_row: 0, column_map: {} },
           };
         } else if (isExcel) {
-          result = await convertXLSX(
-            batchFile.file,
-            batchFile.selectedSheet,
-            template
-          );
+          result = await convertXLSXMutation.mutateAsync({
+            file: batchFile.file,
+            sheetName: batchFile.selectedSheet,
+            template,
+          });
         } else {
-          result = await convertTSV(batchFile.file, template);
+          result = await convertTSVMutation.mutateAsync({
+            file: batchFile.file,
+            template,
+          });
         }
 
-        if (result.error) {
-          updatedFiles[i] = {
-            ...batchFile,
-            status: "error",
-            error: result.error,
-            progress: 100,
-          };
-        } else if (result.data) {
+        if (result) {
           updatedFiles[i] = {
             ...batchFile,
             status: "success",
-            result: result.data,
+            result,
             progress: 100,
           };
         }
@@ -172,7 +179,14 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
     }
 
     setIsProcessing(false);
-  }, [files, isProcessing, template, processAllSheets]);
+  }, [
+    files,
+    isProcessing,
+    template,
+    processAllSheets,
+    convertXLSXMutation,
+    convertTSVMutation,
+  ]);
 
   // Download all results as ZIP
   const downloadAsZip = useCallback(async () => {
@@ -367,7 +381,10 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-white/10">
             <div className="text-[10px] text-white/40">
               {pendingCount > 0 && `${pendingCount} pending • `}
-              Template: <span className="text-accent-orange">{template}</span>
+              Template:{" "}
+              <span className="text-accent-orange uppercase">
+                {template?.replace(/-/g, " ")}
+              </span>
             </div>
 
             <div className="flex items-center gap-3">
@@ -461,7 +478,9 @@ function BatchFileItem({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20, height: 0 }}
-      className={`rounded-xl border ${statusColor[batchFile.status]} overflow-hidden`}
+      className={`rounded-xl border ${
+        statusColor[batchFile.status]
+      } overflow-hidden`}
     >
       <div className="flex items-center gap-3 p-3">
         {/* Status icon */}

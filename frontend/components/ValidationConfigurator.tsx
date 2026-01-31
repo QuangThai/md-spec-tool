@@ -4,8 +4,8 @@ import {
   ValidationCrossFieldRule,
   ValidationFormatRules,
   ValidationRules,
-  validatePaste,
 } from "@/lib/mdflowApi";
+import { useValidatePasteMutation } from "@/lib/mdflowQueries";
 import { useMDFlowStore } from "@/lib/mdflowStore";
 import {
   CANONICAL_FIELDS,
@@ -52,6 +52,7 @@ export function ValidationConfigurator({
   const [validating, setValidating] = useState(false);
   const [validationWarnings, setValidationWarnings] = useState<any[]>([]);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
+  const validateMutation = useValidatePasteMutation();
 
   useEffect(() => {
     setLocalRules(validationRules);
@@ -147,10 +148,14 @@ export function ValidationConfigurator({
     if (!pasteText.trim()) return;
     setValidating(true);
     setValidationWarnings([]);
-    const result = await validatePaste(pasteText, localRules);
-    setValidating(false);
-    if (result.data) {
-      setValidationWarnings(result.data.warnings || []);
+    try {
+      const result = await validateMutation.mutateAsync({
+        pasteText,
+        rules: localRules,
+      });
+      setValidationWarnings(result.warnings || []);
+    } finally {
+      setValidating(false);
     }
   };
 

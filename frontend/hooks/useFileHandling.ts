@@ -1,5 +1,9 @@
 import { useCallback } from "react";
-import { getXLSXSheets, previewTSV, previewXLSX } from "@/lib/mdflowApi";
+import {
+  useGetXLSXSheetsMutation,
+  usePreviewTSVMutation,
+  usePreviewXLSXMutation,
+} from "@/lib/mdflowQueries";
 
 interface FileHandlingProps {
   setFile: (file: File) => void;
@@ -24,6 +28,10 @@ export function useFileHandling({
   setPreview,
   setShowPreview,
 }: FileHandlingProps) {
+  const getSheetsMutation = useGetXLSXSheetsMutation();
+  const previewTSVMutation = usePreviewTSVMutation();
+  const previewXLSXMutation = usePreviewXLSXMutation();
+
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const selectedFile = e.target.files?.[0];
@@ -37,33 +45,24 @@ export function useFileHandling({
       try {
         // Handle TSV files
         if (/\.tsv$/i.test(selectedFile.name)) {
-          const previewResult = await previewTSV(selectedFile);
-          if (previewResult.data) {
-            setPreview(previewResult.data);
-            setShowPreview(true);
-          }
+          const previewResult = await previewTSVMutation.mutateAsync(selectedFile);
+          setPreview(previewResult);
+          setShowPreview(true);
           return;
         }
 
         // Handle XLSX files
-        const result = await getXLSXSheets(selectedFile);
+        const result = await getSheetsMutation.mutateAsync(selectedFile);
+        setSheets(result.sheets);
+        setSelectedSheet(result.active_sheet);
 
-        if (result.error) {
-          setError(result.error);
-        } else if (result.data) {
-          setSheets(result.data.sheets);
-          setSelectedSheet(result.data.active_sheet);
-
-          // Fetch XLSX preview for the active sheet
-          const previewResult = await previewXLSX(
-            selectedFile,
-            result.data.active_sheet
-          );
-          if (previewResult.data) {
-            setPreview(previewResult.data);
-            setShowPreview(true);
-          }
-        }
+        // Fetch XLSX preview for the active sheet
+        const previewResult = await previewXLSXMutation.mutateAsync({
+          file: selectedFile,
+          sheetName: result.active_sheet,
+        });
+        setPreview(previewResult);
+        setShowPreview(true);
       } catch (error) {
         setError(error instanceof Error ? error.message : "File processing failed");
       } finally {
@@ -78,6 +77,9 @@ export function useFileHandling({
       setSelectedSheet,
       setPreview,
       setShowPreview,
+      getSheetsMutation,
+      previewTSVMutation,
+      previewXLSXMutation,
     ]
   );
 

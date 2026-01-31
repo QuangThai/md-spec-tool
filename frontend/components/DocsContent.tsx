@@ -961,15 +961,10 @@ const DocsContentBody: React.FC = () => {
                 {docContent[activeSection]?.content}
               </div>
 
-              <div className="pt-12 sm:pt-16 lg:pt-20 mt-12 sm:mt-16 lg:mt-20 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="pt-12 sm:pt-16 lg:pt-20 mt-12 sm:mt-16 lg:mt-20 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4">
                 <div className="text-xs sm:text-sm text-muted">
                   Last updated:{" "}
                   <span className="text-white">January 30, 2026</span>
-                </div>
-                <div className="flex gap-4">
-                  <button className="text-xs font-bold uppercase tracking-wider text-muted hover:text-accent-orange transition-colors">
-                    Edit on GitHub
-                  </button>
                 </div>
               </div>
             </motion.div>

@@ -2,7 +2,7 @@
 
 import { BatchProcessor } from "@/components/BatchProcessor";
 import { TemplateCards } from "@/components/TemplateCards";
-import { getMDFlowTemplates } from "@/lib/mdflowApi";
+import { useMDFlowTemplatesQuery } from "@/lib/mdflowQueries";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -27,20 +27,13 @@ const stagger = {
 
 export default function BatchPageClient() {
   const [template, setTemplate] = useState("default");
-  const [templates, setTemplates] = useState<string[]>(["default"]);
+  const { data: templates = ["default"] } = useMDFlowTemplatesQuery();
 
   useEffect(() => {
-    getMDFlowTemplates().then((res) => {
-      if (res.data?.templates) {
-        const sorted = [...res.data.templates].sort((a, b) => {
-          if (a === "default") return -1;
-          if (b === "default") return 1;
-          return 0;
-        });
-        setTemplates(sorted);
-      }
-    });
-  }, []);
+    if (!templates.includes(template)) {
+      setTemplate("default");
+    }
+  }, [templates, template]);
 
   return (
     <div className="min-h-screen bg-white/2 rounded-2xl overflow-hidden">

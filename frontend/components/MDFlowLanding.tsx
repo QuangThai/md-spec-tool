@@ -101,7 +101,7 @@ export default function MDFlowLanding() {
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
 
   return (
-    <div ref={containerRef} className="flex flex-col gap-16 sm:gap-24 lg:gap-32">
+    <div ref={containerRef} className="flex flex-col gap-16 sm:gap-24 lg:gap-12">
       {/* 🚀 Hero Section - The Grand Entrance */}
       <section className="relative min-h-[70vh] sm:min-h-[80vh] lg:min-h-[90vh] flex flex-col items-center justify-center px-4 overflow-hidden pt-8 sm:pt-12">
         {/* Advanced Background Gradients - Liquid Glass Influence */}
@@ -123,7 +123,7 @@ export default function MDFlowLanding() {
           >
             <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-accent-orange shadow-[0_0_10px_rgba(242,123,47,0.8)] animate-pulse" />
             <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-white/90">
-              Technical Studio v1.2.0 Stream
+              Technical Studio Stream
             </span>
           </motion.div>
 

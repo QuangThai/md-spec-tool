@@ -1,12 +1,12 @@
 import { useState, useCallback } from "react";
 import {
-  convertGoogleSheet,
-  convertPaste,
-  convertTSV,
-  convertXLSX,
-  diffMDFlow,
-  getAISuggestions,
-} from "@/lib/mdflowApi";
+  useAISuggestionsMutation,
+  useConvertGoogleSheetMutation,
+  useConvertPasteMutation,
+  useConvertTSVMutation,
+  useConvertXLSXMutation,
+  useDiffMDFlowMutation,
+} from "@/lib/mdflowQueries";
 import { useHistoryStore } from "@/lib/mdflowStore";
 
 interface ConversionFlowProps {
@@ -47,6 +47,12 @@ export function useConversionFlow({
   const { addToHistory } = useHistoryStore();
   const [currentDiff, setCurrentDiff] = useState<any>(null);
   const [previousOutput, setPreviousOutput] = useState<string>("");
+  const convertPasteMutation = useConvertPasteMutation();
+  const convertXLSXMutation = useConvertXLSXMutation();
+  const convertTSVMutation = useConvertTSVMutation();
+  const convertGoogleSheetMutation = useConvertGoogleSheetMutation();
+  const diffMDFlowMutation = useDiffMDFlowMutation();
+  const aiSuggestionsMutation = useAISuggestionsMutation();
 
   const performConversion = useCallback(async () => {
     setLoading(true);
@@ -55,38 +61,49 @@ export function useConversionFlow({
     try {
       let result;
 
-      if (mode === "paste") {
-        if (pasteText.trim().startsWith("http")) {
-          // Google Sheets URL
-          result = await convertGoogleSheet(pasteText, template);
+        if (mode === "paste") {
+          if (pasteText.trim().startsWith("http")) {
+            // Google Sheets URL
+            result = await convertGoogleSheetMutation.mutateAsync({
+              url: pasteText,
+              template,
+            });
+          } else {
+            // Paste TSV/CSV
+            result = await convertPasteMutation.mutateAsync({
+              pasteText,
+              template,
+            });
+          }
+        } else if (mode === "xlsx" && file) {
+          result = await convertXLSXMutation.mutateAsync({
+            file,
+            sheetName: selectedSheet,
+            template,
+          });
+        } else if (mode === "tsv" && file) {
+          result = await convertTSVMutation.mutateAsync({
+            file,
+            template,
+          });
         } else {
-          // Paste TSV/CSV
-          result = await convertPaste(pasteText, template);
+          setError("No input provided");
+          setLoading(false);
+          return;
         }
-      } else if (mode === "xlsx" && file) {
-        result = await convertXLSX(file, selectedSheet, template);
-      } else if (mode === "tsv" && file) {
-        result = await convertTSV(file, template);
-      } else {
-        setError("No input provided");
-        setLoading(false);
-        return;
-      }
 
-      if (result.error) {
-        setError(result.error);
-      } else if (result.data) {
-        setResult(result.data.mdflow, result.data.warnings || [], result.data.meta || null);
+        if (result) {
+          setResult(result.mdflow, result.warnings || [], result.meta || null);
 
-        // Add to history
-        addToHistory({
-          mode: mode as "paste" | "xlsx" | "tsv",
-          inputPreview: mode === "paste" ? pasteText.substring(0, 100) : file?.name || "file",
-          template,
-          output: result.data.mdflow,
-          meta: result.data.meta || null,
-        });
-      }
+          // Add to history
+          addToHistory({
+            mode: mode as "paste" | "xlsx" | "tsv",
+            inputPreview: mode === "paste" ? pasteText.substring(0, 100) : file?.name || "file",
+            template,
+            output: result.mdflow,
+            meta: result.meta || null,
+          });
+        }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed");
     } finally {
@@ -98,11 +115,14 @@ export function useConversionFlow({
     file,
     selectedSheet,
     template,
-    columnOverrides,
     setResult,
     setLoading,
     setError,
     addToHistory,
+    convertGoogleSheetMutation,
+    convertPasteMutation,
+    convertTSVMutation,
+    convertXLSXMutation,
   ]);
 
   const handleDiff = useCallback(
@@ -113,7 +133,10 @@ export function useConversionFlow({
       }
 
       try {
-        const diffResult = await diffMDFlow(previousOutput, currentOutput);
+        const diffResult = await diffMDFlowMutation.mutateAsync({
+          before: previousOutput,
+          after: currentOutput,
+        });
         if (diffResult) {
           setCurrentDiff(diffResult);
         }
@@ -121,7 +144,7 @@ export function useConversionFlow({
         console.error("Diff failed:", err);
       }
     },
-    [previousOutput]
+    [previousOutput, diffMDFlowMutation]
   );
 
   const generateAISuggestions = useCallback(
@@ -130,11 +153,11 @@ export function useConversionFlow({
 
       setAISuggestionsLoading(true);
       try {
-        const result = await getAISuggestions(output);
-        if (result.data) {
-          setAISuggestions(result.data, true);
-          setAISuggestionsError(null);
-        }
+        const result = await aiSuggestionsMutation.mutateAsync({
+          pasteText: output,
+        });
+        setAISuggestions(result, true);
+        setAISuggestionsError(null);
       } catch (err) {
         setAISuggestionsError(
           err instanceof Error ? err.message : "Failed to get suggestions"
@@ -143,7 +166,13 @@ export function useConversionFlow({
         setAISuggestionsLoading(false);
       }
     },
-    [aiConfigured, setAISuggestions, setAISuggestionsLoading, setAISuggestionsError]
+    [
+      aiConfigured,
+      setAISuggestions,
+      setAISuggestionsLoading,
+      setAISuggestionsError,
+      aiSuggestionsMutation,
+    ]
   );
 
   return {

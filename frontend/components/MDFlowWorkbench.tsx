@@ -1,20 +1,20 @@
 "use client";
 
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { isGoogleSheetsURL } from "@/lib/mdflowApi";
 import {
-  convertGoogleSheet,
-  convertPaste,
-  convertTSV,
-  convertXLSX,
-  diffMDFlow,
-  getAISuggestions,
-  getMDFlowTemplates,
-  getXLSXSheets,
-  isGoogleSheetsURL,
-  previewPaste,
-  previewTSV,
-  previewXLSX,
-} from "@/lib/mdflowApi";
+  useAISuggestionsMutation,
+  useConvertGoogleSheetMutation,
+  useConvertPasteMutation,
+  useConvertTSVMutation,
+  useConvertXLSXMutation,
+  useDiffMDFlowMutation,
+  useGetXLSXSheetsMutation,
+  useMDFlowTemplatesQuery,
+  usePreviewPasteQuery,
+  usePreviewTSVQuery,
+  usePreviewXLSXQuery,
+} from "@/lib/mdflowQueries";
 import {
   ConversionRecord,
   useHistoryStore,
@@ -128,47 +128,70 @@ export default function MDFlowWorkbench() {
   const [showValidationConfigurator, setShowValidationConfigurator] =
     useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [debouncedPasteText, setDebouncedPasteText] = useState("");
   const isNarrow = useMediaQuery("(max-width: 480px)");
 
+  const { data: templateList = ["default"] } = useMDFlowTemplatesQuery();
+  const getSheetsMutation = useGetXLSXSheetsMutation();
+  const convertPasteMutation = useConvertPasteMutation();
+  const convertXLSXMutation = useConvertXLSXMutation();
+  const convertTSVMutation = useConvertTSVMutation();
+  const convertGoogleSheetMutation = useConvertGoogleSheetMutation();
+  const diffMDFlowMutation = useDiffMDFlowMutation();
+  const aiSuggestionsMutation = useAISuggestionsMutation();
+
+  const previewPasteQuery = usePreviewPasteQuery(
+    debouncedPasteText,
+    mode === "paste"
+  );
+  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv");
+  const previewXLSXQuery = usePreviewXLSXQuery(
+    file,
+    selectedSheet,
+    mode === "xlsx"
+  );
+
   useEffect(() => {
-    getMDFlowTemplates().then((res) => {
-      if (res.data?.templates) {
-        // Ensure "default" is always first
-        const sorted = [...res.data.templates].sort((a, b) => {
-          if (a === "default") return -1;
-          if (b === "default") return 1;
-          return 0;
-        });
-        setTemplates(sorted);
-      }
-    });
-  }, []);
+    setTemplates(templateList);
+  }, [templateList]);
 
   // Reset store when leaving Studio so data is not shown when user comes back
   useEffect(() => {
     return () => reset();
   }, [reset]);
 
-  // Auto-preview with debounce when paste text changes
+  // Debounce paste text for preview queries
   useEffect(() => {
-    if (mode !== "paste" || !pasteText.trim()) {
+    if (mode !== "paste") {
+      setDebouncedPasteText("");
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setDebouncedPasteText(pasteText);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [pasteText, mode]);
+
+  useEffect(() => {
+    if (mode !== "paste") return;
+    if (!debouncedPasteText.trim()) {
       setPreview(null);
       setShowPreview(false);
       return;
     }
-
-    const timer = setTimeout(async () => {
-      setPreviewLoading(true);
-      const result = await previewPaste(pasteText);
-      setPreviewLoading(false);
-      if (result.data) {
-        setPreview(result.data);
-        setShowPreview(true);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [pasteText, mode, setPreview, setPreviewLoading, setShowPreview]);
+    if (previewPasteQuery.data) {
+      setPreview(previewPasteQuery.data);
+      setShowPreview(true);
+    }
+  }, [
+    debouncedPasteText,
+    mode,
+    previewPasteQuery.data,
+    setPreview,
+    setShowPreview,
+  ]);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,36 +204,17 @@ export default function MDFlowWorkbench() {
       setPreview(null);
 
       if (/\.tsv$/i.test(selectedFile.name)) {
-        // Fetch TSV preview
-        const previewResult = await previewTSV(selectedFile);
         setLoading(false);
-        if (previewResult.data) {
-          setPreview(previewResult.data);
-          setShowPreview(true);
-        }
         return;
       }
 
-      const result = await getXLSXSheets(selectedFile);
-
-      if (result.error) {
-        setLoading(false);
-        setError(result.error);
-      } else if (result.data) {
-        setSheets(result.data.sheets);
-        setSelectedSheet(result.data.active_sheet);
-
-        // Fetch XLSX preview for the active sheet
-        const previewResult = await previewXLSX(
-          selectedFile,
-          result.data.active_sheet
-        );
-        setLoading(false);
-        if (previewResult.data) {
-          setPreview(previewResult.data);
-          setShowPreview(true);
-        }
-      } else {
+      try {
+        const result = await getSheetsMutation.mutateAsync(selectedFile);
+        setSheets(result.sheets);
+        setSelectedSheet(result.active_sheet);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Failed to read sheets");
+      } finally {
         setLoading(false);
       }
     },
@@ -221,90 +225,106 @@ export default function MDFlowWorkbench() {
       setSheets,
       setSelectedSheet,
       setPreview,
-      setShowPreview,
+      getSheetsMutation,
     ]
   );
 
-  // Update preview when sheet selection changes for XLSX
   useEffect(() => {
-    if (mode !== "xlsx" || !file || !selectedSheet) return;
+    if (mode === "xlsx" && previewXLSXQuery.data) {
+      setPreview(previewXLSXQuery.data);
+      setShowPreview(true);
+    }
+  }, [mode, previewXLSXQuery.data, setPreview, setShowPreview]);
 
-    const fetchPreview = async () => {
-      setPreviewLoading(true);
-      const result = await previewXLSX(file, selectedSheet);
-      setPreviewLoading(false);
-      if (result.data) {
-        setPreview(result.data);
-        setShowPreview(true);
-      }
-    };
+  useEffect(() => {
+    if (mode === "tsv" && previewTSVQuery.data) {
+      setPreview(previewTSVQuery.data);
+      setShowPreview(true);
+    }
+  }, [mode, previewTSVQuery.data, setPreview, setShowPreview]);
 
-    fetchPreview();
+  useEffect(() => {
+    const isLoading =
+      (mode === "paste" && previewPasteQuery.isFetching) ||
+      (mode === "xlsx" && previewXLSXQuery.isFetching) ||
+      (mode === "tsv" && previewTSVQuery.isFetching);
+    setPreviewLoading(isLoading);
   }, [
-    selectedSheet,
-    file,
     mode,
-    setPreview,
+    previewPasteQuery.isFetching,
+    previewTSVQuery.isFetching,
+    previewXLSXQuery.isFetching,
     setPreviewLoading,
-    setShowPreview,
   ]);
 
   const handleConvert = useCallback(async () => {
     setLoading(true);
     setError(null);
 
-    let result;
-    let inputPreview = "";
-    if (mode === "paste") {
-      if (!pasteText.trim()) {
-        setError("Missing source data");
-        setLoading(false);
-        return;
-      }
+    try {
+      let result;
+      let inputPreview = "";
+      if (mode === "paste") {
+        if (!pasteText.trim()) {
+          setError("Missing source data");
+          return;
+        }
 
-      // Check if it's a Google Sheets URL
-      if (isGoogleSheetsURL(pasteText.trim())) {
-        result = await convertGoogleSheet(pasteText.trim(), template);
-        inputPreview = `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
+        // Check if it's a Google Sheets URL
+        if (isGoogleSheetsURL(pasteText.trim())) {
+          result = await convertGoogleSheetMutation.mutateAsync({
+            url: pasteText.trim(),
+            template,
+          });
+          inputPreview = `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
+        } else {
+          result = await convertPasteMutation.mutateAsync({
+            pasteText,
+            template,
+          });
+          inputPreview =
+            pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
+        }
+      } else if (mode === "xlsx") {
+        if (!file) {
+          setError("No file uploaded");
+          return;
+        }
+        result = await convertXLSXMutation.mutateAsync({
+          file,
+          sheetName: selectedSheet,
+          template,
+        });
+        inputPreview = `${file.name}${
+          selectedSheet ? ` (${selectedSheet})` : ""
+        }`;
       } else {
-        result = await convertPaste(pasteText, template);
-        inputPreview =
-          pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
+        if (!file) {
+          setError("No file uploaded");
+          return;
+        }
+        result = await convertTSVMutation.mutateAsync({
+          file,
+          template,
+        });
+        inputPreview = file.name;
       }
-    } else if (mode === "xlsx") {
-      if (!file) {
-        setError("No file uploaded");
-        setLoading(false);
-        return;
-      }
-      result = await convertXLSX(file, selectedSheet, template);
-      inputPreview = `${file.name}${
-        selectedSheet ? ` (${selectedSheet})` : ""
-      }`;
-    } else {
-      if (!file) {
-        setError("No file uploaded");
-        setLoading(false);
-        return;
-      }
-      result = await convertTSV(file, template);
-      inputPreview = file.name;
-    }
 
-    setLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-    } else if (result.data) {
-      setResult(result.data.mdflow, result.data.warnings, result.data.meta);
-      // Add to history
-      addToHistory({
-        mode,
-        template,
-        inputPreview,
-        output: result.data.mdflow,
-        meta: result.data.meta,
-      });
+      if (result) {
+        setResult(result.mdflow, result.warnings, result.meta);
+        // Add to history
+        addToHistory({
+          mode,
+          template,
+          inputPreview,
+          output: result.mdflow,
+          meta: result.meta,
+        });
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Conversion failed");
+    } finally {
+      setLoading(false);
     }
   }, [
     mode,
@@ -316,6 +336,10 @@ export default function MDFlowWorkbench() {
     setError,
     setResult,
     addToHistory,
+    convertGoogleSheetMutation,
+    convertPasteMutation,
+    convertTSVMutation,
+    convertXLSXMutation,
   ]);
 
   const handleCopy = useCallback(() => {
@@ -343,20 +367,21 @@ export default function MDFlowWorkbench() {
     setAISuggestionsError(null);
     clearAISuggestions();
 
-    const result = await getAISuggestions(pasteText, template);
-
-    setAISuggestionsLoading(false);
-
-    if (result.error) {
-      setAISuggestionsError(result.error);
-      return;
-    }
-
-    if (result.data) {
-      setAISuggestions(result.data.suggestions, result.data.configured);
-      if (result.data.error) {
-        setAISuggestionsError(result.data.error);
+    try {
+      const result = await aiSuggestionsMutation.mutateAsync({
+        pasteText,
+        template,
+      });
+      setAISuggestions(result.suggestions, result.configured);
+      if (result.error) {
+        setAISuggestionsError(result.error);
       }
+    } catch (error) {
+      setAISuggestionsError(
+        error instanceof Error ? error.message : "Failed to get suggestions"
+      );
+    } finally {
+      setAISuggestionsLoading(false);
     }
   }, [
     pasteText,
@@ -366,6 +391,7 @@ export default function MDFlowWorkbench() {
     setAISuggestionsError,
     setAISuggestions,
     clearAISuggestions,
+    aiSuggestionsMutation,
   ]);
 
   // Keyboard shortcuts
@@ -404,13 +430,7 @@ export default function MDFlowWorkbench() {
         setError(null);
         setPreview(null);
         setLoading(true);
-        previewTSV(f).then((result) => {
-          setLoading(false);
-          if (result.data) {
-            setPreview(result.data);
-            setShowPreview(true);
-          }
-        });
+        setLoading(false);
         return;
       }
 
@@ -419,25 +439,18 @@ export default function MDFlowWorkbench() {
         setLoading(true);
         setError(null);
         setPreview(null);
-        getXLSXSheets(f).then(async (result) => {
-          if (result.error) {
+        getSheetsMutation
+          .mutateAsync(f)
+          .then((result) => {
+            setSheets(result.sheets);
+            setSelectedSheet(result.active_sheet);
+          })
+          .catch((error) => {
+            setError(error instanceof Error ? error.message : "Failed to read sheets");
+          })
+          .finally(() => {
             setLoading(false);
-            setError(result.error);
-          } else if (result.data) {
-            setSheets(result.data.sheets);
-            setSelectedSheet(result.data.active_sheet);
-            // Fetch preview
-            const previewResult = await previewXLSX(
-              f,
-              result.data.active_sheet
-            );
-            setLoading(false);
-            if (previewResult.data) {
-              setPreview(previewResult.data);
-              setShowPreview(true);
-            }
-          }
-        });
+          });
       }
     },
     [
@@ -448,7 +461,7 @@ export default function MDFlowWorkbench() {
       setSheets,
       setSelectedSheet,
       setPreview,
-      setShowPreview,
+      getSheetsMutation,
     ]
   );
 
@@ -1023,10 +1036,10 @@ export default function MDFlowWorkbench() {
                       <button
                         type="button"
                         onClick={async () => {
-                          const diff = await diffMDFlow(
-                            previousOutput,
-                            mdflowOutput
-                          );
+                          const diff = await diffMDFlowMutation.mutateAsync({
+                            before: previousOutput,
+                            after: mdflowOutput,
+                          });
                           setCurrentDiff(diff);
                           setShowDiff(true);
                         }}

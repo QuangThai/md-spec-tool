@@ -1,14 +1,22 @@
 "use client";
 
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
-  getTemplateContent,
-  getTemplateInfo,
-  previewTemplate,
-  TemplateFunction,
-  TemplateInfo,
-  TemplateVariable,
-} from "@/lib/mdflowApi";
+  BUILT_IN_TEMPLATES,
+  DEFAULT_SAMPLE_DATA,
+  STARTER_TEMPLATE,
+  STORAGE_KEY,
+} from "@/constants/template-editor";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { TemplateFunction, TemplateVariable } from "@/lib/mdflowApi";
+import {
+  usePreviewTemplateMutation,
+  useTemplateContentQuery,
+  useTemplateInfoQuery,
+} from "@/lib/mdflowQueries";
+import {
+  getFunctionInsertSnippet,
+  normalizeVariableName,
+} from "@/components/templateEditor/snippets";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -52,76 +60,6 @@ interface TemplateEditorProps {
   currentSampleData?: string;
 }
 
-const STORAGE_KEY = "mdflow-custom-templates";
-
-// Built-in template names
-const BUILT_IN_TEMPLATES = [
-  { id: "default", name: "Default", description: "Standard test case format" },
-  {
-    id: "feature-spec",
-    name: "Feature Spec",
-    description: "User story format",
-  },
-  { id: "test-plan", name: "Test Plan", description: "QA test plan format" },
-  {
-    id: "api-endpoint",
-    name: "API Endpoint",
-    description: "API documentation",
-  },
-  {
-    id: "spec-table",
-    name: "Spec Table",
-    description: "UI specification table",
-  },
-];
-
-// Default sample data for preview
-const DEFAULT_SAMPLE_DATA = `Feature	Scenario	Instructions	Expected	Priority	Type	Notes
-User Authentication	Valid Login	1. Enter username
-2. Enter password
-3. Click login button	Dashboard should display with user name	High	Positive	Core feature
-User Authentication	Invalid Password	1. Enter valid username
-2. Enter wrong password
-3. Click login button	Error message: "Invalid credentials"	High	Negative	Security test
-Profile Management	Update Profile	1. Go to settings
-2. Change display name
-3. Click save	Profile updated successfully message shown	Medium	Positive	`;
-
-// Simple starter template
-const STARTER_TEMPLATE = `---
-name: "{{.Title}}"
-version: "1.0"
-generated_at: "{{.GeneratedAt}}"
----
-
-# {{.Title}}
-
-This specification contains {{.TotalCount}} items.
-
-{{range .FeatureGroups}}
-## {{.Feature}}
-{{range .Rows}}
-### {{if .ID}}{{.ID}}: {{end}}{{.Scenario}}
-{{- if .Priority}}
-
-**Priority:** {{.Priority}}
-{{- end}}
-{{- if notEmpty .Instructions}}
-
-**Steps:**
-{{formatSteps .Instructions}}
-{{- end}}
-{{- if notEmpty .Expected}}
-
-**Expected:**
-{{.Expected}}
-{{- end}}
-
----
-{{end}}
-{{end}}
-`;
-
 export function TemplateEditor({
   isOpen,
   onClose,
@@ -138,10 +76,8 @@ export function TemplateEditor({
   // Preview state
   const [previewOutput, setPreviewOutput] = useState("");
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
   // Template info (variables/functions)
-  const [templateInfo, setTemplateInfo] = useState<TemplateInfo | null>(null);
+  const { data: templateInfo } = useTemplateInfoQuery(isOpen);
   const [showVariables, setShowVariables] = useState(true);
   const [showFunctions, setShowFunctions] = useState(true);
 
@@ -162,6 +98,7 @@ export function TemplateEditor({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [manualPreviewLoading, setManualPreviewLoading] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Track if initial preview has run
@@ -170,24 +107,26 @@ export function TemplateEditor({
   // Track if this is the initial open
   const isInitialOpen = useRef(true);
 
-  // Load template info and custom templates on mount
+  const previewTemplateMutation = usePreviewTemplateMutation();
+  const { mutateAsync: runPreviewMutation, isPending: previewLoading } =
+    previewTemplateMutation;
+  const isPreviewLoading = previewLoading || manualPreviewLoading;
+
+  const { data: builtInTemplate } = useTemplateContentQuery(
+    selectedBuiltInId || "",
+    isOpen && Boolean(selectedBuiltInId)
+  );
+
+  // Load custom templates on mount
   useEffect(() => {
     if (isOpen) {
-      loadTemplateInfo();
       loadCustomTemplates();
       // Reset initial preview flag when modal opens
       initialPreviewRan.current = false;
       // Auto-select default built-in template on first open
       if (isInitialOpen.current) {
         isInitialOpen.current = false;
-        // Load the default built-in template
-        getTemplateContent("default").then(({ data }) => {
-          if (data) {
-            setTemplateContent(data.content);
-            setTemplateName("default (copy)");
-            setSelectedBuiltInId("default");
-          }
-        });
+        setSelectedBuiltInId("default");
       }
     }
   }, [isOpen]);
@@ -198,13 +137,6 @@ export function TemplateEditor({
       setSampleData(currentSampleData);
     }
   }, [currentSampleData]);
-
-  const loadTemplateInfo = async () => {
-    const { data } = await getTemplateInfo();
-    if (data) {
-      setTemplateInfo(data);
-    }
-  };
 
   const loadCustomTemplates = () => {
     try {
@@ -228,55 +160,55 @@ export function TemplateEditor({
 
   // Preview handler
   const runPreview = useCallback(async () => {
-    setPreviewLoading(true);
     setPreviewError(null);
+    setManualPreviewLoading(true);
 
-    const { data, error } = await previewTemplate(templateContent, sampleData);
-
-    if (error) {
-      setPreviewError(error);
-      setPreviewOutput("");
-    } else if (data) {
+    try {
+      const data = await runPreviewMutation({
+        templateContent,
+        sampleData,
+      });
       if (data.error) {
         setPreviewError(data.error);
         setPreviewOutput("");
-      } else {
-        setPreviewOutput(data.output);
+        return;
       }
+      setPreviewOutput(data.output);
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error ? error.message : "Preview failed"
+      );
+      setPreviewOutput("");
+    } finally {
+      setManualPreviewLoading(false);
     }
-
-    setPreviewLoading(false);
-  }, [templateContent, sampleData]);
+  }, [runPreviewMutation, templateContent, sampleData]);
 
   // Run preview immediately when modal opens
   useEffect(() => {
-    if (isOpen && !initialPreviewRan.current) {
+    if (isOpen && activeTab === "preview" && !initialPreviewRan.current) {
       initialPreviewRan.current = true;
       runPreview();
     }
-  }, [isOpen, runPreview]);
+  }, [activeTab, isOpen, runPreview]);
 
   // Auto-preview on template/sample change (debounced)
   useEffect(() => {
-    if (!isOpen || !initialPreviewRan.current) return;
+    if (!isOpen || activeTab !== "preview" || !initialPreviewRan.current)
+      return;
 
     const timer = setTimeout(() => {
       runPreview();
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [templateContent, sampleData, isOpen, runPreview]);
+  }, [templateContent, sampleData, activeTab, isOpen, runPreview]);
 
   // Load built-in template
-  const loadBuiltInTemplate = async (id: string) => {
-    const { data } = await getTemplateContent(id);
-    if (data) {
-      setTemplateContent(data.content);
-      setTemplateName(`${id} (copy)`);
-      setSelectedTemplateId(null);
-      setSelectedBuiltInId(id);
-      setIsUnsavedImport(false);
-    }
+  const loadBuiltInTemplate = (id: string) => {
+    setSelectedTemplateId(null);
+    setSelectedBuiltInId(id);
+    setIsUnsavedImport(false);
   };
 
   // Load custom template
@@ -391,6 +323,7 @@ export function TemplateEditor({
   ) => {
     if (!textarea) return;
 
+    const { scrollTop, scrollLeft } = textarea;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const newContent =
@@ -404,8 +337,18 @@ export function TemplateEditor({
     setTimeout(() => {
       textarea.focus();
       textarea.selectionStart = textarea.selectionEnd = start + text.length;
+      textarea.scrollTop = scrollTop;
+      textarea.scrollLeft = scrollLeft;
     }, 0);
   };
+
+  useEffect(() => {
+    if (builtInTemplate) {
+      setTemplateContent(builtInTemplate.content);
+      setTemplateName(`${builtInTemplate.name} (copy)`);
+      setIsUnsavedImport(false);
+    }
+  }, [builtInTemplate]);
 
   if (!isOpen) return null;
 
@@ -814,10 +757,12 @@ export function TemplateEditor({
                 {/* Run preview button */}
                 <button
                   onClick={() => {
-                    runPreview();
                     setActiveTab("preview");
+                    setPreviewOutput("");
+                    setPreviewError(null);
+                    runPreview();
                   }}
-                  disabled={previewLoading}
+                  disabled={isPreviewLoading}
                   className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-accent-green/20 hover:bg-accent-green/30 text-accent-green text-xs sm:text-sm font-medium transition-all disabled:opacity-50 cursor-pointer shrink-0"
                 >
                   <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -855,7 +800,7 @@ export function TemplateEditor({
                 {activeTab === "preview" && (
                   <div className="h-full flex flex-col relative">
                     {/* Loading overlay */}
-                    {previewLoading && (
+                    {isPreviewLoading && (
                       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-10 flex items-center justify-center">
                         <div className="flex flex-col items-center gap-2 sm:gap-3">
                           <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 text-accent-orange animate-spin" />
@@ -1031,13 +976,14 @@ function VariableItem({
   variable: TemplateVariable;
   onInsert: (text: string, textarea: HTMLTextAreaElement | null) => void;
 }) {
+  const insertSnippet = normalizeVariableName(variable.name);
   return (
     <button
       onClick={() => {
         const textarea = document.getElementById(
           "template-editor"
         ) as HTMLTextAreaElement;
-        onInsert(`{{${variable.name}}}`, textarea);
+        onInsert(`{{${insertSnippet}}}`, textarea);
       }}
       className="w-full text-left p-1.5 sm:p-2 rounded hover:bg-white/5 active:bg-white/10 transition-all group touch-manipulation"
     >
@@ -1064,13 +1010,14 @@ function FunctionItem({
   func: TemplateFunction;
   onInsert: (text: string, textarea: HTMLTextAreaElement | null) => void;
 }) {
+  const insertSnippet = getFunctionInsertSnippet(func);
   return (
     <button
       onClick={() => {
         const textarea = document.getElementById(
           "template-editor"
         ) as HTMLTextAreaElement;
-        onInsert(`{{${func.name} }}`, textarea);
+        onInsert(insertSnippet, textarea);
       }}
       className="w-full text-left p-1.5 sm:p-2 rounded hover:bg-white/5 active:bg-white/10 transition-all group touch-manipulation"
     >

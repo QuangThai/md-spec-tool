@@ -1,5 +1,9 @@
-import { useCallback, useEffect } from "react";
-import { previewPaste, previewTSV, previewXLSX } from "@/lib/mdflowApi";
+import { useCallback, useEffect, useState } from "react";
+import {
+  usePreviewPasteQuery,
+  usePreviewTSVQuery,
+  usePreviewXLSXQuery,
+} from "@/lib/mdflowQueries";
 
 interface PreviewManagementProps {
   mode: string;
@@ -30,69 +34,76 @@ export function usePreviewManagement({
   setPreviewLoading,
   setShowPreview,
 }: PreviewManagementProps) {
+  const [debouncedPasteText, setDebouncedPasteText] = useState("");
+  const previewPasteQuery = usePreviewPasteQuery(
+    debouncedPasteText,
+    mode === "paste"
+  );
+  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv");
+  const previewXLSXQuery = usePreviewXLSXQuery(
+    file,
+    selectedSheet,
+    mode === "xlsx"
+  );
+
   // Auto-preview with debounce when paste text changes
   useEffect(() => {
-    if (mode !== "paste" || !pasteText.trim()) {
+    if (mode !== "paste") {
+      setDebouncedPasteText("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedPasteText(pasteText);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [pasteText, mode]);
+
+  useEffect(() => {
+    if (mode !== "paste") return;
+    if (!debouncedPasteText.trim()) {
       setPreview(null);
       setShowPreview(false);
       return;
     }
+    if (previewPasteQuery.data) {
+      setPreview(previewPasteQuery.data);
+      setShowPreview(true);
+    }
+  }, [
+    debouncedPasteText,
+    mode,
+    previewPasteQuery.data,
+    setPreview,
+    setShowPreview,
+  ]);
 
-    const timer = setTimeout(async () => {
-      setPreviewLoading(true);
-      try {
-        const result = await previewPaste(pasteText);
-        if (result.data) {
-          setPreview(result.data);
-          setShowPreview(true);
-        }
-      } finally {
-        setPreviewLoading(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [pasteText, mode, setPreview, setPreviewLoading, setShowPreview]);
-
-  // Update preview when sheet selection changes for XLSX
   useEffect(() => {
-    if (mode !== "xlsx" || !file || !selectedSheet) return;
+    if (mode === "xlsx" && previewXLSXQuery.data) {
+      setPreview(previewXLSXQuery.data);
+      setShowPreview(true);
+    }
+  }, [mode, previewXLSXQuery.data, setPreview, setShowPreview]);
 
-    const fetchPreview = async () => {
-      setPreviewLoading(true);
-      try {
-        const result = await previewXLSX(file, selectedSheet);
-        if (result.data) {
-          setPreview(result.data);
-          setShowPreview(true);
-        }
-      } finally {
-        setPreviewLoading(false);
-      }
-    };
-
-    fetchPreview();
-  }, [selectedSheet, file, mode, setPreview, setPreviewLoading, setShowPreview]);
-
-  // Update preview when sheet selection changes for TSV
   useEffect(() => {
-    if (mode !== "tsv" || !file) return;
+    if (mode === "tsv" && previewTSVQuery.data) {
+      setPreview(previewTSVQuery.data);
+      setShowPreview(true);
+    }
+  }, [mode, previewTSVQuery.data, setPreview, setShowPreview]);
 
-    const fetchPreview = async () => {
-      setPreviewLoading(true);
-      try {
-        const result = await previewTSV(file);
-        if (result.data) {
-          setPreview(result.data);
-          setShowPreview(true);
-        }
-      } finally {
-        setPreviewLoading(false);
-      }
-    };
-
-    fetchPreview();
-  }, [file, mode, setPreview, setPreviewLoading, setShowPreview]);
+  useEffect(() => {
+    const isLoading =
+      (mode === "paste" && previewPasteQuery.isFetching) ||
+      (mode === "xlsx" && previewXLSXQuery.isFetching) ||
+      (mode === "tsv" && previewTSVQuery.isFetching);
+    setPreviewLoading(isLoading);
+  }, [
+    mode,
+    previewPasteQuery.isFetching,
+    previewTSVQuery.isFetching,
+    previewXLSXQuery.isFetching,
+    setPreviewLoading,
+  ]);
 
   const togglePreview = useCallback(() => {
     setShowPreview(!showPreview);
