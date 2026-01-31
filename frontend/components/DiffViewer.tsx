@@ -6,10 +6,9 @@ import { Copy, CheckCircle } from "lucide-react";
 
 interface DiffViewerProps {
   diff: DiffResponse;
-  onClose?: () => void;
 }
 
-export function DiffViewer({ diff, onClose }: DiffViewerProps) {
+export function DiffViewer({ diff }: DiffViewerProps) {
   const [viewMode, setViewMode] = useState<"inline" | "sidebyside">(
     "inline"
   );

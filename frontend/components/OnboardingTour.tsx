@@ -12,16 +12,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 
-const SAMPLE_DATA = `Feature	Scenario	Instructions	Expected
-User Login	Valid credentials	1. Enter username: admin
-2. Enter password: secret123
-3. Click Login button	User is redirected to dashboard with success message
-User Login	Invalid password	1. Enter username: admin
-2. Enter password: wrong
-3. Click Login button	Error message "Invalid credentials" is displayed
-User Logout	Active session	1. Click user menu
-2. Select Logout option	User is redirected to login page, session is cleared`;
-
 export function OnboardingTour() {
   const {
     hasSeenTour,
@@ -83,10 +73,6 @@ export function OnboardingTour() {
     setShowWelcome(false);
     skipTour();
   }, [skipTour]);
-
-  const handleCopySampleData = useCallback(() => {
-    navigator.clipboard.writeText(SAMPLE_DATA);
-  }, []);
 
   const step = ONBOARDING_STEPS[currentStep];
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;

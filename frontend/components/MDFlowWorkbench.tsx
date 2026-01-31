@@ -1,5 +1,6 @@
 "use client";
 
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
   convertGoogleSheet,
   convertPaste,
@@ -14,52 +15,47 @@ import {
   previewTSV,
   previewXLSX,
 } from "@/lib/mdflowApi";
-import { useHistoryStore, useMDFlowStore } from "@/lib/mdflowStore";
+import {
+  ConversionRecord,
+  useHistoryStore,
+  useMDFlowStore,
+} from "@/lib/mdflowStore";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity,
   AlertCircle,
-  ArrowRight,
-  BookOpen,
   Boxes,
   Check,
-  Clock,
   Copy,
   Database,
-  Download,
   Eye,
   EyeOff,
-  ExternalLink,
   FileCode,
-  FileJson,
   FileSpreadsheet,
   FileText,
   GitCompare,
   History,
-  Keyboard,
   Link2,
   RefreshCcw,
   Save,
-  Share2,
   ShieldCheck,
   Sparkles,
-  Table,
   Terminal,
-  X,
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { generateShareURL, isShareDataTooLong, ShareData } from "@/lib/shareUtils";
 import { useCallback, useEffect, useState } from "react";
-import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { DiffViewer } from "./DiffViewer";
-import { OnboardingTour, RestartTourButton } from "./OnboardingTour";
+import HistoryModal, { KeyboardShortcutsTooltip } from "./HistoryModal";
+import { OnboardingTour } from "./OnboardingTour";
 import { TemplateCards } from "./TemplateCards";
 import { TemplateEditor } from "./TemplateEditor";
 import { ValidationConfigurator } from "./ValidationConfigurator";
-import { AISuggestionsPanel } from "./AISuggestionsPanel";
-import { WarningPanel } from "./WarningPanel";
-import { ResizablePanels } from "./ui/ResizablePanels";
+import {
+  ExportDropdown,
+  PreviewTable,
+  ShareButton,
+  TechnicalAnalysis,
+} from "./index";
 import { Select } from "./ui/Select";
 
 const stagger = {
@@ -109,7 +105,6 @@ export default function MDFlowWorkbench() {
     setPreviewLoading,
     setShowPreview,
     setColumnOverride,
-    clearColumnOverrides,
     aiSuggestions,
     aiSuggestionsLoading,
     aiSuggestionsError,
@@ -130,7 +125,8 @@ export default function MDFlowWorkbench() {
   const [previousOutput, setPreviousOutput] = useState<string>("");
   const [currentDiff, setCurrentDiff] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
-  const [showValidationConfigurator, setShowValidationConfigurator] = useState(false);
+  const [showValidationConfigurator, setShowValidationConfigurator] =
+    useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const isNarrow = useMediaQuery("(max-width: 480px)");
 
@@ -342,20 +338,20 @@ export default function MDFlowWorkbench() {
 
   const handleGetAISuggestions = useCallback(async () => {
     if (!pasteText.trim() || aiSuggestionsLoading) return;
-    
+
     setAISuggestionsLoading(true);
     setAISuggestionsError(null);
     clearAISuggestions();
-    
+
     const result = await getAISuggestions(pasteText, template);
-    
+
     setAISuggestionsLoading(false);
-    
+
     if (result.error) {
       setAISuggestionsError(result.error);
       return;
     }
-    
+
     if (result.data) {
       setAISuggestions(result.data.suggestions, result.data.configured);
       if (result.data.error) {
@@ -544,7 +540,10 @@ export default function MDFlowWorkbench() {
                     </p>
                   </div>
                 </div>
-                <div className="flex bg-black/50 p-1.5 rounded-lg sm:rounded-xl border border-white/5 shadow-inner shrink-0" data-tour="input-mode">
+                <div
+                  className="flex bg-black/50 p-1.5 rounded-lg sm:rounded-xl border border-white/5 shadow-inner shrink-0"
+                  data-tour="input-mode"
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -884,7 +883,9 @@ export default function MDFlowWorkbench() {
                         title="Create custom templates"
                       >
                         <FileCode className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{isNarrow ? "Editor" : "Template Editor"}</span>
+                        <span className="truncate">
+                          {isNarrow ? "Editor" : "Template Editor"}
+                        </span>
                       </button>
                       <button
                         type="button"
@@ -893,7 +894,9 @@ export default function MDFlowWorkbench() {
                         title="Configure validation rules"
                       >
                         <ShieldCheck className="w-3 h-3 shrink-0" />
-                        <span className="truncate">{isNarrow ? "Rules" : "Validation rules"}</span>
+                        <span className="truncate">
+                          {isNarrow ? "Rules" : "Validation rules"}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -1056,7 +1059,11 @@ export default function MDFlowWorkbench() {
                       }`}
                       title="Get AI suggestions for quality improvements"
                     >
-                      <Sparkles className={`w-3 h-3 shrink-0 ${aiSuggestionsLoading ? "animate-pulse" : ""}`} />
+                      <Sparkles
+                        className={`w-3 h-3 shrink-0 ${
+                          aiSuggestionsLoading ? "animate-pulse" : ""
+                        }`}
+                      />
                       <span className="hidden sm:inline">AI</span>
                     </button>
                     <ShareButton
@@ -1065,7 +1072,6 @@ export default function MDFlowWorkbench() {
                     />
                     <ExportDropdown
                       mdflowOutput={mdflowOutput}
-                      onDownloadMD={handleDownload}
                     />
                     {history.length > 0 && (
                       <button
@@ -1170,7 +1176,6 @@ export default function MDFlowWorkbench() {
               <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <DiffViewer
                   diff={currentDiff}
-                  onClose={() => setShowDiff(false)}
                 />
               </div>
             </motion.div>
@@ -1184,7 +1189,7 @@ export default function MDFlowWorkbench() {
           <HistoryModal
             history={history}
             onClose={() => setShowHistory(false)}
-            onSelect={(record) => {
+            onSelect={(record: ConversionRecord) => {
               setResult(record.output, [], record.meta!);
               setShowHistory(false);
             }}
@@ -1211,731 +1216,5 @@ export default function MDFlowWorkbench() {
         <KeyboardShortcutsTooltip />
       </div>
     </motion.div>
-  );
-}
-
-/* Footer analytics panel */
-import { AISuggestion, MDFlowWarning } from "@/lib/mdflowApi";
-
-function TechnicalAnalysis({
-  meta,
-  warnings,
-  mdflowOutput,
-  aiSuggestions,
-  aiSuggestionsLoading,
-  aiSuggestionsError,
-  aiConfigured,
-}: {
-  meta: {
-    nodeCount?: number;
-    total_rows?: number;
-    headerCount?: number;
-    header_row?: number;
-    source_type?: string;
-    parser?: string;
-    source_url?: string;
-  } | null;
-  warnings: MDFlowWarning[];
-  mdflowOutput: string | null;
-  aiSuggestions: AISuggestion[];
-  aiSuggestionsLoading: boolean;
-  aiSuggestionsError: string | null;
-  aiConfigured: boolean | null;
-}) {
-  return (
-    <AnimatePresence mode="wait">
-      {!mdflowOutput ? (
-        <motion.div
-          key="idle"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="flex items-center justify-between gap-4"
-        >
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-accent-orange/40 animate-ping opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-white/30" />
-            </span>
-            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
-              Standby — run engine to see stats
-            </span>
-          </div>
-          <div className="flex gap-1.5">
-            <span className="w-10 h-1 rounded-full bg-white/10" />
-            <span className="w-6 h-1 rounded-full bg-white/10" />
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          key="active"
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-4"
-        >
-          {/* Stats row */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Activity className="w-3.5 h-3.5 text-accent-orange/80" />
-              <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/50">
-                Stats
-              </span>
-            </div>
-            <div className="flex gap-3">
-              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-2">
-                <span className="text-[8px] text-white/40 font-bold uppercase tracking-wider">
-                  Rows
-                </span>
-                <span className="text-sm font-black font-mono text-white leading-none">
-                  {meta?.nodeCount ?? meta?.total_rows ?? 0}
-                </span>
-              </div>
-              <div className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-2">
-                <span className="text-[8px] text-white/40 font-bold uppercase tracking-wider">
-                  Header
-                </span>
-                <span className="text-sm font-black font-mono text-white leading-none">
-                  {meta?.headerCount ?? meta?.header_row ?? 0}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Enhanced Warning Panel */}
-          {warnings && warnings.length > 0 && (
-            <WarningPanel warnings={warnings} />
-          )}
-
-          {/* AI Suggestions Panel */}
-          {(aiSuggestions.length > 0 || aiSuggestionsLoading || aiSuggestionsError) && (
-            <AISuggestionsPanel
-              suggestions={aiSuggestions}
-              loading={aiSuggestionsLoading}
-              error={aiSuggestionsError}
-              configured={aiConfigured}
-            />
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* Preview Table Component */
-import { PreviewResponse } from "@/lib/mdflowApi";
-
-const CANONICAL_FIELDS = [
-  "id",
-  "feature",
-  "scenario",
-  "instructions",
-  "inputs",
-  "expected",
-  "precondition",
-  "priority",
-  "type",
-  "status",
-  "endpoint",
-  "notes",
-  "no",
-  "item_name",
-  "item_type",
-  "required_optional",
-  "input_restrictions",
-  "display_conditions",
-  "action",
-  "navigation_destination",
-];
-
-function PreviewTable({
-  preview,
-  columnOverrides,
-  onColumnOverride,
-}: {
-  preview: PreviewResponse;
-  columnOverrides: Record<string, string>;
-  onColumnOverride: (column: string, field: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const maxCollapsedRows = 4;
-  const hasMoreRows = preview.rows.length > maxCollapsedRows;
-  const displayRows = expanded
-    ? preview.rows
-    : preview.rows.slice(0, maxCollapsedRows);
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-black/30 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-white/5 border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <Table className="w-3.5 h-3.5 text-accent-orange/80" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-white/70">
-            Preview
-          </span>
-          <span className="text-[9px] text-white/40 font-mono">
-            {preview.total_rows} rows • {preview.headers.length} cols
-          </span>
-          {preview.confidence < 70 && (
-            <span className="text-[9px] text-accent-gold/80 font-medium">
-              (low confidence: {preview.confidence}%)
-            </span>
-          )}
-        </div>
-        {hasMoreRows && (
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="text-[9px] text-accent-orange/70 hover:text-accent-orange cursor-pointer font-bold uppercase"
-          >
-            {expanded ? "Show less" : `Show all ${preview.rows.length}`}
-          </button>
-        )}
-      </div>
-
-      <div className="overflow-x-auto custom-scrollbar">
-        <table className="w-full text-[11px]">
-          <thead>
-            <tr className="border-b border-white/10 bg-white/3">
-              {preview.headers.map((header, i) => {
-                const mappedField =
-                  columnOverrides[header] ||
-                  preview.column_mapping[header] ||
-                  "";
-                const isUnmapped =
-                  !mappedField && preview.unmapped_columns.includes(header);
-
-                return (
-                  <th key={i} className="px-3 py-2 text-left">
-                    <div className="space-y-1">
-                      <span
-                        className="font-bold text-white/90 block truncate max-w-[150px]"
-                        title={header}
-                      >
-                        {header}
-                      </span>
-                      <select
-                        value={mappedField}
-                        onChange={(e) =>
-                          onColumnOverride(header, e.target.value)
-                        }
-                        className={`
-                          text-[9px] px-1.5 py-0.5 rounded bg-black/40 border cursor-pointer
-                          ${
-                            isUnmapped
-                              ? "border-accent-gold/40 text-accent-gold/80"
-                              : "border-white/10 text-accent-orange/80"
-                          }
-                        `}
-                      >
-                        <option value="">— unmapped —</option>
-                        {CANONICAL_FIELDS.map((field) => (
-                          <option key={field} value={field}>
-                            {field.replace(/_/g, " ")}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          <tbody>
-            {displayRows.map((row, rowIdx) => (
-              <tr
-                key={rowIdx}
-                className="border-b border-white/5 hover:bg-white/3"
-              >
-                {row.map((cell, cellIdx) => (
-                  <td
-                    key={cellIdx}
-                    className="px-3 py-2 text-white/70 font-mono"
-                  >
-                    <span className="block truncate max-w-[200px]" title={cell}>
-                      {cell || <span className="text-white/30">—</span>}
-                    </span>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {preview.total_rows > preview.preview_rows && (
-        <div className="px-4 py-2 text-[9px] text-white/40 bg-white/3 border-t border-white/5">
-          Showing {displayRows.length} of {preview.total_rows} rows
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* Share Button Component */
-function ShareButton({
-  mdflowOutput,
-  template,
-}: {
-  mdflowOutput: string;
-  template: string;
-}) {
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const shareData: ShareData = {
-    mdflow: mdflowOutput,
-    template,
-    createdAt: Date.now(),
-  };
-
-  const isTooLong = isShareDataTooLong(shareData);
-
-  const handleShare = useCallback(() => {
-    if (isTooLong) {
-      setError("Content too large for URL sharing. Try exporting instead.");
-      setShowTooltip(true);
-      return;
-    }
-
-    try {
-      const url = generateShareURL(shareData);
-      navigator.clipboard.writeText(url);
-      setCopied(true);
-      setError(null);
-      setShowTooltip(true);
-      setTimeout(() => {
-        setCopied(false);
-        setShowTooltip(false);
-      }, 3000);
-    } catch (err) {
-      setError("Failed to generate share link");
-      setShowTooltip(true);
-    }
-  }, [shareData, isTooLong]);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={handleShare}
-        onMouseEnter={() => !copied && setShowTooltip(true)}
-        onMouseLeave={() => !copied && setShowTooltip(false)}
-        disabled={isTooLong}
-        className={`
-          flex items-center justify-center h-8 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0
-          ${isTooLong
-            ? "bg-white/5 text-white/30 cursor-not-allowed border border-white/10"
-            : "bg-white/10 hover:bg-white/20 text-white/80 hover:text-white border border-white/10 hover:border-white/20"
-          }
-        `}
-        title={isTooLong ? "Content too large to share via URL" : "Share link"}
-      >
-        <Share2 className="w-3 h-3 shrink-0" />
-      </button>
-
-      <AnimatePresence>
-        {showTooltip && (
-          <motion.div
-            initial={{ opacity: 0, y: 4, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 4, scale: 0.95 }}
-            className="absolute right-0 top-full mt-2 z-50 w-56 rounded-xl bg-black/95 backdrop-blur-xl border border-white/20 shadow-2xl overflow-hidden"
-          >
-            <div className="p-3">
-              {error ? (
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-red-400">{error}</p>
-                </div>
-              ) : copied ? (
-                <div className="flex items-center gap-2">
-                  <Check className="w-4 h-4 text-green-400" />
-                  <div>
-                    <p className="text-[11px] font-bold text-white">Link copied!</p>
-                    <p className="text-[9px] text-white/50 mt-0.5">
-                      Share this URL with anyone
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2">
-                  <Share2 className="w-4 h-4 text-accent-orange shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[11px] font-bold text-white">Share Link</p>
-                    <p className="text-[9px] text-white/50 mt-0.5">
-                      Click to copy shareable URL
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* Export Dropdown Component */
-function ExportDropdown({
-  mdflowOutput,
-  onDownloadMD,
-}: {
-  mdflowOutput: string;
-  onDownloadMD: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const downloadAs = (format: "md" | "json" | "yaml") => {
-    let content = mdflowOutput;
-    let filename = "spec";
-    let mimeType = "text/plain";
-
-    if (format === "json") {
-      // Extract YAML frontmatter and convert to JSON
-      const yamlMatch = mdflowOutput.match(/^---\n([\s\S]*?)\n---/);
-      const frontmatter = yamlMatch ? yamlMatch[1] : "";
-      const body = mdflowOutput.replace(/^---\n[\s\S]*?\n---\n?/, "");
-
-      content = JSON.stringify(
-        {
-          frontmatter: frontmatter.split("\n").reduce((acc, line) => {
-            const [key, ...vals] = line.split(":");
-            if (key && vals.length) acc[key.trim()] = vals.join(":").trim();
-            return acc;
-          }, {} as Record<string, string>),
-          content: body,
-        },
-        null,
-        2
-      );
-      filename = "spec.json";
-      mimeType = "application/json";
-    } else if (format === "yaml") {
-      filename = "spec.yaml";
-      mimeType = "text/yaml";
-    } else {
-      filename = "spec.mdflow.md";
-      mimeType = "text/markdown";
-    }
-
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setOpen(false);
-  };
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center justify-center h-8 px-3 rounded-lg bg-accent-orange text-[9px] font-bold uppercase tracking-wider text-white shadow-md shadow-accent-orange/25 hover:bg-accent-orange/90 active:scale-95 transition-all cursor-pointer shrink-0"
-      >
-        <span className="inline-flex items-center gap-1.5 leading-none">
-          <Download className="block w-3 h-3 shrink-0" />
-          <span className="leading-none">Export</span>
-        </span>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <>
-            <div
-              className="fixed inset-0 z-40"
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.95 }}
-              className="absolute right-0 top-full mt-2 z-50 w-48 rounded-xl bg-black/90 backdrop-blur-xl border border-white/20 shadow-2xl overflow-hidden"
-            >
-              <div className="p-1">
-                <button
-                  onClick={() => downloadAs("md")}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                  <FileText className="w-4 h-4 text-accent-orange" />
-                  <div className="text-left">
-                    <p className="text-[11px] font-bold text-white">Markdown</p>
-                    <p className="text-[9px] text-white/50">.mdflow.md</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => downloadAs("json")}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                  <FileJson className="w-4 h-4 text-blue-400" />
-                  <div className="text-left">
-                    <p className="text-[11px] font-bold text-white">JSON</p>
-                    <p className="text-[9px] text-white/50">.json</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => downloadAs("yaml")}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                  <FileText className="w-4 h-4 text-green-400" />
-                  <div className="text-left">
-                    <p className="text-[11px] font-bold text-white">YAML</p>
-                    <p className="text-[9px] text-white/50">.yaml</p>
-                  </div>
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* History Modal Component */
-import { ConversionRecord } from "@/lib/mdflowStore";
-
-function HistoryModal({
-  history,
-  onClose,
-  onSelect,
-}: {
-  history: ConversionRecord[];
-  onClose: () => void;
-  onSelect: (record: ConversionRecord) => void;
-}) {
-  const { clearHistory } = useHistoryStore();
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const handleCopy = useCallback(
-    (record: ConversionRecord, e: React.MouseEvent) => {
-      e.stopPropagation();
-      navigator.clipboard.writeText(record.output);
-      setCopiedId(record.id);
-      setTimeout(() => setCopiedId(null), 2000);
-    },
-    []
-  );
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[70vh] flex flex-col overflow-hidden"
-      >
-        <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-white/10 bg-white/3 shrink-0">
-          <div className="flex items-center gap-3">
-            <History className="w-4 h-4 text-accent-orange" />
-            <span className="text-[11px] font-black uppercase tracking-[0.2em] text-white/80">
-              Conversion History
-            </span>
-            <span className="text-[10px] text-white/40 font-mono">
-              {history.length} records
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                clearHistory();
-              }}
-              className="text-[9px] text-white/40 hover:text-accent-red/80 transition-colors cursor-pointer font-bold uppercase"
-            >
-              Clear all
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-md hover:bg-white/10 transition-colors cursor-pointer text-white/60 hover:text-white"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-2">
-          {history.length === 0 ? (
-            <div className="text-center py-12 text-white/40">
-              <Clock className="w-8 h-8 mx-auto mb-3 opacity-50" />
-              <p className="text-[11px] font-bold uppercase tracking-wider">
-                No history yet
-              </p>
-              <p className="text-[10px] mt-1">Conversions will appear here</p>
-            </div>
-          ) : (
-            history.map((record, idx) => (
-              <motion.div
-                key={record.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                className="group relative"
-              >
-                <div
-                  onClick={() => onSelect(record)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onSelect(record);
-                    }
-                  }}
-                  className="w-full text-left p-4 rounded-xl bg-linear-to-br from-white/5 to-white/2 hover:from-white/10 hover:to-white/5 border border-white/5 hover:border-white/15 transition-all duration-300 cursor-pointer relative overflow-hidden"
-                >
-                  {/* Subtle gradient overlay on hover */}
-                  <div className="absolute inset-0 bg-linear-to-r from-accent-orange/0 via-accent-orange/0 to-accent-orange/0 group-hover:from-accent-orange/5 group-hover:via-accent-orange/0 group-hover:to-transparent transition-all duration-500 pointer-events-none" />
-
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between gap-4 mb-3">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <motion.span
-                          whileHover={{ scale: 1.05 }}
-                          className="text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1.5 h-6 rounded-lg bg-linear-to-r from-accent-orange/20 to-accent-orange/10 border border-accent-orange/30 text-accent-orange shadow-[0_0_8px_rgba(242,123,47,0.15)] flex items-center leading-none whitespace-nowrap"
-                        >
-                          {record.mode}
-                        </motion.span>
-
-                        {/* Premium Template Badge */}
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-linear-to-r from-white/10 via-white/5 to-transparent rounded-lg blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                          <span className="relative text-[9px] font-semibold uppercase tracking-[0.2em] px-3 py-1.5 h-6 rounded-lg bg-white/5 border border-white/10 text-white/70 group-hover:text-white/90 group-hover:border-white/20 transition-all duration-300 backdrop-blur-sm flex items-center leading-none whitespace-nowrap">
-                            {record.template.replace(/-/g, " ")}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] text-white/30 font-mono">
-                          {new Date(record.timestamp).toLocaleString()}
-                        </span>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={(e) => handleCopy(record, e)}
-                          className="p-1.5 rounded-lg bg-white/5 hover:bg-accent-orange/20 border border-white/10 hover:border-accent-orange/30 text-white/50 hover:text-accent-orange transition-all duration-200 cursor-pointer"
-                          title="Copy output"
-                        >
-                          {copiedId === record.id ? (
-                            <Check className="w-3.5 h-3.5 text-accent-orange" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </motion.button>
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-white/60 font-mono truncate mb-1.5">
-                      {record.inputPreview}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <div className="h-px flex-1 bg-linear-to-r from-white/10 to-transparent" />
-                      <p className="text-[9px] text-white/30 font-medium">
-                        {record.meta?.total_rows ?? 0} rows
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-/* Keyboard Shortcuts Tooltip */
-import { useOnboardingStore } from "@/lib/onboardingStore";
-
-function KeyboardShortcutsTooltip() {
-  const [show, setShow] = useState(false);
-  const { resetTour, startTour } = useOnboardingStore();
-  const isMac =
-    typeof navigator !== "undefined" &&
-    navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-  const mod = isMac ? "⌘" : "Ctrl";
-
-  const shortcuts = [
-    { keys: `${mod}+Enter`, action: "Convert" },
-    { keys: `${mod}+Shift+C`, action: "Copy output" },
-    { keys: `${mod}+S`, action: "Download" },
-  ];
-
-  const handleRestartTour = () => {
-    setShow(false);
-    resetTour();
-    setTimeout(startTour, 100);
-  };
-
-  return (
-    <div
-      className="relative"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-    >
-      <button
-        type="button"
-        onClick={() => setShow(!show)}
-        className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-white/60 transition-all cursor-pointer"
-        aria-label="Keyboard shortcuts"
-      >
-        <Keyboard className="w-4 h-4" />
-      </button>
-
-      <AnimatePresence>
-        {show && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            className="absolute bottom-full right-0 mb-2 w-52 rounded-xl bg-black/90 backdrop-blur-xl border border-white/20 shadow-2xl overflow-hidden"
-          >
-            <div className="px-3 py-2 border-b border-white/10 bg-white/5">
-              <span className="text-[9px] font-black uppercase tracking-widest text-white/60">
-                Shortcuts
-              </span>
-            </div>
-            <div className="p-2 space-y-1">
-              {shortcuts.map((s) => (
-                <div
-                  key={s.keys}
-                  className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/5"
-                >
-                  <span className="text-[10px] text-white/70">{s.action}</span>
-                  <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/60">
-                    {s.keys}
-                  </kbd>
-                </div>
-              ))}
-            </div>
-            <div className="p-2 border-t border-white/10">
-              <button
-                onClick={handleRestartTour}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-accent-orange/10 hover:bg-accent-orange/20 border border-accent-orange/20 text-[10px] font-bold uppercase tracking-wider text-accent-orange hover:text-accent-orange transition-all cursor-pointer"
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                Restart Tour
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }

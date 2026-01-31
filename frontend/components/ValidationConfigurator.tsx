@@ -138,7 +138,7 @@ export function ValidationConfigurator({
 
   const saveCurrentPreset = () => {
     if (!presetName.trim()) return;
-    const saved = savePreset({ name: presetName.trim(), rules: localRules });
+    savePreset({ name: presetName.trim(), rules: localRules });
     setPresets(loadPresets());
     setPresetName("");
   };

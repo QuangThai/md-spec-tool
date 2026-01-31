@@ -14,7 +14,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 
 interface WarningPanelProps {
   warnings: MDFlowWarning[];
