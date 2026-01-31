@@ -1,6 +1,5 @@
 "use client";
 
-import { Player } from "@remotion/player";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowRight,
@@ -14,8 +13,21 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useRef } from "react";
-import { LandingHeroVideo } from "./remotion/LandingHeroVideo";
+
+const LandingHeroPlayer = dynamic(
+  () =>
+    import("./remotion/LandingHeroPlayer").then(
+      (mod) => mod.LandingHeroPlayer
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full w-full rounded-xl bg-white/5 animate-pulse" />
+    ),
+  }
+);
 
 const fadeInUp: any = {
   initial: { opacity: 0, y: 30 },
@@ -246,18 +258,7 @@ export default function MDFlowLanding() {
           <div className="absolute inset-0 bg-linear-to-b from-accent-orange/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
 
           <div className="absolute inset-0 p-2 sm:p-4 lg:p-6">
-            <Player
-              component={LandingHeroVideo}
-              durationInFrames={270}
-              fps={30}
-              compositionWidth={1200}
-              compositionHeight={514}
-              autoPlay
-              loop
-              controls={false}
-              acknowledgeRemotionLicense
-              style={{ width: "100%", height: "100%" }}
-            />
+            <LandingHeroPlayer />
           </div>
 
           {/* Corner Elements */}

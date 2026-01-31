@@ -35,15 +35,9 @@ export function Select({
 
   // Handle keyboard navigation
   React.useEffect(() => {
+    if (!isOpen) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isOpen && (event.key === "Enter" || event.key === " ")) {
-        event.preventDefault();
-        setIsOpen(true);
-        return;
-      }
-
-      if (!isOpen) return;
-
       switch (event.key) {
         case "ArrowDown":
           event.preventDefault();
@@ -113,6 +107,12 @@ export function Select({
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setIsOpen(true);
+          }
+        }}
         className={cn(
           "flex h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-black/40 px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-white transition-all duration-300 outline-none hover:bg-white/5 focus:border-accent-orange/50 focus:ring-4 focus:ring-accent-orange/10",
           isOpen &&

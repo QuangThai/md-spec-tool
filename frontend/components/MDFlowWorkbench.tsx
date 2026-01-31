@@ -14,7 +14,7 @@ import {
   usePreviewTSVQuery,
   usePreviewXLSXQuery,
 } from "@/lib/mdflowQueries";
-import { useHistoryStore, useMDFlowStore } from "@/lib/mdflowStore";
+import { useHistoryStore, useMDFlowStore, type MDFlowStore } from "@/lib/mdflowStore";
 import { ConversionRecord } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -36,17 +36,34 @@ import {
   Terminal,
   Zap
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
-import { DiffViewer } from "./DiffViewer";
 import HistoryModal, { KeyboardShortcutsTooltip } from "./HistoryModal";
 import { OnboardingTour } from "./OnboardingTour";
 import { PreviewTable } from "./PreviewTable";
 import { TechnicalAnalysis } from "./TechnicalAnalysis";
 import { TemplateCards } from "./TemplateCards";
-import { TemplateEditor } from "./TemplateEditor";
 import { Select } from "./ui/Select";
 import { Tooltip } from "./ui/Tooltip";
-import { ValidationConfigurator } from "./ValidationConfigurator";
+import { useShallow } from "zustand/react/shallow";
+
+const DiffViewer = dynamic(
+  () => import("./DiffViewer").then((mod) => mod.DiffViewer),
+  { ssr: false }
+);
+
+const TemplateEditor = dynamic(
+  () => import("./TemplateEditor").then((mod) => mod.TemplateEditor),
+  { ssr: false }
+);
+
+const ValidationConfigurator = dynamic(
+  () =>
+    import("./ValidationConfigurator").then(
+      (mod) => mod.ValidationConfigurator
+    ),
+  { ssr: false }
+);
 
 const stagger = {
   container: {
@@ -76,31 +93,61 @@ export default function MDFlowWorkbench() {
     previewLoading,
     showPreview,
     columnOverrides,
-    setMode,
-    setPasteText,
-    setFile,
-    setSheets,
-    setSelectedSheet,
-    setTemplate,
-    setResult,
-    setLoading,
-    setError,
-    setPreview,
-    setPreviewLoading,
-    setShowPreview,
-    setColumnOverride,
     aiSuggestions,
     aiSuggestionsLoading,
     aiSuggestionsError,
     aiConfigured,
-    setAISuggestions,
-    setAISuggestionsLoading,
-    setAISuggestionsError,
-    clearAISuggestions,
-    reset,
-  } = useMDFlowStore();
+  } = useMDFlowStore(
+    useShallow((state: MDFlowStore) => ({
+      mode: state.mode,
+      pasteText: state.pasteText,
+      file: state.file,
+      sheets: state.sheets,
+      selectedSheet: state.selectedSheet,
+      template: state.template,
+      mdflowOutput: state.mdflowOutput,
+      warnings: state.warnings,
+      meta: state.meta,
+      loading: state.loading,
+      error: state.error,
+      preview: state.preview,
+      previewLoading: state.previewLoading,
+      showPreview: state.showPreview,
+      columnOverrides: state.columnOverrides,
+      aiSuggestions: state.aiSuggestions,
+      aiSuggestionsLoading: state.aiSuggestionsLoading,
+      aiSuggestionsError: state.aiSuggestionsError,
+      aiConfigured: state.aiConfigured,
+    }))
+  );
 
-  const { addToHistory, history } = useHistoryStore();
+  const setMode = useMDFlowStore((state) => state.setMode);
+  const setPasteText = useMDFlowStore((state) => state.setPasteText);
+  const setFile = useMDFlowStore((state) => state.setFile);
+  const setSheets = useMDFlowStore((state) => state.setSheets);
+  const setSelectedSheet = useMDFlowStore((state) => state.setSelectedSheet);
+  const setTemplate = useMDFlowStore((state) => state.setTemplate);
+  const setResult = useMDFlowStore((state) => state.setResult);
+  const setLoading = useMDFlowStore((state) => state.setLoading);
+  const setError = useMDFlowStore((state) => state.setError);
+  const setPreview = useMDFlowStore((state) => state.setPreview);
+  const setPreviewLoading = useMDFlowStore((state) => state.setPreviewLoading);
+  const setShowPreview = useMDFlowStore((state) => state.setShowPreview);
+  const setColumnOverride = useMDFlowStore((state) => state.setColumnOverride);
+  const setAISuggestions = useMDFlowStore((state) => state.setAISuggestions);
+  const setAISuggestionsLoading = useMDFlowStore(
+    (state) => state.setAISuggestionsLoading
+  );
+  const setAISuggestionsError = useMDFlowStore(
+    (state) => state.setAISuggestionsError
+  );
+  const clearAISuggestions = useMDFlowStore(
+    (state) => state.clearAISuggestions
+  );
+  const reset = useMDFlowStore((state) => state.reset);
+
+  const addToHistory = useHistoryStore((state) => state.addToHistory);
+  const history = useHistoryStore((state) => state.history);
 
   const [templates, setTemplates] = useState<string[]>(["default"]);
   const [copied, setCopied] = useState(false);
@@ -400,8 +447,6 @@ export default function MDFlowWorkbench() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [mdflowOutput, handleConvert, handleCopy, handleDownload]);
-
-  const currentStep = mdflowOutput ? 3 : file || pasteText.trim() ? 2 : 1;
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {

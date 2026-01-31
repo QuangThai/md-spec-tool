@@ -14,7 +14,7 @@ import {
  * Main app state store
  * Does NOT include history (use useHistoryStore for that)
  */
-interface MDFlowStore {
+export interface MDFlowStore {
   // Input state
   mode: InputMode;
   pasteText: string;

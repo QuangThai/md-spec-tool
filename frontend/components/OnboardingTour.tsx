@@ -52,7 +52,7 @@ export function OnboardingTour() {
 
     updatePosition();
     window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition);
+    window.addEventListener("scroll", updatePosition, { passive: true });
 
     // Re-check position on interval (for dynamic elements)
     const interval = setInterval(updatePosition, 500);
