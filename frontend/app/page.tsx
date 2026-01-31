@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Home | MDFlow Studio",
   description:
-    "Automate technical specifications from spreadsheets with MDFlow Studio.",
+    "Convert Excel, CSV, or pasted tables into clear, standardized Markdown specifications with MDFlow Studio.",
   alternates: {
     canonical: "/",
   },
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     url: "/",
     title: "MDFlow Studio | Technical Specification Automation",
     description:
-      "Automate technical specifications from spreadsheets with MDFlow Studio.",
+      "Convert Excel, CSV, or pasted tables into clear, standardized Markdown specifications with MDFlow Studio.",
     images: [
       {
         url: "https://md-spec-tool.vercel.app/opengraph-image",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "MDFlow Studio | Technical Specification Automation",
     description:
-      "Automate technical specifications from spreadsheets with MDFlow Studio.",
+      "Convert Excel, CSV, or pasted tables into clear, standardized Markdown specifications with MDFlow Studio.",
     images: ["https://md-spec-tool.vercel.app/opengraph-image"],
   },
 };
@@ -41,7 +41,7 @@ const homeJsonLd = {
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Web",
   description:
-    "Automate technical specifications from spreadsheets with MDFlow Studio.",
+    "Convert Excel, CSV, or pasted tables into clear, standardized Markdown specifications.",
   url: "https://md-spec-tool.vercel.app",
   offers: {
     "@type": "Offer",

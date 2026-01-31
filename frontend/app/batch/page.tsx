@@ -5,7 +5,7 @@ import BatchPageClient from "./BatchPageClient";
 export const metadata: Metadata = {
   title: "Batch Processing | MDFlow Studio",
   description:
-    "Convert multiple spreadsheets at once with MDFlow batch processing and download outputs as a ZIP.",
+    "Process multiple spreadsheets in one run and download all outputs as a ZIP.",
   alternates: {
     canonical: "/batch",
   },
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     url: "/batch",
     title: "Batch Processing | MDFlow Studio",
     description:
-      "Convert multiple spreadsheets at once with MDFlow batch processing and download outputs as a ZIP.",
+      "Process multiple spreadsheets in one run and download all outputs as a ZIP.",
     images: [
       {
         url: "https://md-spec-tool.vercel.app/opengraph-image",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Batch Processing | MDFlow Studio",
     description:
-      "Convert multiple spreadsheets at once with MDFlow batch processing and download outputs as a ZIP.",
+      "Process multiple spreadsheets in one run and download all outputs as a ZIP.",
     images: ["https://md-spec-tool.vercel.app/opengraph-image"],
   },
 };

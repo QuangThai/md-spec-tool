@@ -2,59 +2,72 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 
+// Modern geometric MDFlow logo with clean design
 const MDFlowLogo = ({ className }: { className?: string }) => (
   <svg
-    viewBox="0 0 160 40"
+    viewBox="0 0 140 32"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     className={className}
     aria-label="MDFlow Logo"
   >
     <defs>
-      <linearGradient id="flow-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#F59E0B" />
-        <stop offset="100%" stopColor="#F97316" />
+      <linearGradient id="logo-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#F97316" />
+        <stop offset="50%" stopColor="#F59E0B" />
+        <stop offset="100%" stopColor="#EA580C" />
       </linearGradient>
-      <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-        <feComposite in="coloredBlur" in2="SourceGraphic" operator="in" />
-        <feMerge>
-          <feMergeNode in="coloredBlur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
+      <linearGradient id="logo-gradient-subtle" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#F97316" stopOpacity="0.9" />
+        <stop offset="100%" stopColor="#FB923C" stopOpacity="0.7" />
+      </linearGradient>
     </defs>
 
-    {/* Fluid 'M' Symbol */}
-    <g filter="url(#glow)">
+    {/* Icon: Geometric M with flow accent */}
+    <g>
+      {/* Base M shape - clean geometric strokes */}
       <path
-        d="M10 30V14C10 10.6863 12.6863 8 16 8C19.3137 8 22 10.6863 22 14V22C22 23.1046 22.8954 24 24 24C25.1046 24 26 23.1046 26 22V14C26 10.6863 28.6863 8 32 8C35.3137 8 38 10.6863 38 14V30"
-        stroke="url(#flow-gradient)"
-        strokeWidth="5"
+        d="M4 24V10C4 8.89543 4.89543 8 6 8H8L14 18L20 8H22C23.1046 8 24 8.89543 24 10V24"
+        stroke="url(#logo-gradient)"
+        strokeWidth="3"
         strokeLinecap="round"
         strokeLinejoin="round"
+        fill="none"
       />
-      {/* Subtle accent dot for 'spec' precision */}
-      <circle cx="24" cy="31" r="2.5" fill="#F97316" />
+      {/* Flow accent - diagonal line representing data transformation */}
+      <path
+        d="M27 8L31 16L27 24"
+        stroke="url(#logo-gradient-subtle)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
     </g>
 
-    {/* Text: Modern & Clean */}
-    <text
-      x="54"
-      y="28"
-      fill="white"
-      fontSize="22"
-      fontWeight="700"
-      letterSpacing="-0.02em"
-      style={{ fontFamily: "'Inter', sans-serif" }}
-    >
-      MDFlow
-    </text>
+    {/* Typography: MDFlow */}
+    <g fill="white">
+      <text
+        x="40"
+        y="22"
+        fontSize="17"
+        fontWeight="800"
+        letterSpacing="-0.03em"
+        style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}
+      >
+        <tspan fill="white">MD</tspan>
+        <tspan fill="url(#logo-gradient)">Flow</tspan>
+      </text>
+    </g>
   </svg>
 );
+
+// Export for reuse in footer and other places
+export { MDFlowLogo };
 
 const navItems = [
   { label: "Studio", href: "/studio" },
@@ -64,6 +77,10 @@ const navItems = [
 
 export default function AppHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <motion.header
@@ -73,7 +90,7 @@ export default function AppHeader() {
       className="sticky top-2 sm:top-3 lg:top-5 z-50 px-2 sm:px-4 lg:px-6"
     >
       <div className="mx-auto max-w-7xl">
-        <div className="glass relative z-60 flex h-14 sm:h-12 lg:h-14 items-center justify-between px-3 sm:px-5 lg:px-4 rounded-xl sm:rounded-2xl border border-white/8 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.25)] overflow-hidden">
+        <div className="glass relative z-60 flex h-12 sm:h-12 lg:h-14 items-center justify-between px-3 sm:px-5 lg:px-4 rounded-xl sm:rounded-2xl border border-white/8 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.25)] overflow-hidden">
           {/* Subtle brand glow */}
           <div className="absolute left-0 top-0 h-full w-32 bg-accent-orange/5 blur-[60px] pointer-events-none" />
 
@@ -92,7 +109,11 @@ export default function AppHeader() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="text-[11px] font-semibold uppercase tracking-[0.15em] text-white/35 hover:text-accent-orange/90 transition-colors duration-200"
+                  className={`text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors duration-200 ${
+                    isActive(item.href)
+                      ? "text-accent-orange/95"
+                      : "text-white/35 hover:text-accent-orange/90"
+                  }`}
                 >
                   {item.label}
                 </Link>
@@ -155,7 +176,7 @@ export default function AppHeader() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.18 }}
-                className="lg:hidden fixed inset-0 top-14 sm:top-12 z-40 bg-black/60 backdrop-blur-sm"
+                className="lg:hidden fixed inset-0 top-12 sm:top-12 z-40 bg-black/60 backdrop-blur-sm"
                 onClick={() => setMenuOpen(false)}
               />
               <motion.div
@@ -178,9 +199,20 @@ export default function AppHeader() {
                       <Link
                         href={item.href}
                         onClick={() => setMenuOpen(false)}
-                        className="group flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-[11px] font-medium uppercase tracking-[0.14em] text-white/60 hover:text-white/95 hover:bg-white/4 active:bg-white/6 transition-colors duration-150"
+                        className={`group flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-[11px] font-medium uppercase tracking-[0.14em] transition-colors duration-150 ${
+                          isActive(item.href)
+                            ? "text-white bg-white/6"
+                            : "text-white/60 hover:text-white/95 hover:bg-white/4 active:bg-white/6"
+                        }`}
                       >
-                        <span className="w-1 h-1 rounded-full bg-accent-orange/50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" aria-hidden />
+                        <span
+                          className={`w-1 h-1 rounded-full transition-opacity shrink-0 ${
+                            isActive(item.href)
+                              ? "bg-accent-orange/90 opacity-100"
+                              : "bg-accent-orange/50 opacity-0 group-hover:opacity-100"
+                          }`}
+                          aria-hidden
+                        />
                         {item.label}
                       </Link>
                     </motion.div>

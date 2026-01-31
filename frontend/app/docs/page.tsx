@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Documentation | MDFlow Studio",
   description:
-    "Complete MDFlow documentation covering architecture, API reference, features, input formats, conversion engine, AI suggestions, batch processing, and deployment guide.",
+    "Guides and API reference for MDFlow Studio: inputs, parsing, templates, validation, batch processing, sharing, and integrations.",
   alternates: {
     canonical: "/docs",
   },
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     url: "/docs",
     title: "Documentation | MDFlow Studio",
     description:
-      "Complete MDFlow documentation: architecture, API reference, features guide, input formats, conversion engine, templates, AI suggestions, batch processing, Google Sheets integration, diff & comparison, and deployment.",
+      "Guides and API reference for MDFlow Studio: inputs, parsing, templates, validation, batch processing, sharing, and integrations.",
     images: [
       {
         url: "https://md-spec-tool.vercel.app/docs/opengraph-image",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Documentation | MDFlow Studio",
     description:
-      "Complete MDFlow documentation: architecture, API, features, batch processing, AI suggestions, and deployment guide.",
+      "Guides and API reference for MDFlow Studio: inputs, templates, validation, batch processing, and sharing.",
     images: ["https://md-spec-tool.vercel.app/docs/opengraph-image"],
     creator: "@mdflow",
   },
@@ -52,7 +52,7 @@ const docsJsonLd = {
   "@type": "TechArticle",
   headline: "MDFlow Studio - Complete Documentation",
   description:
-    "Complete documentation covering system architecture, API reference, features guide, batch processing, AI suggestions, Google Sheets integration, diff & comparison tools, conversion engine mechanics, templates, input formats, and deployment guide.",
+    "Documentation covering architecture, API endpoints, input formats, parsing, templates, validation, batch processing, sharing, and integrations.",
   image: "https://md-spec-tool.vercel.app/docs/opengraph-image",
   keywords: [
     "MDFlow",
@@ -91,12 +91,6 @@ const docsBreadcrumbJsonLd = {
     {
       "@type": "ListItem",
       position: 2,
-      name: "Studio",
-      item: "https://md-spec-tool.vercel.app/studio",
-    },
-    {
-      "@type": "ListItem",
-      position: 3,
       name: "Documentation",
       item: "https://md-spec-tool.vercel.app/docs",
     },

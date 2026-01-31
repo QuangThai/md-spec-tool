@@ -71,42 +71,70 @@ export default function OpenGraphImage() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 20,
+            gap: 24,
             marginBottom: 12,
           }}
         >
-          {/* Fluid M Icon */}
-          <svg width="84" height="84" viewBox="0 0 48 48" fill="none">
+          {/* Clean geometric M icon with flow accent */}
+          <svg width="80" height="80" viewBox="0 0 32 32" fill="none">
             <defs>
               <linearGradient
-                id="og-flow-gradient"
+                id="og-gradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#F97316" />
+                <stop offset="50%" stopColor="#F59E0B" />
+                <stop offset="100%" stopColor="#EA580C" />
+              </linearGradient>
+              <linearGradient
+                id="og-gradient-subtle"
                 x1="0%"
                 y1="0%"
                 x2="100%"
                 y2="0%"
               >
-                <stop offset="0%" stopColor="#F59E0B" />
-                <stop offset="100%" stopColor="#F97316" />
+                <stop offset="0%" stopColor="#F97316" stopOpacity="0.85" />
+                <stop offset="100%" stopColor="#FB923C" stopOpacity="0.6" />
               </linearGradient>
             </defs>
+            {/* Geometric M */}
             <path
-              d="M10 38V18C10 14.6863 12.6863 12 16 12C19.3137 12 22 14.6863 22 18V28C22 29.1046 22.8954 30 24 30C25.1046 30 26 29.1046 26 28V18C26 14.6863 28.6863 12 32 12C35.3137 12 38 14.6863 38 18V38"
-              stroke="url(#og-flow-gradient)"
-              strokeWidth="5"
+              d="M4 24V10C4 9.2 4.6 8.6 5.4 8.6H7L13 17L19 8.6H21C21.8 8.6 22.4 9.2 22.4 10V24"
+              stroke="url(#og-gradient)"
+              strokeWidth="3.2"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <circle cx="24" cy="39" r="3" fill="#F97316" />
+            {/* Flow chevron */}
+            <path
+              d="M25 9L28.5 16L25 23"
+              stroke="url(#og-gradient-subtle)"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           <div
             style={{
+              display: "flex",
               fontSize: 72,
               fontWeight: 800,
               letterSpacing: "-0.03em",
-              color: "white",
             }}
           >
-            MDFlow
+            <span style={{ color: "white" }}>MD</span>
+            <span
+              style={{
+                background: "linear-gradient(135deg, #F97316, #F59E0B)",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              Flow
+            </span>
           </div>
         </div>
 

@@ -54,36 +54,48 @@ export default function OpenGraphImage() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 12,
+            gap: 14,
             marginBottom: 24,
           }}
         >
-          <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+          <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
             <defs>
-              <linearGradient id="tiny-flow" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#F59E0B" />
-                <stop offset="100%" stopColor="#F97316" />
+              <linearGradient id="docs-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#F97316" />
+                <stop offset="50%" stopColor="#F59E0B" />
+                <stop offset="100%" stopColor="#EA580C" />
+              </linearGradient>
+              <linearGradient id="docs-gradient-subtle" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#F97316" stopOpacity="0.85" />
+                <stop offset="100%" stopColor="#FB923C" stopOpacity="0.6" />
               </linearGradient>
             </defs>
             <path
-              d="M10 38V18C10 14.6863 12.6863 12 16 12C19.3137 12 22 14.6863 22 18V28C22 29.1046 22.8954 30 24 30C25.1046 30 26 29.1046 26 28V18C26 14.6863 28.6863 12 32 12C35.3137 12 38 14.6863 38 18V38"
-              stroke="url(#tiny-flow)"
-              strokeWidth="5"
+              d="M4 24V10C4 9.2 4.6 8.6 5.4 8.6H7L13 17L19 8.6H21C21.8 8.6 22.4 9.2 22.4 10V24"
+              stroke="url(#docs-gradient)"
+              strokeWidth="3.2"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <circle cx="24" cy="39" r="3" fill="#F97316" />
+            <path
+              d="M25 9L28.5 16L25 23"
+              stroke="url(#docs-gradient-subtle)"
+              strokeWidth="2.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
           <div
             style={{
+              display: "flex",
               fontSize: 24,
               fontWeight: 700,
-              color: "rgba(255,255,255,0.6)",
               textTransform: "uppercase",
               letterSpacing: "0.1em",
             }}
           >
-            MDFlow
+            <span style={{ color: "rgba(255,255,255,0.6)" }}>MD</span>
+            <span style={{ color: "#F97316" }}>Flow</span>
           </div>
         </div>
 

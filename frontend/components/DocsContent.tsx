@@ -13,8 +13,10 @@ import {
   History,
   Keyboard,
   Link2,
+  Package,
   Search,
   Shield,
+  Sparkles,
   Table,
   Terminal,
   Zap,
@@ -92,6 +94,31 @@ const docsSections = [
       },
     ],
   },
+  {
+    title: "Automation & Collaboration",
+    items: [
+      {
+        id: "ai-suggestions",
+        title: "AI Suggestions",
+        icon: <Sparkles className="w-4 h-4" />,
+      },
+      {
+        id: "template-editor",
+        title: "Template Editor",
+        icon: <FileCode className="w-4 h-4" />,
+      },
+      {
+        id: "batch-processing",
+        title: "Batch Processing",
+        icon: <Package className="w-4 h-4" />,
+      },
+      {
+        id: "share-links",
+        title: "Share Links",
+        icon: <Link2 className="w-4 h-4" />,
+      },
+    ],
+  },
 ];
 
 const docContent: Record<string, { title: string; content: React.ReactNode }> =
@@ -105,8 +132,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             <strong>Engineering Studio</strong> that bridges the gap between raw
             technical data (Excel/CSV/TSV) and standardized documentation. It
             runs as a web app with a Next.js UI and a Go API, supporting
-            paste-based input, file uploads, Google Sheets integration, and
-            real-time preview with intelligent column mapping.
+            paste-based input, file uploads, Google Sheets integration, batch
+            processing, shareable links, and real-time preview with intelligent
+            column mapping.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -120,8 +148,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <p className="text-xs sm:text-sm text-muted">
                 Built with Next.js 16 and React 19. Handles the UI, local state
                 (Zustand), real-time preview, conversion history, diff viewer,
-                and the request flow for paste/XLSX/TSV/Google Sheets
-                conversions.
+                template editor, batch processing, share links, and the request
+                flow for paste/XLSX/TSV/Google Sheets conversions.
               </p>
             </div>
 
@@ -160,9 +188,10 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                   Go (Golang) Backend
                 </strong>
                 <span className="text-sm text-white/40">
-                  Gin handlers `/api/mdflow/paste`, `/api/mdflow/xlsx`, and
-                  `/api/mdflow/xlsx/sheets` power conversion, detection, and
-                  sheet discovery.
+                  Gin handlers `/api/mdflow/paste`, `/api/mdflow/preview`,
+                  `/api/mdflow/tsv`, `/api/mdflow/xlsx`, `/api/mdflow/gsheet`,
+                  `/api/mdflow/ai/suggest`, and `/api/mdflow/templates` power
+                  conversion, previews, integrations, and automation.
                 </span>
               </div>
             </li>
@@ -285,10 +314,10 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <h4 className="text-white font-bold mb-2">
                 3. XLSX Mode (Binary)
               </h4>
-              <p className="text-sm text-muted mb-4">
-                Designed for production specifications. Accepts
-                `multipart/form-data` binary streams (10MB limit, .xlsx/.xls).
-              </p>
+                <p className="text-sm text-muted mb-4">
+                  Designed for production specifications. Accepts
+                  `multipart/form-data` binary streams (10MB limit, .xlsx only).
+                </p>
               <ul className="list-disc list-inside text-sm text-white/60 space-y-2 mb-4">
                 <li>
                   Supports multi-sheet discovery (`/api/mdflow/xlsx/sheets`)
@@ -381,6 +410,10 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             <code className="text-accent-orange">MDFlowConvertResponse</code>{" "}
             containing metadata and warnings.
           </p>
+          <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+            POST /api/mdflow/validate <br />
+            {`{ "paste_text": "...", "validation_rules": { "required": ["feature", "scenario"] } }`}
+          </div>
           <div className="p-6 bg-black/40 border border-white/10 rounded-xl space-y-4 font-mono text-sm">
             <div>
               <span className="text-accent-purple">meta.column_map</span>
@@ -456,6 +489,14 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             <div className="p-5 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-accent-green">
               GET /api/mdflow/templates
             </div>
+            <div className="p-5 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-accent-green">
+              GET /api/mdflow/templates/info <br />
+              GET /api/mdflow/templates/:name
+            </div>
+            <div className="p-5 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-accent-green">
+              POST /api/mdflow/templates/preview <br />
+              {`{ "template_content": "...", "sample_data": "..." }`}
+            </div>
             <div className="p-5 rounded-xl bg-white/5 border border-white/5">
               <div className="text-xs font-black uppercase tracking-widest text-accent-orange mb-2">
                 Template Usage
@@ -507,7 +548,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                   <span className="text-accent-orange mt-1">•</span>
                   <span>
                     <strong>Confidence Scoring</strong> - Displays header
-                    detection confidence (warns if &lt; 70%)
+                    detection confidence (UI warns if &lt; 70%, backend warnings
+                    start at &lt; 50%)
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
@@ -659,6 +701,10 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 <li>• Supports preview and full conversion</li>
               </ul>
               <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+                POST /api/mdflow/gsheet <br />
+                {`{ "url": "https://docs.google.com/spreadsheets/d/..." }`}
+              </div>
+              <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/gsheet/convert
                 <br />
                 {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "default" }`}
@@ -794,6 +840,97 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      ),
+    },
+    "ai-suggestions": {
+      title: "AI Suggestions",
+      content: (
+        <div className="space-y-6">
+          <p className="text-muted">
+            AI suggestions are optional and only activate when the backend is
+            configured with <code>OPENAI_API_KEY</code>. The Studio calls the
+            AI endpoint to return actionable improvements for clarity,
+            completeness, and formatting.
+          </p>
+          <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green space-y-2">
+            <div>POST /api/mdflow/ai/suggest</div>
+            <div>{`{ "paste_text": "...", "template": "default" }`}</div>
+          </div>
+          <ul className="space-y-2 text-sm text-white/60">
+            <li>
+              • Returns <code>{`{ suggestions: [], configured: boolean }`}</code>
+            </li>
+            <li>• Safe to call even when AI is disabled (configured=false)</li>
+            <li>• Suggestions are not stored server-side</li>
+          </ul>
+        </div>
+      ),
+    },
+    "template-editor": {
+      title: "Template Editor",
+      content: (
+        <div className="space-y-6">
+          <p className="text-muted">
+            The Template Editor lets you load built-in templates, edit custom
+            templates, and preview output against your current sample data.
+            Custom templates are stored locally in the browser.
+          </p>
+          <div className="grid gap-4">
+            <div className="p-5 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-accent-green">
+              GET /api/mdflow/templates <br />
+              GET /api/mdflow/templates/:name
+            </div>
+            <div className="p-5 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-accent-green">
+              POST /api/mdflow/templates/preview <br />
+              {`{ "template_content": "...", "sample_data": "..." }`}
+            </div>
+          </div>
+          <ul className="space-y-2 text-sm text-white/60">
+            <li>• Preview renders server-side using the same converter</li>
+            <li>• Built-in templates remain available even after customization</li>
+            <li>• Export or copy rendered output for quick iteration</li>
+          </ul>
+        </div>
+      ),
+    },
+    "batch-processing": {
+      title: "Batch Processing",
+      content: (
+        <div className="space-y-6">
+          <p className="text-muted">
+            Convert many spreadsheets at once from the Batch page. Each file is
+            processed independently with progress tracking, and successful
+            outputs can be downloaded as a ZIP archive.
+          </p>
+          <ul className="space-y-2 text-sm text-white/60">
+            <li>• Supports .xlsx and .tsv uploads</li>
+            <li>• Optional “process all sheets” for multi-sheet workbooks</li>
+            <li>• ZIP export names files as <code>*.mdflow.md</code></li>
+          </ul>
+          <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green">
+            Uses /api/mdflow/xlsx and /api/mdflow/tsv under the hood
+          </div>
+        </div>
+      ),
+    },
+    "share-links": {
+      title: "Share Links",
+      content: (
+        <div className="space-y-6">
+          <p className="text-muted">
+            Share links are generated client-side by compressing the MDFlow
+            output into a URL-safe payload. This keeps sharing fast and avoids
+            storing data on the server.
+          </p>
+          <ul className="space-y-2 text-sm text-white/60">
+            <li>• Links open in the read-only Share page</li>
+            <li>• The payload lives entirely in the URL</li>
+            <li>• Large specs may exceed browser URL limits</li>
+          </ul>
+          <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green">
+            /share?d=&lt;compressed-payload&gt;
           </div>
         </div>
       ),
@@ -1020,7 +1157,7 @@ const DocsContentBody: React.FC = () => {
           <motion.aside
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="hidden lg:block space-y-6 lg:space-y-8 sticky top-0 h-fit"
+            className="hidden lg:block space-y-6 lg:space-y-8 sticky top-0 max-h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pr-2"
           >
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
@@ -1112,7 +1249,7 @@ const DocsContentBody: React.FC = () => {
               <div className="pt-12 sm:pt-16 lg:pt-20 mt-12 sm:mt-16 lg:mt-20 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4">
                 <div className="text-xs sm:text-sm text-muted">
                   Last updated:{" "}
-                  <span className="text-white">January 30, 2026</span>
+                  <span className="text-white">January 31, 2026</span>
                 </div>
               </div>
             </motion.div>

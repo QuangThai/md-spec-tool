@@ -43,28 +43,28 @@ const stagger: any = {
 const features = [
   {
     title: "Precision Engine",
-    desc: "Advanced TSV/CSV parsing with intelligent column mapping and node validation.",
+    desc: "Advanced Excel/CSV parsing with intelligent header detection and column mapping.",
     icon: <Cpu className="w-5 h-5" />,
     tag: "Core",
     docId: "parsing",
   },
   {
     title: "Sheet Aware",
-    desc: "Native support for complex XLSX with multi-sheet detection and logic handling.",
+    desc: "Native XLSX support with multi-sheet detection and structured table handling.",
     icon: <Database className="w-5 h-5" />,
     tag: "Parsing",
     docId: "ingestion",
   },
   {
     title: "Audit Ready",
-    desc: "Clean, standardized Markdown specifications optimized for Git-based workflows.",
+    desc: "Clean, standardized Markdown specs optimized for review and version control.",
     icon: <Shield className="w-5 h-5" />,
     tag: "Output",
     docId: "validation",
   },
   {
     title: "Logic Injection",
-    desc: "Apply schema templates to transform raw data into structured documentation.",
+    desc: "Apply templates to turn raw tables into structured documentation.",
     icon: <Terminal className="w-5 h-5" />,
     tag: "Process",
     docId: "templates",
@@ -75,17 +75,17 @@ const technicalSteps = [
   {
     id: "01",
     title: "Stream Ingestion",
-    desc: "Paste raw TSV or upload Excel streams directly into the engine.",
+    desc: "Paste table data or upload Excel/CSV files directly into the engine.",
   },
   {
     id: "02",
     title: "Node Mapping",
-    desc: "The parser identifies technical nodes and structural dependencies.",
+    desc: "The parser detects headers and maps columns to spec fields.",
   },
   {
     id: "03",
     title: "Serialization",
-    desc: "Automated conversion into standard Markdown technical specifications.",
+    desc: "Automated conversion into standard Markdown specifications.",
   },
 ];
 
@@ -126,7 +126,7 @@ export default function MDFlowLanding() {
           >
             <span className="flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-accent-orange shadow-[0_0_10px_rgba(242,123,47,0.8)] animate-pulse" />
             <span className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-white/90">
-              Technical Studio Stream
+              Technical Spec Studio
             </span>
           </motion.div>
 
@@ -205,8 +205,8 @@ export default function MDFlowLanding() {
           </h1>
 
           <p className="max-w-2xl mx-auto text-sm sm:text-base md:text-lg lg:text-2xl text-muted leading-relaxed font-medium">
-            Deconstruct complex spreadsheets. Reconstruct industry-standard
-            technical specifications with the power of stream automation.
+            Turn complex spreadsheets into clear, standardized technical
+            specifications with automated parsing and formatting.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 pt-6 sm:pt-10 lg:pt-12">
@@ -228,7 +228,7 @@ export default function MDFlowLanding() {
                 whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
                 className="btn-ghost px-6 sm:px-10 lg:px-12 h-11 sm:h-14 lg:h-16 text-sm sm:text-base border-white/10 group cursor-pointer"
               >
-                Documentation Engine
+                View Capabilities
                 <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
               </motion.button>
             </Link>
@@ -281,8 +281,8 @@ export default function MDFlowLanding() {
             <span className="text-accent-orange">Total Control.</span>
           </h2>
           <p className="text-muted text-sm sm:text-base lg:text-xl max-w-2xl mx-auto">
-            A specialized documentation stack designed for technical leads and
-            system architects.
+            A focused documentation workflow for engineering teams and technical
+            leads.
           </p>
         </motion.div>
 
@@ -326,7 +326,7 @@ export default function MDFlowLanding() {
                     router.push(`/docs?section=${feature.docId}`);
                   }}
                 >
-                  Learn Detail{" "}
+                  Learn More{" "}
                   <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
                 </div>
               </div>

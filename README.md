@@ -10,6 +10,10 @@ Powerful tool to convert Excel/CSV/pasted data to structured Markdown specificat
 - **Markdown Spec Generation**: Convert to professional Markdown documentation
 - **MDFlow Support**: Generate structured .mdflow format for advanced workflows
 - **Live Preview**: Real-time conversion preview with error handling
+- **Batch Processing**: Convert multiple files and download a ZIP bundle
+- **Template Editor**: Preview and test custom templates in the Studio
+- **Diff & History**: Compare outputs and restore prior conversions
+- **AI Suggestions**: Optional OpenAI-powered improvement tips
 - **Full-Stack Architecture**: Go backend API + Next.js 16 frontend with React 19
 
 ## 📋 Tech Stack
@@ -37,6 +41,7 @@ md-spec-tool/
 ├── backend/                           # Go API server
 │   ├── cmd/
 │   │   ├── server/                   # Main server entry point
+│   │   ├── cli/                      # MDFlow CLI tool
 │   │   └── usecases/                 # CLI utility commands
 │   ├── internal/
 │   │   ├── config/                   # Configuration loading
@@ -54,7 +59,6 @@ md-spec-tool/
 │   │   │   ├── renderer.go           # Template rendering
 │   │   │   └── model.go              # Data models
 │   │   └── ...
-│   ├── migrations/                   # Database migrations (if needed)
 │   ├── go.mod & go.sum
 │   └── Dockerfile
 │
@@ -80,7 +84,7 @@ md-spec-tool/
 │   ├── TABLE_FORMATS.md               # Supported table formats
 │   └── fixtures/                      # Test examples
 │
-├── use-cases/                        # Usage examples (example-1.md through example-5.md)
+├── use-cases/                        # Usage examples (example-*.md, table.tsv, templates)
 ├── docker-compose.yml                # Local dev stack
 ├── Makefile                          # Build & dev commands
 └── AGENTS.md                         # Agent configuration
@@ -139,13 +143,37 @@ make dev-frontend
 
 ### Core Endpoints
 
-**MDFlow Conversion** (Main functionality)
+**Health**
 ```bash
-POST /mdflow/convert      # Convert table data to Markdown
-  Input: { data: string, format: 'excel'|'paste' }
-  Output: { markdown: string, mdflow: string }
+GET /health
+```
 
-GET /health               # Health check
+**Conversion & Preview**
+```bash
+POST /api/mdflow/paste          # JSON: { paste_text, template? } (+ detect_only=true)
+POST /api/mdflow/preview        # JSON: { paste_text }
+POST /api/mdflow/tsv            # multipart: file (.tsv), template?
+POST /api/mdflow/tsv/preview    # multipart: file (.tsv)
+POST /api/mdflow/xlsx           # multipart: file (.xlsx), sheet_name?, template?
+POST /api/mdflow/xlsx/preview   # multipart: file (.xlsx), sheet_name?
+POST /api/mdflow/xlsx/sheets    # multipart: file (.xlsx)
+```
+
+**Templates & Validation**
+```bash
+GET  /api/mdflow/templates
+GET  /api/mdflow/templates/info
+GET  /api/mdflow/templates/:name
+POST /api/mdflow/templates/preview  # JSON: { template_content, sample_data }
+POST /api/mdflow/validate           # JSON: { paste_text, validation_rules? }
+```
+
+**Workflow & Integrations**
+```bash
+POST /api/mdflow/diff           # JSON: { before, after }
+POST /api/mdflow/gsheet         # JSON: { url }
+POST /api/mdflow/gsheet/convert # JSON: { url, template? }
+POST /api/mdflow/ai/suggest     # JSON: { paste_text, template? }
 ```
 
 **Input Formats Supported:**
@@ -154,6 +182,19 @@ GET /health               # Health check
 - Column mapping and merge handling
 
 See [TABLE_FORMATS.md](docs/TABLE_FORMATS.md) for detailed format specifications.
+
+## 🧰 CLI Usage
+
+```bash
+# Build the CLI
+make cli
+
+# Convert a file
+./bin/mdflow convert --input spec.tsv --output spec.mdflow.md
+
+# Compare two outputs
+./bin/mdflow diff before.md after.md --json
+```
 
 ## 🧑‍💻 Available Make Commands
 
@@ -167,6 +208,8 @@ make clean         # Remove containers & volumes
 make test          # Run backend tests (cd backend && go test ./...)
 make dev-backend   # Run Go server in dev mode
 make dev-frontend  # Run Next.js in dev mode
+make cli           # Build MDFlow CLI (bin/mdflow)
+make install-cli   # Install CLI to /usr/local/bin/mdflow
 make dev           # Build & start all services with logs
 ```
 
@@ -189,6 +232,8 @@ See [`.env.example`](.env.example) for all available options.
 - `HOST`: Server host (default: 0.0.0.0)
 - `PORT`: Server port (default: 8080)
 - `APP_ENV`: Environment (dev/prod)
+- `OPENAI_API_KEY`: Enables AI suggestions (optional)
+- `OPENAI_MODEL`: OpenAI model name (default: gpt-4o-mini)
 - `NEXT_PUBLIC_API_URL`: Backend API URL for frontend (default: http://localhost:8080)
 
 ## 📖 Documentation
@@ -196,7 +241,7 @@ See [`.env.example`](.env.example) for all available options.
 - **[IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** - Complete implementation roadmap & phases
 - **[TABLE_FORMATS.md](docs/TABLE_FORMATS.md)** - Supported table formats and specifications
 - **[AGENTS.md](AGENTS.md)** - Development agent configuration
-- **[use-cases/](use-cases/)** - Example conversions (example-1.md through example-5.md)
+- **[use-cases/](use-cases/)** - Example conversions and template samples
 
 ## 🛣️ Key Components
 

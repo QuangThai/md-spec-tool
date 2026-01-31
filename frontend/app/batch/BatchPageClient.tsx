@@ -78,7 +78,8 @@ export default function BatchPageClient() {
               Batch Processing
             </h1>
             <p className="text-sm text-white/60 max-w-lg mx-auto">
-              Convert multiple files at once. Upload Excel, TSV, or CSV files and download all outputs as a ZIP.
+              Convert multiple files at once. Upload Excel, CSV, or TSV and
+              download all outputs as a ZIP.
             </p>
           </motion.div>
 
@@ -94,7 +95,7 @@ export default function BatchPageClient() {
               <div>
                 <p className="text-xs font-bold text-white mb-0.5">Multi-file Upload</p>
                 <p className="text-[10px] text-white/50">
-                  Drop multiple files at once
+                  Add multiple files together
                 </p>
               </div>
             </div>
@@ -105,7 +106,7 @@ export default function BatchPageClient() {
               <div>
                 <p className="text-xs font-bold text-white mb-0.5">All Sheets</p>
                 <p className="text-[10px] text-white/50">
-                  Process all sheets in Excel
+                  Convert every worksheet in Excel
                 </p>
               </div>
             </div>
@@ -116,7 +117,7 @@ export default function BatchPageClient() {
               <div>
                 <p className="text-xs font-bold text-white mb-0.5">ZIP Download</p>
                 <p className="text-[10px] text-white/50">
-                  Download all outputs at once
+                  Download results as one ZIP
                 </p>
               </div>
             </div>
@@ -153,19 +154,19 @@ export default function BatchPageClient() {
               <ul className="space-y-2 text-[11px] text-blue-400/70">
                 <li className="flex items-start gap-2">
                   <span className="text-blue-400">•</span>
-                  Drag and drop multiple files at once for faster processing
+                  Drag and drop multiple files to speed up batch setup
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-blue-400">•</span>
-                  Enable "Process all sheets" to convert every sheet in Excel workbooks
+                  Enable "Process all sheets" to convert every worksheet in Excel files
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-blue-400">•</span>
-                  Individual files can be downloaded separately or all at once as ZIP
+                  Download results per file or bundled as a ZIP
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-blue-400">•</span>
-                  Files are processed in your browser - nothing is stored on the server
+                  Larger batches may take longer depending on file size
                 </li>
               </ul>
             </div>
