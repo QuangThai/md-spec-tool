@@ -790,7 +790,7 @@ export function TemplateEditor({
                       id="template-editor"
                       value={templateContent}
                       onChange={(e) => setTemplateContent(e.target.value)}
-                      className="flex-1 w-full bg-black/40 text-white/90 font-mono text-[11px] sm:text-sm p-3 sm:p-4 resize-none focus:outline-none placeholder:text-white/30 leading-relaxed"
+                      className="flex-1 w-full bg-black/40 text-white/90 font-mono text-[11px] sm:text-sm p-3 sm:p-4 resize-none focus:outline-none placeholder:text-white/30 leading-relaxed custom-scrollbar"
                       placeholder="Enter your Go template here..."
                       spellCheck={false}
                     />

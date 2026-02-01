@@ -25,6 +25,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useState } from "react";
+import { Select } from "@/components/ui/Select";
 
 interface BatchFile {
   id: string;
@@ -54,9 +55,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
   const addFiles = useCallback(
     async (newFiles: FileList | File[]) => {
       const fileArray = Array.from(newFiles);
-      const validFiles = fileArray.filter((f) =>
-        /\.(xlsx|xls|tsv|csv)$/i.test(f.name)
-      );
+      const validFiles = fileArray.filter((f) => /\.(xlsx|tsv)$/i.test(f.name));
 
       const batchFiles: BatchFile[] = [];
 
@@ -70,7 +69,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
         };
 
         // Get sheets for XLSX files
-        if (/\.xlsx?$/i.test(file.name)) {
+        if (/\.xlsx$/i.test(file.name)) {
           try {
             const sheetsResult = await getSheetsMutation.mutateAsync(file);
             batchFile.sheets = sheetsResult.sheets;
@@ -116,7 +115,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
 
       try {
         let result;
-        const isExcel = /\.xlsx?$/i.test(batchFile.file.name);
+        const isExcel = /\.xlsx$/i.test(batchFile.file.name);
 
         if (
           isExcel &&
@@ -279,7 +278,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
       >
         <input
           type="file"
-          accept=".xlsx,.xls,.tsv,.csv"
+          accept=".xlsx,.tsv"
           multiple
           onChange={onFileChange}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -304,7 +303,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
               {dragOver ? "Drop files here" : "Drop files or click to upload"}
             </p>
             <p className="text-[10px] text-muted mt-1.5 uppercase font-medium">
-              .xlsx, .xls, .tsv, .csv • Multiple files supported
+              .xlsx, .tsv • Multiple files supported
             </p>
           </div>
         </div>
@@ -355,7 +354,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
           </div>
 
           {/* File items */}
-          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+          <div className="space-y-2 max-h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar">
             <AnimatePresence mode="popLayout">
               {files.map((batchFile) => (
                 <BatchFileItem
@@ -454,7 +453,7 @@ function BatchFileItem({
   onSheetChange: (sheet: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const isExcel = /\.xlsx?$/i.test(batchFile.file.name);
+  const isExcel = /\.xlsx$/i.test(batchFile.file.name);
   const hasMultipleSheets = batchFile.sheets && batchFile.sheets.length > 1;
   const warningCount = batchFile.result?.warnings?.length || 0;
 
@@ -480,7 +479,7 @@ function BatchFileItem({
       exit={{ opacity: 0, x: -20, height: 0 }}
       className={`rounded-xl border ${
         statusColor[batchFile.status]
-      } overflow-hidden`}
+      } overflow-visible`}
     >
       <div className="flex items-center gap-3 p-3">
         {/* Status icon */}
@@ -504,20 +503,25 @@ function BatchFileItem({
 
           {/* Sheet selector for Excel */}
           {isExcel && hasMultipleSheets && batchFile.status === "pending" && (
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[9px] text-white/40">Sheet:</span>
-              <select
-                value={batchFile.selectedSheet}
-                onChange={(e) => onSheetChange(e.target.value)}
-                className="text-[9px] px-2 py-0.5 rounded bg-black/40 border border-white/10 text-white/80 cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {batchFile.sheets?.map((sheet) => (
-                  <option key={sheet} value={sheet}>
-                    {sheet}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+              <div className="inline-flex items-center gap-2">
+                <span className="text-[9px] text-white/40 uppercase tracking-wider">
+                  Sheet
+                </span>
+                <Select
+                  value={batchFile.selectedSheet || batchFile.sheets?.[0] || ""}
+                  onValueChange={onSheetChange}
+                  options={
+                    batchFile.sheets?.map((sheet) => ({
+                      label: sheet,
+                      value: sheet,
+                    })) || []
+                  }
+                  size="compact"
+                  className="w-auto min-w-[120px]"
+                  aria-label={`Select sheet for ${batchFile.file.name}`}
+                />
+              </div>
             </div>
           )}
 

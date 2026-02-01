@@ -151,8 +151,8 @@ const HeroSection = memo(function HeroSection() {
         Batch Processing
       </h1>
       <p className="text-sm text-white/60 max-w-lg mx-auto">
-        Convert multiple files at once. Upload Excel, CSV, or TSV and download
-        all outputs as a ZIP.
+        Convert multiple files at once. Upload Excel (.xlsx) or TSV and
+        download all outputs as a ZIP.
       </p>
     </div>
   );

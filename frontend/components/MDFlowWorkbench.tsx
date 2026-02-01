@@ -349,9 +349,8 @@ export default function MDFlowWorkbench() {
           sheetName: selectedSheet,
           template,
         });
-        inputPreview = `${file.name}${
-          selectedSheet ? ` (${selectedSheet})` : ""
-        }`;
+        inputPreview = `${file.name}${selectedSheet ? ` (${selectedSheet})` : ""
+          }`;
       } else {
         if (!file) {
           setError("No file uploaded");
@@ -457,9 +456,8 @@ export default function MDFlowWorkbench() {
       return;
     }
 
-    const shareUrl = `${window.location.origin}/s/${
-      result.data.slug || result.data.token
-    }`;
+    const shareUrl = `${window.location.origin}/s/${result.data.slug || result.data.token
+      }`;
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Share link copied", "Public link ready to share");
@@ -541,7 +539,7 @@ export default function MDFlowWorkbench() {
       }
     },
     togglePreview: () => setShowPreview(!showPreview),
-    showShortcuts: () => {}, // Handled by KeyboardShortcutsTooltip
+    showShortcuts: () => { }, // Handled by KeyboardShortcutsTooltip
     escape: () => {
       if (showCommandPalette) setShowCommandPalette(false);
       else if (showHistory) setShowHistory(false);
@@ -643,10 +641,9 @@ export default function MDFlowWorkbench() {
                       }}
                       className={`
                         px-3 sm:px-4 py-1.5 text-[9px] sm:text-[10px] font-bold uppercase cursor-pointer tracking-wider rounded-md transition-all duration-200
-                        ${
-                          mode === m.key
-                            ? "bg-accent-orange text-white shadow-lg shadow-accent-orange/25"
-                            : "text-muted hover:text-white hover:bg-white/5"
+                        ${mode === m.key
+                          ? "bg-accent-orange text-white shadow-lg shadow-accent-orange/25"
+                          : "text-muted hover:text-white hover:bg-white/5"
                         }
                       `}
                     >
@@ -788,9 +785,8 @@ export default function MDFlowWorkbench() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className={`h-full flex flex-col gap-4 min-h-0 ${
-                        !file ? "justify-center items-center" : "justify-start"
-                      }`}
+                      className={`h-full flex flex-col gap-4 min-h-0 ${!file ? "justify-center items-center" : "justify-start"
+                        }`}
                     >
                       {/* File drop zone - centered when no file, shrink when file uploaded */}
                       <div
@@ -803,10 +799,9 @@ export default function MDFlowWorkbench() {
                         className={`
                           relative rounded-2xl border-2 border-dashed transition-all duration-300 cursor-pointer w-full shrink-0
                           ${file ? "p-4" : "p-8 sm:p-12 max-w-lg"}
-                          ${
-                            dragOver
-                              ? "border-accent-orange/50 bg-accent-orange/10 scale-[1.02]"
-                              : file
+                          ${dragOver
+                            ? "border-accent-orange/50 bg-accent-orange/10 scale-[1.02]"
+                            : file
                               ? "border-accent-orange/30 bg-accent-orange/5"
                               : "border-white/20 hover:border-accent-orange/40 hover:bg-white/5"
                           }
@@ -824,17 +819,15 @@ export default function MDFlowWorkbench() {
                           }
                         />
                         <div
-                          className={`flex items-center gap-4 ${
-                            file ? "justify-start" : "justify-center flex-col"
-                          }`}
+                          className={`flex items-center gap-4 ${file ? "justify-start" : "justify-center flex-col"
+                            }`}
                         >
                           <div
                             className={`
                               rounded-2xl flex items-center justify-center transition-all
-                              ${
-                                file
-                                  ? "h-12 w-12 bg-accent-orange/20"
-                                  : "h-16 w-16 bg-white/10"
+                              ${file
+                                ? "h-12 w-12 bg-accent-orange/20"
+                                : "h-16 w-16 bg-white/10"
                               }
                             `}
                           >
@@ -842,11 +835,10 @@ export default function MDFlowWorkbench() {
                               <Check className="w-6 h-6 text-accent-orange" />
                             ) : (
                               <FileSpreadsheet
-                                className={`w-8 h-8 ${
-                                  dragOver
+                                className={`w-8 h-8 ${dragOver
                                     ? "text-accent-orange"
                                     : "text-white/40"
-                                }`}
+                                  }`}
                               />
                             )}
                           </div>
@@ -866,8 +858,8 @@ export default function MDFlowWorkbench() {
                                   {dragOver
                                     ? "Drop file here"
                                     : mode === "tsv"
-                                    ? "Upload .TSV"
-                                    : "Upload .XLSX or .XLS"}
+                                      ? "Upload .TSV"
+                                      : "Upload .XLSX or .XLS"}
                                 </p>
                                 <p className="text-xs text-white/50 mt-1">
                                   Click or drag & drop
@@ -889,7 +881,8 @@ export default function MDFlowWorkbench() {
                               value: s,
                             }))}
                             placeholder="Choose sheet"
-                            className="h-10"
+                            size="compact"
+                            className="w-auto min-w-[120px]"
                           />
                         </div>
                       )}
@@ -986,10 +979,9 @@ export default function MDFlowWorkbench() {
                             uppercase tracking-wider text-[10px] sm:text-xs font-bold rounded-lg
                             flex items-center justify-center gap-2
                             transition-all duration-200
-                            ${
-                              isDisabled
-                                ? "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
-                                : "btn-primary shadow-lg shadow-accent-orange/20 cursor-pointer hover:shadow-xl hover:shadow-accent-orange/30"
+                            ${isDisabled
+                              ? "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"
+                              : "btn-primary shadow-lg shadow-accent-orange/20 cursor-pointer hover:shadow-xl hover:shadow-accent-orange/30"
                             }
                           `}
                           title={
@@ -1053,11 +1045,10 @@ export default function MDFlowWorkbench() {
                       type="button"
                       onClick={handleCopy}
                       disabled={!mdflowOutput}
-                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
-                        mdflowOutput
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
                           ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
                           : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
-                      }`}
+                        }`}
                     >
                       {copied ? (
                         <Check className="w-3.5 h-3.5 text-accent-orange" />
@@ -1077,11 +1068,10 @@ export default function MDFlowWorkbench() {
                         }
                       }}
                       disabled={!mdflowOutput}
-                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
-                        mdflowOutput
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
                           ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
                           : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
-                      }`}
+                        }`}
                     >
                       <Save className="w-3.5 h-3.5" />
                     </button>
@@ -1111,11 +1101,10 @@ export default function MDFlowWorkbench() {
                     <button
                       type="button"
                       disabled={!mdflowOutput}
-                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
-                        mdflowOutput
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
                           ? "bg-accent-orange/90 hover:bg-accent-orange border-accent-orange/50 text-white"
                           : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
-                      }`}
+                        }`}
                       onClick={() => {
                         if (mdflowOutput) {
                           const blob = new Blob([mdflowOutput], {
@@ -1136,7 +1125,7 @@ export default function MDFlowWorkbench() {
                   <ShareButton
                     mdflowOutput={mdflowOutput}
                     template={template}
-                  />                 
+                  />
                   {history.length > 0 && (
                     <Tooltip content="History">
                       <button
@@ -1183,18 +1172,18 @@ export default function MDFlowWorkbench() {
               {(mdflowOutput ||
                 warnings.length > 0 ||
                 aiSuggestions.length > 0) && (
-                <div className="border-t border-white/10 bg-white/2 px-3 sm:px-4 py-2 sm:py-2.5 shrink-0">
-                  <TechnicalAnalysis
-                    meta={meta}
-                    warnings={warnings}
-                    mdflowOutput={mdflowOutput}
-                    aiSuggestions={aiSuggestions}
-                    aiSuggestionsLoading={aiSuggestionsLoading}
-                    aiSuggestionsError={aiSuggestionsError}
-                    aiConfigured={aiConfigured}
-                  />
-                </div>
-              )}
+                  <div className="border-t border-white/10 bg-white/2 px-3 sm:px-4 py-2 sm:py-2.5 shrink-0">
+                    <TechnicalAnalysis
+                      meta={meta}
+                      warnings={warnings}
+                      mdflowOutput={mdflowOutput}
+                      aiSuggestions={aiSuggestions}
+                      aiSuggestionsLoading={aiSuggestionsLoading}
+                      aiSuggestionsError={aiSuggestionsError}
+                      aiConfigured={aiConfigured}
+                    />
+                  </div>
+                )}
             </div>
           </div>
         </motion.div>
