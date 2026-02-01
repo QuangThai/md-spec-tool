@@ -137,6 +137,18 @@
   display: none;
 }
 
+@media (max-width: 639px) {
+  .onboarding-tooltip {
+    left: 16px !important;
+    right: 16px !important;
+    top: auto !important;
+    bottom: 16px !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+}
+
 @keyframes float {
   0%,
   100% {

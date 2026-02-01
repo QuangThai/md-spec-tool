@@ -80,11 +80,35 @@ export function OnboardingTour() {
 
   // Calculate tooltip position
   const getTooltipStyle = () => {
-    if (!targetRect) return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    if (typeof window === "undefined") {
+      return { top: "50%", left: "50%", transform: "translate(-50%, -50%)" };
+    }
 
     const padding = 16;
-    const tooltipWidth = 360;
-    const tooltipHeight = 200;
+    const baseWidth = 360;
+    const tooltipWidth = Math.min(baseWidth, window.innerWidth - padding * 2);
+    const tooltipHeight = 220;
+    const isMobile = window.innerWidth < 640;
+
+    if (!targetRect) {
+      return {
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: `${tooltipWidth}px`,
+      };
+    }
+
+    if (isMobile) {
+      return {
+        left: `${padding}px`,
+        right: `${padding}px`,
+        bottom: `${padding}px`,
+        top: "auto",
+        width: `calc(100vw - ${padding * 2}px)`,
+        maxWidth: `${baseWidth}px`,
+      };
+    }
 
     let top = 0;
     let left = 0;
@@ -112,7 +136,7 @@ export function OnboardingTour() {
     left = Math.max(padding, Math.min(left, window.innerWidth - tooltipWidth - padding));
     top = Math.max(padding, Math.min(top, window.innerHeight - tooltipHeight - padding));
 
-    return { top: `${top}px`, left: `${left}px` };
+    return { top: `${top}px`, left: `${left}px`, width: `${tooltipWidth}px` };
   };
 
   return (
@@ -194,16 +218,16 @@ export function OnboardingTour() {
               </div>
 
               {/* Actions */}
-              <div className="px-8 pb-8 flex gap-3">
+              <div className="px-8 block pb-8 lg:flex lg:gap-3">
                 <button
                   onClick={handleSkipWelcome}
-                  className="flex-1 px-4 py-3 text-sm font-bold uppercase tracking-wider rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-all cursor-pointer"
+                  className="flex-1 w-full lg:w-auto px-4 py-3 text-sm font-bold uppercase tracking-wider rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white transition-all cursor-pointer mb-3 lg:mb-0"
                 >
                   Skip
                 </button>
                 <button
                   onClick={handleStartTour}
-                  className="flex-1 px-4 py-3 text-sm font-bold uppercase tracking-wider rounded-xl bg-accent-orange hover:bg-accent-orange/90 text-white shadow-lg shadow-accent-orange/25 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="flex-1 w-full lg:w-auto px-4 py-3 text-sm font-bold uppercase tracking-wider rounded-xl bg-accent-orange hover:bg-accent-orange/90 text-white shadow-lg shadow-accent-orange/25 transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
                   <BookOpen className="w-4 h-4" />
                   Take the Tour
@@ -260,7 +284,7 @@ export function OnboardingTour() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               style={getTooltipStyle()}
-              className="fixed z-92 w-[360px]"
+              className="fixed z-92 max-h-[calc(100vh-32px)] overflow-y-auto onboarding-tooltip"
             >
               <div className="bg-linear-to-br from-gray-900 via-black to-gray-900 border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
                 {/* Progress bar */}
@@ -297,12 +321,12 @@ export function OnboardingTour() {
                   </p>
 
                   {/* Navigation */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <button
                       onClick={prevStep}
                       disabled={isFirstStep}
                       className={`
-                        flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer
+                        flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer w-full sm:w-auto
                         ${isFirstStep
                           ? "opacity-30 cursor-not-allowed text-white/50"
                           : "bg-white/5 hover:bg-white/10 text-white/70 hover:text-white"
@@ -313,7 +337,7 @@ export function OnboardingTour() {
                       Back
                     </button>
 
-                    <div className="flex gap-1.5">
+                    <div className="flex justify-center gap-1.5 sm:justify-start">
                       {ONBOARDING_STEPS.map((_, i) => (
                         <div
                           key={i}
@@ -332,7 +356,7 @@ export function OnboardingTour() {
 
                     <button
                       onClick={isLastStep ? completeTour : nextStep}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-accent-orange hover:bg-accent-orange/90 text-white shadow-md shadow-accent-orange/25 transition-all cursor-pointer"
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider bg-accent-orange hover:bg-accent-orange/90 text-white shadow-md shadow-accent-orange/25 transition-all cursor-pointer w-full sm:w-auto"
                     >
                       {isLastStep ? (
                         <>

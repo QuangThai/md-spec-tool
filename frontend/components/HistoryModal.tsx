@@ -2,8 +2,9 @@
 import { useHistoryStore } from "@/lib/mdflowStore";
 import { ConversionRecord } from "@/lib/types";
 import { useOnboardingStore } from "@/lib/onboardingStore";
+import { SHORTCUTS, formatShortcut } from "@/lib/useKeyboardShortcuts";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, Check, Clock, Copy, History, Keyboard, X } from "lucide-react";
+import { BookOpen, Check, Clock, Command, Copy, History, Keyboard, X } from "lucide-react";
 import { useCallback, useState } from "react";
 
 export default function HistoryModal({
@@ -165,18 +166,16 @@ export default function HistoryModal({
 }
 
 
-export  function KeyboardShortcutsTooltip() {
+export function KeyboardShortcutsTooltip() {
   const [show, setShow] = useState(false);
   const { resetTour, startTour } = useOnboardingStore();
-  const isMac =
-    typeof navigator !== "undefined" &&
-    navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-  const mod = isMac ? "⌘" : "Ctrl";
 
   const shortcuts = [
-    { keys: `${mod}+Enter`, action: "Convert" },
-    { keys: `${mod}+Shift+C`, action: "Copy output" },
-    { keys: `${mod}+S`, action: "Download" },
+    { keys: formatShortcut(SHORTCUTS.COMMAND_PALETTE), action: "Command Palette", icon: Command },
+    { keys: formatShortcut(SHORTCUTS.CONVERT), action: "Convert" },
+    { keys: formatShortcut(SHORTCUTS.COPY), action: "Copy output" },
+    { keys: formatShortcut(SHORTCUTS.EXPORT), action: "Export" },
+    { keys: formatShortcut(SHORTCUTS.TOGGLE_PREVIEW), action: "Toggle Preview" },
   ];
 
   const handleRestartTour = () => {

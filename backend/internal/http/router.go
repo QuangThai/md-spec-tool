@@ -10,6 +10,7 @@ import (
 	"github.com/yourorg/md-spec-tool/internal/converter"
 	"github.com/yourorg/md-spec-tool/internal/http/handlers"
 	"github.com/yourorg/md-spec-tool/internal/http/middleware"
+	"github.com/yourorg/md-spec-tool/internal/share"
 )
 
 func SetupRouter(cfg *config.Config) *gin.Engine {
@@ -60,6 +61,20 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		mdflow.POST("/gsheet/convert", mdflowHandler.ConvertGoogleSheet)
 		mdflow.POST("/validate", mdflowHandler.Validate)
 		mdflow.POST("/ai/suggest", mdflowHandler.GetAISuggestions)
+	}
+
+	shareStore := share.NewStore(cfg.ShareStorePath)
+	shareHandler := handlers.NewShareHandler(shareStore)
+
+	shareRoutes := router.Group("/api/share")
+	{
+		shareRoutes.POST("", middleware.RateLimit(10, time.Minute), shareHandler.CreateShare)
+		shareRoutes.GET("/public", shareHandler.ListPublic)
+		shareRoutes.GET("/:key", shareHandler.GetShare)
+		shareRoutes.PATCH("/:key", middleware.RateLimit(20, time.Minute), shareHandler.UpdateShare)
+		shareRoutes.GET("/:key/comments", shareHandler.ListComments)
+		shareRoutes.POST("/:key/comments", middleware.RateLimit(20, time.Minute), shareHandler.CreateComment)
+		shareRoutes.PATCH("/:key/comments/:commentId", middleware.RateLimit(20, time.Minute), shareHandler.UpdateComment)
 	}
 
 	return router

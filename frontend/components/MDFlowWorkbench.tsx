@@ -14,8 +14,14 @@ import {
   usePreviewTSVQuery,
   usePreviewXLSXQuery,
 } from "@/lib/mdflowQueries";
-import { useHistoryStore, useMDFlowStore, type MDFlowStore } from "@/lib/mdflowStore";
+import {
+  useHistoryStore,
+  useMDFlowStore,
+  type MDFlowStore,
+} from "@/lib/mdflowStore";
+import { createShare } from "@/lib/shareApi";
 import { ConversionRecord } from "@/lib/types";
+import { useKeyboardShortcuts } from "@/lib/useKeyboardShortcuts";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -32,20 +38,25 @@ import {
   Link2,
   RefreshCcw,
   Save,
+  Share2,
   ShieldCheck,
   Terminal,
-  Zap
+  Zap,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { CommandPalette } from "./CommandPalette";
 import HistoryModal, { KeyboardShortcutsTooltip } from "./HistoryModal";
 import { OnboardingTour } from "./OnboardingTour";
 import { PreviewTable } from "./PreviewTable";
+import { ShareButton } from "./ShareButton";
 import { TechnicalAnalysis } from "./TechnicalAnalysis";
 import { TemplateCards } from "./TemplateCards";
 import { Select } from "./ui/Select";
+import { OutputSkeleton } from "./ui/Skeleton";
+import { toast, ToastContainer } from "./ui/Toast";
 import { Tooltip } from "./ui/Tooltip";
-import { useShallow } from "zustand/react/shallow";
 
 const DiffViewer = dynamic(
   () => import("./DiffViewer").then((mod) => mod.DiffViewer),
@@ -159,6 +170,17 @@ export default function MDFlowWorkbench() {
   const [showValidationConfigurator, setShowValidationConfigurator] =
     useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [creatingShare, setCreatingShare] = useState(false);
+  const [shareTitle, setShareTitle] = useState("");
+  const [shareSlug, setShareSlug] = useState("");
+  const [shareVisibility, setShareVisibility] = useState<"public" | "private">(
+    "public"
+  );
+  const [shareAllowComments, setShareAllowComments] = useState(true);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [shareSlugError, setShareSlugError] = useState<string | null>(null);
+  const shareOptionsRef = useRef<HTMLDivElement>(null);
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
 
   const { data: templateList = ["default"] } = useMDFlowTemplatesQuery();
@@ -352,9 +374,16 @@ export default function MDFlowWorkbench() {
           output: result.mdflow,
           meta: result.meta,
         });
+        toast.success(
+          "Conversion complete",
+          `${result.meta?.total_rows || 0} rows processed`
+        );
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Conversion failed");
+      const errorMessage =
+        error instanceof Error ? error.message : "Conversion failed";
+      setError(errorMessage);
+      toast.error("Conversion failed", errorMessage);
     } finally {
       setLoading(false);
     }
@@ -392,6 +421,75 @@ export default function MDFlowWorkbench() {
     URL.revokeObjectURL(url);
   }, [mdflowOutput]);
 
+  const handleCreateShare = useCallback(async () => {
+    if (!mdflowOutput || creatingShare) return;
+
+    const trimmedSlug = shareSlug.trim();
+    if (trimmedSlug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
+      setShareSlugError(
+        "Slug must be lowercase letters, numbers, and hyphens only"
+      );
+      return;
+    }
+
+    setShareSlugError(null);
+
+    setCreatingShare(true);
+    const result = await createShare({
+      mdflow: mdflowOutput,
+      template,
+      title: shareTitle.trim(),
+      slug: shareSlug.trim() || undefined,
+      is_public: shareVisibility === "public",
+      allow_comments: shareAllowComments,
+      permission: shareAllowComments ? "comment" : "view",
+    });
+
+    if (result.error || !result.data) {
+      if (result.error?.toLowerCase().includes("slug")) {
+        setShareSlugError(result.error);
+      }
+      toast.error(
+        "Share failed",
+        result.error || "Unable to create share link"
+      );
+      setCreatingShare(false);
+      return;
+    }
+
+    const shareUrl = `${window.location.origin}/s/${
+      result.data.slug || result.data.token
+    }`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Share link copied", "Public link ready to share");
+    } catch (error) {
+      toast.error("Copy failed", "Could not copy share link");
+    }
+    setCreatingShare(false);
+    setShowShareOptions(false);
+  }, [
+    creatingShare,
+    mdflowOutput,
+    template,
+    shareTitle,
+    shareSlug,
+    shareVisibility,
+    shareAllowComments,
+  ]);
+
+  useEffect(() => {
+    if (!showShareOptions) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!shareOptionsRef.current) return;
+      if (!shareOptionsRef.current.contains(event.target as Node)) {
+        setShowShareOptions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showShareOptions]);
+
   const handleGetAISuggestions = useCallback(async () => {
     if (!pasteText.trim() || aiSuggestionsLoading) return;
 
@@ -426,27 +524,32 @@ export default function MDFlowWorkbench() {
     aiSuggestionsMutation,
   ]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-      const mod = isMac ? e.metaKey : e.ctrlKey;
-
-      if (mod && e.key === "Enter") {
-        e.preventDefault();
-        handleConvert();
-      } else if (mod && e.shiftKey && e.key.toLowerCase() === "c") {
-        e.preventDefault();
-        if (mdflowOutput) handleCopy();
-      } else if (mod && e.key.toLowerCase() === "s" && mdflowOutput) {
-        e.preventDefault();
-        handleDownload();
+  // Keyboard shortcuts via hook
+  useKeyboardShortcuts({
+    commandPalette: () => setShowCommandPalette(true),
+    convert: handleConvert,
+    copy: () => {
+      if (mdflowOutput) {
+        handleCopy();
+        toast.success("Copied to clipboard");
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [mdflowOutput, handleConvert, handleCopy, handleDownload]);
+    },
+    export: () => {
+      if (mdflowOutput) {
+        handleDownload();
+        toast.success("Downloaded spec.mdflow.md");
+      }
+    },
+    togglePreview: () => setShowPreview(!showPreview),
+    showShortcuts: () => {}, // Handled by KeyboardShortcutsTooltip
+    escape: () => {
+      if (showCommandPalette) setShowCommandPalette(false);
+      else if (showHistory) setShowHistory(false);
+      else if (showDiff) setShowDiff(false);
+      else if (showTemplateEditor) setShowTemplateEditor(false);
+      else if (showValidationConfigurator) setShowValidationConfigurator(false);
+    },
+  });
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -1030,6 +1133,116 @@ export default function MDFlowWorkbench() {
                       <Download className="w-3.5 h-3.5" />
                     </button>
                   </Tooltip>
+                  <ShareButton
+                    mdflowOutput={mdflowOutput}
+                    template={template}
+                  />
+                  {/* <Tooltip content={creatingShare ? "Sharing..." : "Share"}>
+                    <div className="relative" ref={shareOptionsRef}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!mdflowOutput || creatingShare) return;
+                          setShowShareOptions((prev) => !prev);
+                        }}
+                        disabled={!mdflowOutput || creatingShare}
+                        className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
+                          mdflowOutput && !creatingShare
+                            ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
+                            : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                        }`}
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      {showShareOptions && (
+                        <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-white/10 bg-black/90 backdrop-blur-xl p-3 shadow-2xl">
+                          <div className="space-y-3 text-[10px] text-white/70">
+                            <div>
+                              <label className="block text-[9px] uppercase tracking-widest text-white/40 mb-1">
+                                Title
+                              </label>
+                              <input
+                                value={shareTitle}
+                                onChange={(event) =>
+                                  setShareTitle(event.target.value)
+                                }
+                                placeholder="Optional title"
+                                className="w-full rounded-md bg-white/5 border border-white/10 px-2 py-1.5 text-[10px] text-white/80 focus:outline-none focus:border-accent-orange/40"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[9px] uppercase tracking-widest text-white/40 mb-1">
+                                Custom Slug
+                              </label>
+                              <input
+                                value={shareSlug}
+                                onChange={(event) =>
+                                  setShareSlug(event.target.value)
+                                }
+                                placeholder="my-spec"
+                                className={`w-full rounded-md bg-white/5 border px-2 py-1.5 text-[10px] text-white/80 focus:outline-none ${
+                                  shareSlugError
+                                    ? "border-red-400/60"
+                                    : "border-white/10 focus:border-accent-orange/40"
+                                }`}
+                              />
+                              {shareSlugError && (
+                                <p className="mt-1 text-[9px] text-red-400/80">
+                                  {shareSlugError}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">
+                                Visibility
+                              </label>
+                              <select
+                                value={shareVisibility}
+                                onChange={(event) =>
+                                  setShareVisibility(
+                                    event.target.value as "public" | "private"
+                                  )
+                                }
+                                className="rounded-md bg-white/5 border border-white/10 px-2 py-1 text-[10px] text-white/80 focus:outline-none"
+                              >
+                                <option value="public">Public</option>
+                                <option value="private">Private</option>
+                              </select>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <label className="text-[9px] uppercase tracking-widest text-white/40">
+                                Comments
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShareAllowComments((prev) => !prev)
+                                }
+                                className={`px-2 py-1 rounded-md text-[9px] uppercase tracking-widest border ${
+                                  shareAllowComments
+                                    ? "border-emerald-400/40 text-emerald-300"
+                                    : "border-white/20 text-white/40"
+                                }`}
+                              >
+                                {shareAllowComments ? "Enabled" : "Disabled"}
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleCreateShare}
+                              disabled={creatingShare}
+                              className="w-full mt-1 px-3 py-2 rounded-lg bg-accent-orange hover:bg-accent-orange/90 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
+                            >
+                              {creatingShare
+                                ? "Sharing..."
+                                : "Create Share Link"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Tooltip> */}
                   {history.length > 0 && (
                     <Tooltip content="History">
                       <button
@@ -1046,10 +1259,17 @@ export default function MDFlowWorkbench() {
 
               {/* Output content */}
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3 custom-scrollbar">
-                {mdflowOutput ? (
-                  <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[11px] sm:text-[12px] leading-relaxed text-white/90 selection:bg-accent-orange/30">
+                {loading ? (
+                  <OutputSkeleton />
+                ) : mdflowOutput ? (
+                  <motion.pre
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
+                    className="whitespace-pre-wrap wrap-break-word font-mono text-[11px] sm:text-[12px] leading-relaxed text-white/90 selection:bg-accent-orange/30"
+                  >
                     {mdflowOutput}
-                  </pre>
+                  </motion.pre>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-center py-6">
                     <div className="rounded-xl bg-white/5 border border-white/5 p-4 mb-3">
@@ -1157,6 +1377,36 @@ export default function MDFlowWorkbench() {
       <div className="fixed bottom-4 right-4 z-40">
         <KeyboardShortcutsTooltip />
       </div>
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={showCommandPalette}
+        onOpenChange={setShowCommandPalette}
+        onConvert={handleConvert}
+        onCopy={() => {
+          if (mdflowOutput) {
+            handleCopy();
+            toast.success("Copied to clipboard");
+          }
+        }}
+        onExport={() => {
+          if (mdflowOutput) {
+            handleDownload();
+            toast.success("Downloaded spec.mdflow.md");
+          }
+        }}
+        onTogglePreview={() => setShowPreview(!showPreview)}
+        onShowHistory={() => setShowHistory(true)}
+        onOpenTemplateEditor={() => setShowTemplateEditor(true)}
+        onOpenValidation={() => setShowValidationConfigurator(true)}
+        templates={templates}
+        currentTemplate={template}
+        onSelectTemplate={setTemplate}
+        hasOutput={Boolean(mdflowOutput)}
+      />
+
+      {/* Toast notifications */}
+      <ToastContainer />
     </motion.div>
   );
 }

@@ -41,38 +41,56 @@ export default function AppShell({ children }: AppShellProps) {
         </div>
 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="py-8 sm:py-9 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 border-b border-white/6">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 min-w-0">
-              <div className="inline-flex items-center gap-2 w-fit px-2.5 py-1 rounded-full bg-white/3 border border-white/10">
-                <span className="relative w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.45)]" />
-                <span className="text-[9px] font-semibold text-white/55 uppercase tracking-widest">
-                  Live
+          <div className="py-8 sm:py-10">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+              <div className="flex flex-col gap-4 max-w-2xl">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-accent-orange/80">
+                  MDFlow Studio
                 </span>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+                  Ship specs in minutes.
+                </h2>
+              <p className="text-sm sm:text-base text-white/55 leading-relaxed">
+                Turn spreadsheets into structured Markdown with smart parsing, previews, and ready-to-share outputs.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <Link
+                  href="/studio"
+                  className="btn-primary h-11 px-6 text-[11px] uppercase tracking-widest cursor-pointer"
+                >
+                  Open Studio
+                </Link>
+                <Link
+                  href="/docs"
+                  className="btn-ghost h-11 px-6 text-[11px] uppercase tracking-widest cursor-pointer"
+                >
+                  Read Docs
+                </Link>
               </div>
-              <div className="min-w-0">
-                <p className="text-sm sm:text-base font-semibold text-white/95 tracking-tight">
-                  Ready to scale your spec?
-                </p>
-                <p className="text-[11px] sm:text-xs text-white/45 mt-0.5">
-                  MDFlow precision engine · docs in minutes
-                </p>
               </div>
-            </div>
 
-            <div className="shrink-0">
-              <div className="px-3 py-2 rounded-lg bg-white/2 border border-white/8">
-                <p className="text-[11px] uppercase tracking-widest text-white/40">
-                  Designed by
-                </p>
-                <p className="text-sm font-semibold tracking-tight text-white/90">
-                  Quang Thai
-                </p>
+              <div className="hidden lg:flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/4 px-4 py-4">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">Highlights</p>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-accent-orange" />
+                    <p className="text-xs text-white/55">Auto-detect headers and map fields.</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-accent-orange" />
+                    <p className="text-xs text-white/55">Live preview before export.</p>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 rounded-full bg-accent-orange" />
+                    <p className="text-xs text-white/55">Shareable outputs in one click.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="py-5 sm:py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+          <div className="py-5 sm:py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-t border-white/6">
+            <div className="flex items-center gap-4">
               <Link
                 href="/"
                 className="flex items-center gap-1 shrink-0 opacity-80 hover:opacity-100 transition-opacity duration-200"
@@ -97,7 +115,6 @@ export default function AppShell({ children }: AppShellProps) {
                     </linearGradient>
                   </defs>
                   <g opacity="0.85">
-                    {/* Base M shape */}
                     <path
                       d="M4 24V10C4 8.89543 4.89543 8 6 8H8L14 18L20 8H22C23.1046 8 24 8.89543 24 10V24"
                       stroke="url(#footer-logo-gradient)"
@@ -106,7 +123,6 @@ export default function AppShell({ children }: AppShellProps) {
                       strokeLinejoin="round"
                       fill="none"
                     />
-                    {/* Flow accent */}
                     <path
                       d="M27 8L31 16L27 24"
                       stroke="url(#footer-logo-gradient-subtle)"
@@ -115,7 +131,6 @@ export default function AppShell({ children }: AppShellProps) {
                       strokeLinejoin="round"
                       fill="none"
                     />
-                    {/* Typography */}
                     <text
                       x="40"
                       y="22"
@@ -130,38 +145,23 @@ export default function AppShell({ children }: AppShellProps) {
                   </g>
                 </svg>
               </Link>
-              <nav
-                className="hidden sm:flex items-center gap-0.5"
-                aria-label="Footer navigation"
-              >
-                <Link
-                  href="/studio"
-                  className="px-3 py-1.5 text-xs font-medium uppercase tracking-widest text-white/50 hover:text-white/90 transition-colors duration-200 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/40"
-                >
-                  Studio
-                </Link>
-                <span className="text-white/10 mx-1" aria-hidden>
-                  ·
-                </span>
+              <nav className="flex items-center gap-3" aria-label="Footer navigation">
                 <Link
                   href="/batch"
-                  className="px-3 py-1.5 text-xs font-medium uppercase tracking-widest text-white/50 hover:text-white/90 transition-colors duration-200 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/40"
+                  className="text-[10px] font-medium uppercase tracking-widest text-white/45 hover:text-white/90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/40 rounded-sm"
                 >
                   Batch
                 </Link>
-                <span className="text-white/10 mx-1" aria-hidden>
-                  ·
-                </span>
                 <Link
                   href="/docs"
-                  className="px-3 py-1.5 text-xs font-medium uppercase tracking-widest text-white/50 hover:text-white/90 transition-colors duration-200 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/40"
+                  className="text-[10px] font-medium uppercase tracking-widest text-white/45 hover:text-white/90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/40 rounded-sm"
                 >
                   Docs
                 </Link>
               </nav>
             </div>
 
-            <div className="flex items-center gap-4 sm:gap-5 shrink-0">
+            <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                 <span className="relative w-1.5 h-1.5 shrink-0">
                   <span className="absolute inset-0 rounded-full bg-emerald-400 animate-pulse" />

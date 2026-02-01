@@ -416,6 +416,69 @@ export default function MDFlowLanding() {
                   </motion.div>
                 ))}
 
+                {/* Mobile Floating Stats */}
+                <div className="mt-4 flex flex-col gap-3 sm:hidden">
+                  <div className="w-full p-3 rounded-xl bg-black/85 backdrop-blur-2xl border border-accent-orange/30 shadow-2xl shadow-accent-orange/10 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-orange/15 border border-accent-orange/25 text-accent-orange">
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <span className="text-[9px] font-black text-accent-orange/80 uppercase tracking-[0.2em]">
+                        Efficiency Output
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-black text-white tabular-nums leading-none">+84%</p>
+                      <p className="text-[9px] text-white/50 font-medium uppercase tracking-wider">
+                        time saved vs manual spec
+                      </p>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-linear-to-r from-accent-orange to-accent-gold"
+                        initial={{ width: 0 }}
+                        whileInView={{ width: "84%" }}
+                        viewport={{ once: true }}
+                        transition={{
+                          duration: 0.8,
+                          delay: 0.2,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="w-full p-3 rounded-xl bg-black/85 backdrop-blur-2xl border border-accent-gold/30 shadow-2xl shadow-accent-gold/10 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-gold/15 border border-accent-gold/25 text-accent-gold">
+                        <Zap className="w-4 h-4" />
+                      </div>
+                      <span className="text-[9px] font-black text-accent-gold/80 uppercase tracking-[0.2em]">
+                        Parse Speed
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-2xl font-black text-white tabular-nums leading-none">12×</p>
+                      <p className="text-[9px] text-white/50 font-medium uppercase tracking-wider">
+                        faster than manual mapping
+                      </p>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-linear-to-r from-accent-gold to-accent-orange"
+                        initial={{ width: 0 }}
+                        whileInView={{ width: "100%" }}
+                        viewport={{ once: true }}
+                        transition={{
+                          duration: 0.8,
+                          delay: 0.35,
+                          ease: [0.22, 1, 0.36, 1],
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Hover Floating Stat - Left */}
                 <div className="absolute left-[5%] sm:left-[10%] top-1/2 -translate-y-1/2 w-[140px] sm:w-[180px] lg:w-[200px] p-3 sm:p-4 lg:p-6 rounded-xl sm:rounded-2xl bg-black/85 backdrop-blur-2xl border border-accent-orange/30 shadow-2xl shadow-accent-orange/10 space-y-2 sm:space-y-4 -rotate-3 group-hover:rotate-0 transition-all duration-300 z-20 hidden sm:block">
                   <div className="flex items-center justify-between gap-1.5 sm:gap-2">

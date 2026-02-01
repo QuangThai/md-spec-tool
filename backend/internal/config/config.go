@@ -10,6 +10,7 @@ type Config struct {
 	CORSOrigins  []string
 	OpenAIAPIKey string
 	OpenAIModel  string
+	ShareStorePath string
 }
 
 func LoadConfig() *Config {
@@ -25,6 +26,7 @@ func LoadConfig() *Config {
 		CORSOrigins:  parsedCORSOrigins,
 		OpenAIAPIKey: getEnv("OPENAI_API_KEY", ""),
 		OpenAIModel:  getEnv("OPENAI_MODEL", "gpt-4o-mini"),
+		ShareStorePath: getEnv("SHARE_STORE_PATH", ""),
 	}
 }
 
