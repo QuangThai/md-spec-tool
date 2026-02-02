@@ -235,12 +235,13 @@ export async function fetchGoogleSheet(
 export async function getGoogleSheetSheets(
   url: string
 ): Promise<ApiResult<GoogleSheetSheetsResponse>> {
-  return apiCall<GoogleSheetSheetsResponse>(`${API_URL}/api/mdflow/gsheet/sheets`, {
+  return apiCall<GoogleSheetSheetsResponse>(`/api/gsheet/sheets`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ url }),
+    credentials: 'include',
   });
 }
 
@@ -260,13 +261,14 @@ export async function convertGoogleSheet(
     payload.gid = gid;
   }
   return apiCall<MDFlowConvertResponse>(
-    `${API_URL}/api/mdflow/gsheet/convert`,
+    `/api/gsheet/convert`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+      credentials: 'include',
     }
   );
 }

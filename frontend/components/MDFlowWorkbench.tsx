@@ -37,6 +37,7 @@ import {
   FileText,
   GitCompare,
   History,
+  KeyRound,
   Link2,
   RefreshCcw,
   Save,
@@ -59,6 +60,7 @@ import { Select } from "./ui/Select";
 import { OutputSkeleton } from "./ui/Skeleton";
 import { toast, ToastContainer } from "./ui/Toast";
 import { Tooltip } from "./ui/Tooltip";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 const DiffViewer = dynamic(
   () => import("./DiffViewer").then((mod) => mod.DiffViewer),
@@ -190,6 +192,7 @@ export default function MDFlowWorkbench() {
   const [shareSlugError, setShareSlugError] = useState<string | null>(null);
   const shareOptionsRef = useRef<HTMLDivElement>(null);
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
+  const googleAuth = useGoogleAuth();
 
   useBodyScrollLock(showDiff);
 
@@ -285,6 +288,7 @@ export default function MDFlowWorkbench() {
   }, [
     debouncedPasteText,
     mode,
+    googleAuth.connected,
     fetchGoogleSheetTabs,
     setError,
     setGsheetTabs,
@@ -361,6 +365,23 @@ export default function MDFlowWorkbench() {
       setShowPreview(true);
     }
   }, [mode, previewTSVQuery.data, setPreview, setShowPreview]);
+
+  useEffect(() => {
+    if (googleAuth.error) {
+      toast.error("Google connection failed", googleAuth.error);
+    }
+  }, [googleAuth.error]);
+
+  // Track previous connected state to detect successful connection
+  const prevConnectedRef = useRef(googleAuth.connected);
+  useEffect(() => {
+    if (!prevConnectedRef.current && googleAuth.connected) {
+      // Just connected - clear any existing error and show success
+      setError(null);
+      toast.success("Google connected", "You can now access private sheets");
+    }
+    prevConnectedRef.current = googleAuth.connected;
+  }, [googleAuth.connected, setError]);
 
   useEffect(() => {
     const isLoading =
@@ -825,15 +846,43 @@ export default function MDFlowWorkbench() {
                           />
                         </div>
                       )}
-                      {isGoogleSheetsURL(pasteText.trim()) && (
-                        <div className="mb-3 flex items-start gap-2 rounded-lg border border-accent-orange/20 bg-accent-orange/10 px-3 py-2 text-[10px] text-white/70">
-                          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-accent-orange/80" />
-                          <span>
-                            Private sheet? Share it with the service account email and
-                            set Viewer permission.
-                          </span>
-                        </div>
-                      )}
+                       {isGoogleSheetsURL(pasteText.trim()) && (
+                         <div className={`mb-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-[10px] text-white/70 border ${
+                           googleAuth.connected
+                             ? "border-green-500/20 bg-green-500/10"
+                             : "border-accent-orange/20 bg-accent-orange/10"
+                         }`}>
+                           {googleAuth.connected ? (
+                             <Check className="h-3 w-3 shrink-0 text-green-400" />
+                           ) : (
+                             <AlertCircle className="h-3 w-3 shrink-0 text-accent-orange/80" />
+                           )}
+                           <span className="flex-1 min-w-[160px]">
+                             {googleAuth.connected
+                               ? "Google connected. You can access private sheets without sharing."
+                               : "Private sheet? Connect Google to access without sharing."}
+                           </span>
+                           {googleAuth.connected ? (
+                             <button
+                               type="button"
+                               onClick={googleAuth.logout}
+                               className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/70 hover:text-white transition-colors"
+                             >
+                               Disconnect
+                             </button>
+                           ) : (
+                           <button
+                              type="button"
+                              onClick={googleAuth.login}
+                              disabled={googleAuth.loading}
+                              className="inline-flex items-center gap-1 rounded-md border border-accent-orange/30 bg-accent-orange/20 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/90 hover:bg-accent-orange/30 transition-colors"
+                            >
+                              <KeyRound className="h-3 w-3" />
+                              Connect Google
+                             </button>
+                           )}
+                         </div>
+                       )}
 
                       {/* Preview Table - Collapsible */}
                       <AnimatePresence>

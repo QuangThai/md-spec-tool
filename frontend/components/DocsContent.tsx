@@ -692,8 +692,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               </div>
               <p className="text-sm text-white/70 mb-4">
                 Automatically detect and fetch data from Google Sheets URLs.
-                Supports public sheets and private sheets shared with the
-                configured service account.
+                Supports public sheets, service accounts, and OAuth for private
+                sheets.
               </p>
               <ul className="space-y-2 text-sm text-white/60">
                 <li>• Paste Google Sheets URL directly into paste mode</li>
@@ -701,6 +701,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 <li>• List tabs and select a specific sheet</li>
                 <li>• Fetches via Sheets API when configured</li>
                 <li>• Falls back to CSV export for public sheets</li>
+                <li>• Connect Google to access private sheets via OAuth</li>
               </ul>
               <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/gsheet/sheets <br />

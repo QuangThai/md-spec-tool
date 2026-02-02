@@ -21,6 +21,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/md-spec-tool/internal/ai"
 	"github.com/yourorg/md-spec-tool/internal/converter"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
@@ -740,6 +742,23 @@ func (h *MDFlowHandler) getSheetsService() (*sheets.Service, error) {
 	return h.sheetsService, nil
 }
 
+func (h *MDFlowHandler) getSheetsServiceWithToken(accessToken string) (*sheets.Service, error) {
+	if strings.TrimSpace(accessToken) == "" {
+		return nil, fmt.Errorf("missing access token")
+	}
+
+	ctx := context.Background()
+	client := oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken: accessToken,
+	}))
+
+	service, err := sheets.NewService(ctx, option.WithHTTPClient(client))
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
 func selectGID(requestGID string, urlGID string) string {
 	requestGID = strings.TrimSpace(requestGID)
 	if requestGID != "" {
@@ -758,12 +777,7 @@ func validateGID(gid string) error {
 	return nil
 }
 
-func (h *MDFlowHandler) getGoogleSheetTabs(spreadsheetID string) ([]GoogleSheetTab, error) {
-	service, err := h.getSheetsService()
-	if err != nil {
-		return nil, err
-	}
-
+func getGoogleSheetTabsWithService(service *sheets.Service, spreadsheetID string) ([]GoogleSheetTab, error) {
 	resp, err := service.Spreadsheets.Get(spreadsheetID).
 		Fields("sheets.properties.sheetId,sheets.properties.title").
 		Do()
@@ -792,6 +806,15 @@ func (h *MDFlowHandler) getGoogleSheetTabs(spreadsheetID string) ([]GoogleSheetT
 	}
 
 	return result, nil
+}
+
+func (h *MDFlowHandler) getGoogleSheetTabs(spreadsheetID string) ([]GoogleSheetTab, error) {
+	service, err := h.getSheetsService()
+	if err != nil {
+		return nil, err
+	}
+
+	return getGoogleSheetTabsWithService(service, spreadsheetID)
 }
 
 func findActiveGID(tabs []GoogleSheetTab, requestedGID string) string {
@@ -869,8 +892,8 @@ func (h *MDFlowHandler) fetchGoogleSheetCSV(sheetID string, gid string) ([]byte,
 	return body, resp.StatusCode, nil
 }
 
-func (h *MDFlowHandler) convertGoogleSheetWithAPI(sheetID string, gid string, template string) (*converter.ConvertResponse, error) {
-	tabs, err := h.getGoogleSheetTabs(sheetID)
+func (h *MDFlowHandler) convertGoogleSheetWithService(service *sheets.Service, sheetID string, gid string, template string) (*converter.ConvertResponse, error) {
+	tabs, err := getGoogleSheetTabsWithService(service, sheetID)
 	if err != nil {
 		return nil, err
 	}
@@ -885,11 +908,6 @@ func (h *MDFlowHandler) convertGoogleSheetWithAPI(sheetID string, gid string, te
 		return nil, fmt.Errorf("sheet gid not found")
 	}
 
-	service, err := h.getSheetsService()
-	if err != nil {
-		return nil, err
-	}
-
 	resp, err := service.Spreadsheets.Values.Get(sheetID, sheetTitle).Do()
 	if err != nil {
 		return nil, err
@@ -898,6 +916,38 @@ func (h *MDFlowHandler) convertGoogleSheetWithAPI(sheetID string, gid string, te
 	rows := convertValuesToRows(resp.Values)
 	matrix := converter.NewCellMatrix(rows).Normalize()
 	return h.converter.ConvertMatrix(matrix, sheetTitle, template)
+}
+
+func (h *MDFlowHandler) convertGoogleSheetWithAPI(sheetID string, gid string, template string) (*converter.ConvertResponse, error) {
+	service, err := h.getSheetsService()
+	if err != nil {
+		return nil, err
+	}
+
+	return h.convertGoogleSheetWithService(service, sheetID, gid, template)
+}
+
+func getBearerToken(c *gin.Context) string {
+	value := strings.TrimSpace(c.GetHeader("Authorization"))
+	if value == "" {
+		return ""
+	}
+	parts := strings.SplitN(value, " ", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+	if !strings.EqualFold(parts[0], "Bearer") {
+		return ""
+	}
+	return strings.TrimSpace(parts[1])
+}
+
+func isAuthError(err error) bool {
+	var apiErr *googleapi.Error
+	if errors.As(err, &apiErr) {
+		return apiErr.Code == http.StatusUnauthorized || apiErr.Code == http.StatusForbidden
+	}
+	return false
 }
 
 // GetGoogleSheetSheets handles POST /api/mdflow/gsheet/sheets
@@ -913,6 +963,23 @@ func (h *MDFlowHandler) GetGoogleSheetSheets(c *gin.Context) {
 	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid Google Sheets URL"})
 		return
+	}
+
+	if accessToken := getBearerToken(c); accessToken != "" {
+		service, err := h.getSheetsServiceWithToken(accessToken)
+		if err == nil {
+			if tabs, err := getGoogleSheetTabsWithService(service, sheetID); err == nil {
+				activeGID := findActiveGID(tabs, gid)
+				c.JSON(http.StatusOK, GoogleSheetSheetsResponse{
+					Sheets:    tabs,
+					ActiveGID: activeGID,
+				})
+				return
+			} else if isAuthError(err) {
+				c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Google authorization expired"})
+				return
+			}
+		}
 	}
 
 	tabs, err := h.getGoogleSheetTabs(sheetID)
@@ -1006,6 +1073,23 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	}
 
 	slog.Info("mdflow.ConvertGoogleSheet", "sheetID", sheetID, "gid", gid, "template", req.Template)
+
+	if accessToken := getBearerToken(c); accessToken != "" {
+		service, err := h.getSheetsServiceWithToken(accessToken)
+		if err == nil {
+			if result, err := h.convertGoogleSheetWithService(service, sheetID, gid, req.Template); err == nil {
+				result.Meta.SourceURL = req.URL
+				c.JSON(http.StatusOK, MDFlowConvertResponse{
+					MDFlow:   result.MDFlow,
+					Warnings: result.Warnings,
+					Meta:     result.Meta,
+				})
+				return
+			} else if isAuthError(err) {
+				slog.Warn("mdflow.ConvertGoogleSheet auth error", "error", err)
+			}
+		}
+	}
 
 	result, err := h.convertGoogleSheetWithAPI(sheetID, gid, req.Template)
 	if err == nil {
