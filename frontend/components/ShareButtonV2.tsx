@@ -1,6 +1,7 @@
 import { Share2 } from "lucide-react";
 import React, { Dispatch, SetStateAction } from "react";
 import { Tooltip } from "./ui/Tooltip";
+import { Select } from "./ui/Select";
 
 interface ShareButtonV2Props {
   mdflowOutput: string;
@@ -94,18 +95,19 @@ function ShareButtonV2({
                 <label className="text-[9px] uppercase tracking-widest text-white/40">
                   Visibility
                 </label>
-                <select
+                <Select
                   value={shareVisibility}
-                  onChange={(event) =>
-                    setShareVisibility(
-                      event.target.value as "public" | "private"
-                    )
+                  onValueChange={(value) =>
+                    setShareVisibility(value === "public" ? "public" : "private")
                   }
-                  className="rounded-md bg-white/5 border border-white/10 px-2 py-1 text-[10px] text-white/80 focus:outline-none"
-                >
-                  <option value="public">Public</option>
-                  <option value="private">Private</option>
-                </select>
+                  options={[
+                    { label: "Public", value: "public" },
+                    { label: "Private", value: "private" },
+                  ]}
+                  size="compact"
+                  className="h-7 text-[10px] text-white/80 border-white/10"
+                  aria-label="Share visibility"
+                />
               </div>
               <div className="flex items-center justify-between">
                 <label className="text-[9px] uppercase tracking-widest text-white/40">

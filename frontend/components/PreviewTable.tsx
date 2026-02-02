@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Table } from "lucide-react";
 import { PreviewResponse } from "@/lib/types";
 import { CANONICAL_FIELDS } from "@/constants/mdflow";
+import { Select } from "./ui/Select";
 
 interface PreviewTableProps {
   preview: PreviewResponse;
@@ -64,37 +65,42 @@ export function PreviewTable({
                   "";
                 const isUnmapped =
                   !mappedField && preview.unmapped_columns.includes(header);
+                const displayHeader = header?.trim() || "Unmapped";
+
+                const selectOptions = [
+                  { label: "— unmapped —", value: "__unmapped__" },
+                  ...CANONICAL_FIELDS.map((field) => ({
+                    label: field.replace(/_/g, " "),
+                    value: field,
+                  })),
+                ];
 
                 return (
                   <th key={i} className="px-3 py-2 text-left">
                     <div className="space-y-1">
                       <span
                         className="font-bold text-white/90 block truncate max-w-[150px]"
-                        title={header}
+                        title={displayHeader}
                       >
-                        {header}
+                        {displayHeader}
                       </span>
-                      <select
-                        value={mappedField}
-                        onChange={(e) =>
-                          onColumnOverride(header, e.target.value)
+                      <Select
+                        value={mappedField || "__unmapped__"}
+                        onValueChange={(value) =>
+                          onColumnOverride(header, value === "__unmapped__" ? "" : value)
                         }
+                        options={selectOptions}
+                        size="compact"
                         className={`
-                          text-[9px] px-1.5 py-0.5 rounded bg-black/40 border cursor-pointer
+                          text-[9px] h-6 min-w-[100px] whitespace-nowrap
                           ${
                             isUnmapped
                               ? "border-accent-gold/40 text-accent-gold/80"
                               : "border-white/10 text-accent-orange/80"
                           }
                         `}
-                      >
-                        <option value="">— unmapped —</option>
-                        {CANONICAL_FIELDS.map((field) => (
-                          <option key={field} value={field}>
-                            {field.replace(/_/g, " ")}
-                          </option>
-                        ))}
-                      </select>
+                        aria-label={`Map column ${displayHeader}`}
+                      />
                     </div>
                   </th>
                 );
