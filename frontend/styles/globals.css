@@ -215,8 +215,21 @@
   }
 }
 
+@keyframes progress-scan {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(160%);
+  }
+}
+
 .animate-dash {
   animation: dash-offset 0.8s linear infinite;
+}
+
+.animate-progress-scan {
+  animation: progress-scan 2.2s linear infinite;
 }
 button,
 [role="button"],

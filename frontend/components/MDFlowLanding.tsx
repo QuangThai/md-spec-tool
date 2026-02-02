@@ -434,17 +434,12 @@ export default function MDFlowLanding() {
                       </p>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full bg-linear-to-r from-accent-orange to-accent-gold"
-                        initial={{ width: 0 }}
-                        whileInView={{ width: "84%" }}
-                        viewport={{ once: true }}
-                        transition={{
-                          duration: 0.8,
-                          delay: 0.2,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      />
+                      <div
+                        className="relative h-full rounded-full bg-linear-to-r from-accent-orange to-accent-gold"
+                        style={{ width: "84%" }}
+                      >
+                        <span className="pointer-events-none absolute inset-0 bg-linear-to-r from-transparent via-white/70 to-transparent opacity-40 animate-progress-scan" />
+                      </div>
                     </div>
                   </div>
 
@@ -464,17 +459,9 @@ export default function MDFlowLanding() {
                       </p>
                     </div>
                     <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full bg-linear-to-r from-accent-gold to-accent-orange"
-                        initial={{ width: 0 }}
-                        whileInView={{ width: "100%" }}
-                        viewport={{ once: true }}
-                        transition={{
-                          duration: 0.8,
-                          delay: 0.35,
-                          ease: [0.22, 1, 0.36, 1],
-                        }}
-                      />
+                      <div className="relative h-full w-full rounded-full bg-linear-to-r from-accent-gold to-accent-orange">
+                        <span className="pointer-events-none absolute inset-0 bg-linear-to-r from-transparent via-white/60 to-transparent opacity-35 animate-progress-scan" />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -498,17 +485,12 @@ export default function MDFlowLanding() {
                     </p>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-linear-to-r from-accent-orange to-accent-gold"
-                      initial={{ width: 0 }}
-                      whileInView={{ width: "84%" }}
-                      viewport={{ once: true }}
-                      transition={{
-                        duration: 0.8,
-                        delay: 0.2,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    />
+                    <div
+                      className="relative h-full rounded-full bg-linear-to-r from-accent-orange to-accent-gold"
+                      style={{ width: "84%" }}
+                    >
+                      <span className="pointer-events-none absolute inset-0 bg-linear-to-r from-transparent via-white/70 to-transparent opacity-40 animate-progress-scan" />
+                    </div>
                   </div>
                 </div>
 
@@ -531,17 +513,9 @@ export default function MDFlowLanding() {
                     </p>
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-linear-to-r from-accent-gold to-accent-orange"
-                      initial={{ width: 0 }}
-                      whileInView={{ width: "100%" }}
-                      viewport={{ once: true }}
-                      transition={{
-                        duration: 0.8,
-                        delay: 0.35,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    />
+                    <div className="relative h-full w-full rounded-full bg-linear-to-r from-accent-gold to-accent-orange">
+                      <span className="pointer-events-none absolute inset-0 bg-linear-to-r from-transparent via-white/60 to-transparent opacity-35 animate-progress-scan" />
+                    </div>
                   </div>
                 </div>
               </div>
