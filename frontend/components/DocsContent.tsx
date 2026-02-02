@@ -715,6 +715,17 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 <br />
                 {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "default", "gid": "123" }`}
               </div>
+              <div className="mt-4 rounded-lg border border-accent-orange/20 bg-accent-orange/10 p-4 text-xs text-white/70">
+                <p className="font-bold text-white mb-2">Render Web Service (free plan)</p>
+                <p className="mb-2">
+                  If Secret Files aren’t available, store the JSON in
+                  <span className="font-mono text-white/80"> GOOGLE_SA_JSON </span>
+                  and update the Start Command:
+                </p>
+                <div className="font-mono text-[11px] text-accent-green bg-black/40 p-3 rounded-lg border border-white/5">
+                  /bin/sh -c "echo \"$GOOGLE_SA_JSON\" &gt; /tmp/gcp-sa.json && export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-sa.json && ./app"
+                </div>
+              </div>
             </div>
 
             <div className="p-5 rounded-xl bg-white/5 border border-white/10">
