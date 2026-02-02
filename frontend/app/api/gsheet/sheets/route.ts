@@ -13,26 +13,37 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 async function resolveAccessToken(request: NextRequest) {
   const cookieValue = request.cookies.get(OAUTH_TOKEN_COOKIE)?.value;
-  if (!cookieValue) return {} as { token?: string; cookieValue?: string };
+  if (!cookieValue) {
+    console.log("[gsheet/sheets] No OAuth cookie found");
+    return {} as { token?: string; cookieValue?: string };
+  }
 
   const payload = decryptToken(cookieValue);
-  if (!payload) return {} as { token?: string; cookieValue?: string };
+  if (!payload) {
+    console.log("[gsheet/sheets] Failed to decrypt token cookie");
+    return {} as { token?: string; cookieValue?: string };
+  }
 
   if (!isTokenExpired(payload)) {
+    console.log("[gsheet/sheets] Using valid access token");
     return { token: payload.accessToken };
   }
 
+  console.log("[gsheet/sheets] Token expired, attempting refresh");
   if (!payload.refreshToken) {
+    console.log("[gsheet/sheets] No refresh token available");
     return {} as { token?: string; cookieValue?: string };
   }
 
   try {
     const refreshed = await refreshAccessToken(payload.refreshToken);
+    console.log("[gsheet/sheets] Token refreshed successfully");
     return {
       token: refreshed.accessToken,
       cookieValue: encryptToken(refreshed),
     };
-  } catch {
+  } catch (err) {
+    console.log("[gsheet/sheets] Token refresh failed:", err);
     return {} as { token?: string; cookieValue?: string };
   }
 }
@@ -40,6 +51,9 @@ async function resolveAccessToken(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const { token, cookieValue } = await resolveAccessToken(request);
+
+  console.log("[gsheet/sheets] Token present:", !!token);
+  console.log("[gsheet/sheets] Calling backend:", `${API_URL}/api/mdflow/gsheet/sheets`);
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -55,6 +69,8 @@ export async function POST(request: NextRequest) {
   });
 
   const text = await backendResponse.text();
+  console.log("[gsheet/sheets] Backend status:", backendResponse.status);
+  
   let data: unknown = null;
   try {
     data = text ? JSON.parse(text) : null;
