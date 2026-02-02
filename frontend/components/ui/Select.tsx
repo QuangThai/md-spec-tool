@@ -7,7 +7,7 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 interface SelectProps {
   value: string;
   onValueChange: (value: string) => void;
-  options: { label: string; value: string }[];
+  options: readonly { label: string; value: string }[];
   placeholder?: string;
   className?: string;
   side?: "top" | "bottom";
