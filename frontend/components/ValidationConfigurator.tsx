@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { WarningPanel } from "./WarningPanel";
+import { Select } from "./ui/Select";
 
 interface ValidationConfiguratorProps {
   open: boolean;
@@ -442,37 +443,27 @@ export function ValidationConfigurator({
                     key={index}
                     className="flex flex-wrap items-center gap-2 p-2 sm:p-3 rounded-lg bg-white/5 border border-white/10"
                   >
-                    <select
+                    <Select
                       value={rule.if_field}
-                      onChange={(e) =>
-                        updateCrossField(index, {
-                          if_field: e.target.value,
-                        })
+                      onValueChange={(value) =>
+                        updateCrossField(index, { if_field: value })
                       }
-                      className="input h-8 text-[11px] w-full min-w-0 xs:w-28 flex-1 xs:flex-none max-w-28 xs:max-w-none"
-                    >
-                      {CANONICAL_FIELDS.map((f) => (
-                        <option key={f.value} value={f.value}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
+                      options={CANONICAL_FIELDS}
+                      size="compact"
+                      className="h-8 text-[11px] w-full min-w-0 xs:w-28 flex-1 xs:flex-none"
+                      aria-label="If field"
+                    />
                     <span className="text-white/50 text-[10px] shrink-0">→</span>
-                    <select
+                    <Select
                       value={rule.then_field}
-                      onChange={(e) =>
-                        updateCrossField(index, {
-                          then_field: e.target.value,
-                        })
+                      onValueChange={(value) =>
+                        updateCrossField(index, { then_field: value })
                       }
-                      className="input h-8 text-[11px] w-full min-w-0 xs:w-28 flex-1 xs:flex-none max-w-28 xs:max-w-none"
-                    >
-                      {CANONICAL_FIELDS.map((f) => (
-                        <option key={f.value} value={f.value}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
+                      options={CANONICAL_FIELDS}
+                      size="compact"
+                      className="h-8 text-[11px] w-full min-w-0 xs:w-28 flex-1 xs:flex-none"
+                      aria-label="Then field"
+                    />
                     <button
                       type="button"
                       onClick={() => removeCrossField(index)}
