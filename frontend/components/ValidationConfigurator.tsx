@@ -15,6 +15,7 @@ import {
   deletePreset,
 } from "@/lib/validationPresets";
 import { AnimatePresence, motion } from "framer-motion";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import {
   Check,
   ChevronDown,
@@ -45,6 +46,7 @@ export function ValidationConfigurator({
   onClose,
   showValidateAction = true,
 }: ValidationConfiguratorProps) {
+  useBodyScrollLock(open);
   const { validationRules, setValidationRules, pasteText } = useMDFlowStore();
   const [localRules, setLocalRules] = useState<ValidationRules>(validationRules);
   const [presets, setPresets] = useState(loadPresets());

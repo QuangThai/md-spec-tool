@@ -1,6 +1,7 @@
 "use client";
 
 import { formatShortcut, SHORTCUTS } from "@/lib/useKeyboardShortcuts";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { Command } from "cmdk";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -69,6 +70,7 @@ export function CommandPalette({
   onSelectTemplate,
   hasOutput,
 }: CommandPaletteProps) {
+  useBodyScrollLock(open);
   const [recentCommandIds, setRecentCommandIds] = useState<CommandId[]>([]);
 
   useEffect(() => {

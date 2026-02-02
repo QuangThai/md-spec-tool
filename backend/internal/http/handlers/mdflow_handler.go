@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,19 +14,25 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/md-spec-tool/internal/ai"
 	"github.com/yourorg/md-spec-tool/internal/converter"
+	"google.golang.org/api/option"
+	"google.golang.org/api/sheets/v4"
 )
 
 type MDFlowHandler struct {
-	converter    *converter.Converter
-	renderer     *converter.MDFlowRenderer
-	aiSuggester  *ai.Suggester
-	httpClient   *http.Client
+	converter      *converter.Converter
+	renderer       *converter.MDFlowRenderer
+	aiSuggester    *ai.Suggester
+	httpClient     *http.Client
+	sheetsService  *sheets.Service
+	sheetsInitOnce sync.Once
+	sheetsInitErr  error
 }
 
 // NewMDFlowHandler creates a new MDFlowHandler with injected dependencies
@@ -42,7 +49,7 @@ func NewMDFlowHandler(conv *converter.Converter, rend *converter.MDFlowRenderer,
 			Timeout: 30 * time.Second,
 		}
 	}
-	
+
 	return &MDFlowHandler{
 		converter:   conv,
 		renderer:    rend,
@@ -64,6 +71,10 @@ const (
 	maxTemplateLen    = 64
 	maxSheetNameLen   = 128
 )
+
+const googleSheetsCredsEnv = "GOOGLE_APPLICATION_CREDENTIALS"
+
+var errSheetsNotConfigured = errors.New("google sheets credentials not configured")
 
 var xlsxMagic = []byte{0x50, 0x4B, 0x03, 0x04}
 
@@ -101,15 +112,15 @@ type SheetsResponse struct {
 
 // PreviewResponse represents the table preview before conversion
 type PreviewResponse struct {
-	Headers       []string            `json:"headers"`
-	Rows          [][]string          `json:"rows"`
-	TotalRows     int                 `json:"total_rows"`
-	PreviewRows   int                 `json:"preview_rows"`
-	HeaderRow     int                 `json:"header_row"`
-	Confidence    int                 `json:"confidence"`
-	ColumnMapping map[string]string   `json:"column_mapping"`
-	UnmappedCols  []string            `json:"unmapped_columns"`
-	InputType     string              `json:"input_type"`
+	Headers       []string          `json:"headers"`
+	Rows          [][]string        `json:"rows"`
+	TotalRows     int               `json:"total_rows"`
+	PreviewRows   int               `json:"preview_rows"`
+	HeaderRow     int               `json:"header_row"`
+	Confidence    int               `json:"confidence"`
+	ColumnMapping map[string]string `json:"column_mapping"`
+	UnmappedCols  []string          `json:"unmapped_columns"`
+	InputType     string            `json:"input_type"`
 }
 
 // ConvertPaste handles POST /api/mdflow/paste
@@ -436,7 +447,7 @@ func (h *MDFlowHandler) GetXLSXSheets(c *gin.Context) {
 
 // ValidateRequest represents the request for validation with custom rules
 type ValidateRequest struct {
-	PasteText       string                  `json:"paste_text" binding:"required"`
+	PasteText       string                     `json:"paste_text" binding:"required"`
 	ValidationRules *converter.ValidationRules `json:"validation_rules"`
 }
 
@@ -489,8 +500,8 @@ type TemplatePreviewRequest struct {
 
 // TemplatePreviewResponse represents the response for custom template preview
 type TemplatePreviewResponse struct {
-	Output   string            `json:"output"`
-	Error    string            `json:"error,omitempty"`
+	Output   string              `json:"output"`
+	Error    string              `json:"error,omitempty"`
 	Warnings []converter.Warning `json:"warnings"`
 }
 
@@ -616,6 +627,24 @@ const maxPreviewRows = 20
 type GoogleSheetRequest struct {
 	URL      string `json:"url" binding:"required"`
 	Template string `json:"template"`
+	GID      string `json:"gid,omitempty"`
+}
+
+// GoogleSheetSheetsRequest represents the request for sheet list
+type GoogleSheetSheetsRequest struct {
+	URL string `json:"url" binding:"required"`
+}
+
+// GoogleSheetTab represents a Google Sheet tab
+type GoogleSheetTab struct {
+	Title string `json:"title"`
+	GID   string `json:"gid"`
+}
+
+// GoogleSheetSheetsResponse represents a sheet list response
+type GoogleSheetSheetsResponse struct {
+	Sheets    []GoogleSheetTab `json:"sheets"`
+	ActiveGID string           `json:"active_gid"`
 }
 
 // GoogleSheetResponse represents the response for Google Sheet parsing
@@ -631,37 +660,37 @@ func parseGoogleSheetURL(urlStr string) (sheetID string, gid string, ok bool) {
 	// Format 1: https://docs.google.com/spreadsheets/d/SHEET_ID/edit#gid=GID
 	// Format 2: https://docs.google.com/spreadsheets/d/SHEET_ID/edit
 	// Format 3: https://docs.google.com/spreadsheets/d/SHEET_ID
-	
+
 	// Parse URL properly
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		slog.Warn("Invalid URL format", "url", urlStr, "error", err)
 		return "", "", false
 	}
-	
+
 	// Verify host is docs.google.com
 	if u.Host != "docs.google.com" {
 		slog.Warn("Not a Google Docs URL", "host", u.Host)
 		return "", "", false
 	}
-	
+
 	// Path should contain /spreadsheets/d/{id}
 	// Use regex to extract SHEET_ID pattern (alphanumeric, hyphens, underscores)
 	sheetIDPattern := regexp.MustCompile(`/spreadsheets/d/([a-zA-Z0-9\-_]+)`)
 	matches := sheetIDPattern.FindStringSubmatch(u.Path)
-	
+
 	if len(matches) < 2 {
 		slog.Warn("Sheet ID not found in URL path", "path", u.Path)
 		return "", "", false
 	}
-	
+
 	sheetID = matches[1]
-	
+
 	// Validate sheet ID length (Google Sheet IDs are typically 40+ chars but vary)
 	if len(sheetID) == 0 {
 		return "", "", false
 	}
-	
+
 	// Extract gid from fragment or query parameter
 	// Fragment takes precedence (e.g., #gid=123)
 	if u.Fragment != "" {
@@ -671,13 +700,237 @@ func parseGoogleSheetURL(urlStr string) (sheetID string, gid string, ok bool) {
 			gid = gidMatches[1]
 		}
 	}
-	
+
 	// If not found in fragment, check query parameters
 	if gid == "" {
 		gid = u.Query().Get("gid")
 	}
-	
+
 	return sheetID, gid, true
+}
+
+func (h *MDFlowHandler) getSheetsService() (*sheets.Service, error) {
+	h.sheetsInitOnce.Do(func() {
+		credsPath := strings.TrimSpace(os.Getenv(googleSheetsCredsEnv))
+		if credsPath == "" {
+			h.sheetsInitErr = errSheetsNotConfigured
+			return
+		}
+
+		ctx := context.Background()
+		service, err := sheets.NewService(
+			ctx,
+			option.WithCredentialsFile(credsPath),
+			option.WithScopes(sheets.SpreadsheetsReadonlyScope),
+		)
+		if err != nil {
+			h.sheetsInitErr = err
+			return
+		}
+		h.sheetsService = service
+	})
+
+	if h.sheetsService == nil {
+		if h.sheetsInitErr == nil {
+			return nil, errSheetsNotConfigured
+		}
+		return nil, h.sheetsInitErr
+	}
+
+	return h.sheetsService, nil
+}
+
+func selectGID(requestGID string, urlGID string) string {
+	requestGID = strings.TrimSpace(requestGID)
+	if requestGID != "" {
+		return requestGID
+	}
+	return urlGID
+}
+
+func validateGID(gid string) error {
+	if gid == "" {
+		return nil
+	}
+	if _, err := strconv.ParseInt(gid, 10, 64); err != nil {
+		return fmt.Errorf("gid must be numeric")
+	}
+	return nil
+}
+
+func (h *MDFlowHandler) getGoogleSheetTabs(spreadsheetID string) ([]GoogleSheetTab, error) {
+	service, err := h.getSheetsService()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := service.Spreadsheets.Get(spreadsheetID).
+		Fields("sheets.properties.sheetId,sheets.properties.title").
+		Do()
+	if err != nil {
+		return nil, err
+	}
+
+	if resp == nil || len(resp.Sheets) == 0 {
+		return nil, fmt.Errorf("no sheets found")
+	}
+
+	result := make([]GoogleSheetTab, 0, len(resp.Sheets))
+	for _, sheet := range resp.Sheets {
+		if sheet.Properties == nil {
+			continue
+		}
+		gid := strconv.FormatInt(sheet.Properties.SheetId, 10)
+		result = append(result, GoogleSheetTab{
+			Title: sheet.Properties.Title,
+			GID:   gid,
+		})
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no sheets found")
+	}
+
+	return result, nil
+}
+
+func findActiveGID(tabs []GoogleSheetTab, requestedGID string) string {
+	requestedGID = strings.TrimSpace(requestedGID)
+	if requestedGID != "" {
+		for _, tab := range tabs {
+			if tab.GID == requestedGID {
+				return requestedGID
+			}
+		}
+	}
+
+	if len(tabs) > 0 {
+		return tabs[0].GID
+	}
+
+	return ""
+}
+
+func findSheetTitleByGID(tabs []GoogleSheetTab, gid string) (string, bool) {
+	for _, tab := range tabs {
+		if tab.GID == gid {
+			return tab.Title, true
+		}
+	}
+	return "", false
+}
+
+func convertValuesToRows(values [][]interface{}) [][]string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	rows := make([][]string, 0, len(values))
+	for _, row := range values {
+		converted := make([]string, len(row))
+		for i, cell := range row {
+			if cell == nil {
+				continue
+			}
+			switch v := cell.(type) {
+			case string:
+				converted[i] = v
+			default:
+				converted[i] = fmt.Sprint(v)
+			}
+		}
+		rows = append(rows, converted)
+	}
+
+	return rows
+}
+
+func (h *MDFlowHandler) fetchGoogleSheetCSV(sheetID string, gid string) ([]byte, int, error) {
+	exportURL := fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/export?format=csv", sheetID)
+	if gid != "" {
+		exportURL += "&gid=" + gid
+	}
+
+	resp, err := h.httpClient.Get(exportURL)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, resp.StatusCode, nil
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxUploadBytes))
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+
+	return body, resp.StatusCode, nil
+}
+
+func (h *MDFlowHandler) convertGoogleSheetWithAPI(sheetID string, gid string, template string) (*converter.ConvertResponse, error) {
+	tabs, err := h.getGoogleSheetTabs(sheetID)
+	if err != nil {
+		return nil, err
+	}
+
+	activeGID := findActiveGID(tabs, gid)
+	if activeGID == "" {
+		return nil, fmt.Errorf("no sheets available")
+	}
+
+	sheetTitle, ok := findSheetTitleByGID(tabs, activeGID)
+	if !ok {
+		return nil, fmt.Errorf("sheet gid not found")
+	}
+
+	service, err := h.getSheetsService()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := service.Spreadsheets.Values.Get(sheetID, sheetTitle).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	rows := convertValuesToRows(resp.Values)
+	matrix := converter.NewCellMatrix(rows).Normalize()
+	return h.converter.ConvertMatrix(matrix, sheetTitle, template)
+}
+
+// GetGoogleSheetSheets handles POST /api/mdflow/gsheet/sheets
+// Returns available tabs for a Google Sheet
+func (h *MDFlowHandler) GetGoogleSheetSheets(c *gin.Context) {
+	var req GoogleSheetSheetsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "url is required"})
+		return
+	}
+
+	sheetID, gid, ok := parseGoogleSheetURL(req.URL)
+	if !ok {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid Google Sheets URL"})
+		return
+	}
+
+	tabs, err := h.getGoogleSheetTabs(sheetID)
+	if err != nil {
+		if errors.Is(err, errSheetsNotConfigured) {
+			c.JSON(http.StatusNotImplemented, ErrorResponse{Error: "Google Sheets API not configured"})
+			return
+		}
+		slog.Error("mdflow.GetGoogleSheetSheets error", "error", err)
+		c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet tabs"})
+		return
+	}
+
+	activeGID := findActiveGID(tabs, gid)
+	c.JSON(http.StatusOK, GoogleSheetSheetsResponse{
+		Sheets:    tabs,
+		ActiveGID: activeGID,
+	})
 }
 
 // FetchGoogleSheet handles POST /api/mdflow/gsheet
@@ -688,50 +941,36 @@ func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "url is required"})
 		return
 	}
-	
+
 	sheetID, gid, ok := parseGoogleSheetURL(req.URL)
 	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid Google Sheets URL"})
 		return
 	}
-	
-	// Build export URL for CSV
-	exportURL := fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/export?format=csv", sheetID)
-	if gid != "" {
-		exportURL += "&gid=" + gid
+
+	gid = selectGID(req.GID, gid)
+	if err := validateGID(gid); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
 	}
-	
+
 	slog.Info("mdflow.FetchGoogleSheet", "sheetID", sheetID, "gid", gid)
-	
-	// Fetch the sheet
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	
-	resp, err := client.Get(exportURL)
+
+	body, statusCode, err := h.fetchGoogleSheetCSV(sheetID, gid)
 	if err != nil {
 		slog.Error("mdflow.FetchGoogleSheet fetch error", "error", err)
 		c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet"})
 		return
 	}
-	defer resp.Body.Close()
-	
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusNotFound {
+	if statusCode != http.StatusOK {
+		if statusCode == http.StatusNotFound {
 			c.JSON(http.StatusNotFound, ErrorResponse{Error: "Google Sheet not found or not public"})
 			return
 		}
-		c.JSON(http.StatusBadGateway, ErrorResponse{Error: fmt.Sprintf("Google Sheets returned status %d", resp.StatusCode)})
+		c.JSON(http.StatusBadGateway, ErrorResponse{Error: fmt.Sprintf("Google Sheets returned status %d", statusCode)})
 		return
 	}
-	
-	// Read body with size limit
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxUploadBytes))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to read response"})
-		return
-	}
-	
+
 	// Return the CSV data
 	c.JSON(http.StatusOK, GoogleSheetResponse{
 		SheetID:   sheetID,
@@ -748,66 +987,61 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "url is required"})
 		return
 	}
-	
+
 	if err := h.validateTemplate(req.Template); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
-	
+
 	sheetID, gid, ok := parseGoogleSheetURL(req.URL)
 	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid Google Sheets URL"})
 		return
 	}
-	
-	// Build export URL for CSV
-	exportURL := fmt.Sprintf("https://docs.google.com/spreadsheets/d/%s/export?format=csv", sheetID)
-	if gid != "" {
-		exportURL += "&gid=" + gid
+
+	gid = selectGID(req.GID, gid)
+	if err := validateGID(gid); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
 	}
-	
+
 	slog.Info("mdflow.ConvertGoogleSheet", "sheetID", sheetID, "gid", gid, "template", req.Template)
-	
-	// Fetch the sheet
-	client := &http.Client{
-		Timeout: 30 * time.Second,
+
+	result, err := h.convertGoogleSheetWithAPI(sheetID, gid, req.Template)
+	if err == nil {
+		result.Meta.SourceURL = req.URL
+		c.JSON(http.StatusOK, MDFlowConvertResponse{
+			MDFlow:   result.MDFlow,
+			Warnings: result.Warnings,
+			Meta:     result.Meta,
+		})
+		return
 	}
-	
-	resp, err := client.Get(exportURL)
-	if err != nil {
-		slog.Error("mdflow.ConvertGoogleSheet fetch error", "error", err)
+
+	slog.Warn("mdflow.ConvertGoogleSheet API fallback", "error", err)
+	body, statusCode, fetchErr := h.fetchGoogleSheetCSV(sheetID, gid)
+	if fetchErr != nil {
+		slog.Error("mdflow.ConvertGoogleSheet fetch error", "error", fetchErr)
 		c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet"})
 		return
 	}
-	defer resp.Body.Close()
-	
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusNotFound {
+	if statusCode != http.StatusOK {
+		if statusCode == http.StatusNotFound {
 			c.JSON(http.StatusNotFound, ErrorResponse{Error: "Google Sheet not found or not public"})
 			return
 		}
-		c.JSON(http.StatusBadGateway, ErrorResponse{Error: fmt.Sprintf("Google Sheets returned status %d", resp.StatusCode)})
+		c.JSON(http.StatusBadGateway, ErrorResponse{Error: fmt.Sprintf("Google Sheets returned status %d", statusCode)})
 		return
 	}
-	
-	// Read body with size limit
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxUploadBytes))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to read response"})
-		return
-	}
-	
-	// Convert the CSV data
-	result, err := h.converter.ConvertPaste(string(body), req.Template)
+
+	result, err = h.converter.ConvertPaste(string(body), req.Template)
 	if err != nil {
 		slog.Error("mdflow.ConvertGoogleSheet conversion error", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert data"})
 		return
 	}
-	
-	// Add source URL to meta
+
 	result.Meta.SourceURL = req.URL
-	
 	c.JSON(http.StatusOK, MDFlowConvertResponse{
 		MDFlow:   result.MDFlow,
 		Warnings: result.Warnings,

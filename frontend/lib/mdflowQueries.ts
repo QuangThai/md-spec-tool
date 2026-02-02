@@ -6,6 +6,7 @@ import {
   convertXLSX,
   diffMDFlow,
   fetchGoogleSheet,
+  getGoogleSheetSheets,
   getAISuggestions,
   getMDFlowTemplates,
   getTemplateContent,
@@ -162,8 +163,8 @@ export function useConvertTSVMutation() {
 
 export function useConvertGoogleSheetMutation() {
   return useMutation({
-    mutationFn: async (payload: { url: string; template?: string }) =>
-      unwrap(await convertGoogleSheet(payload.url, payload.template)),
+    mutationFn: async (payload: { url: string; template?: string; gid?: string }) =>
+      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid)),
   });
 }
 
@@ -199,5 +200,12 @@ export function useFetchGoogleSheetMutation() {
   return useMutation({
     mutationFn: async (payload: { url: string }) =>
       unwrap(await fetchGoogleSheet(payload.url)),
+  });
+}
+
+export function useGetGoogleSheetSheetsMutation() {
+  return useMutation({
+    mutationFn: async (payload: { url: string }) =>
+      unwrap(await getGoogleSheetSheets(payload.url)),
   });
 }

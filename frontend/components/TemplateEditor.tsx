@@ -7,6 +7,7 @@ import {
   STORAGE_KEY,
 } from "@/constants/template-editor";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { TemplateFunction, TemplateVariable } from "@/lib/types";
 import {
   usePreviewTemplateMutation,
@@ -66,6 +67,7 @@ export function TemplateEditor({
   onSaveTemplate,
   currentSampleData,
 }: TemplateEditorProps) {
+  useBodyScrollLock(isOpen);
   // Editor state
   const [templateContent, setTemplateContent] = useState(STARTER_TEMPLATE);
   const [templateName, setTemplateName] = useState("My Custom Template");

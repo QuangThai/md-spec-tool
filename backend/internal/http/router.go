@@ -58,6 +58,7 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		mdflow.POST("/templates/preview", mdflowHandler.PreviewTemplate)
 		mdflow.POST("/diff", handlers.DiffMDFlow())
 		mdflow.POST("/gsheet", mdflowHandler.FetchGoogleSheet)
+		mdflow.POST("/gsheet/sheets", mdflowHandler.GetGoogleSheetSheets)
 		mdflow.POST("/gsheet/convert", mdflowHandler.ConvertGoogleSheet)
 		mdflow.POST("/validate", mdflowHandler.Validate)
 		mdflow.POST("/ai/suggest", mdflowHandler.GetAISuggestions)

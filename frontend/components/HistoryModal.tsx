@@ -3,6 +3,7 @@ import { useHistoryStore } from "@/lib/mdflowStore";
 import { ConversionRecord } from "@/lib/types";
 import { useOnboardingStore } from "@/lib/onboardingStore";
 import { SHORTCUTS, formatShortcut } from "@/lib/useKeyboardShortcuts";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, Check, Clock, Command, Copy, History, Keyboard, X } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -16,6 +17,7 @@ export default function HistoryModal({
   onClose: () => void;
   onSelect: (record: ConversionRecord) => void;
 }) {
+  useBodyScrollLock(true);
   const { clearHistory } = useHistoryStore();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 

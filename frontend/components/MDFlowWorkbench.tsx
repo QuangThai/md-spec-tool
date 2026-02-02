@@ -8,6 +8,7 @@ import {
   useConvertTSVMutation,
   useConvertXLSXMutation,
   useDiffMDFlowMutation,
+  useGetGoogleSheetSheetsMutation,
   useGetXLSXSheetsMutation,
   useMDFlowTemplatesQuery,
   usePreviewPasteQuery,
@@ -22,6 +23,7 @@ import {
 import { createShare } from "@/lib/shareApi";
 import { ConversionRecord } from "@/lib/types";
 import { useKeyboardShortcuts } from "@/lib/useKeyboardShortcuts";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -94,6 +96,8 @@ export default function MDFlowWorkbench() {
     file,
     sheets,
     selectedSheet,
+    gsheetTabs,
+    selectedGid,
     template,
     mdflowOutput,
     warnings,
@@ -115,6 +119,8 @@ export default function MDFlowWorkbench() {
       file: state.file,
       sheets: state.sheets,
       selectedSheet: state.selectedSheet,
+      gsheetTabs: state.gsheetTabs,
+      selectedGid: state.selectedGid,
       template: state.template,
       mdflowOutput: state.mdflowOutput,
       warnings: state.warnings,
@@ -137,6 +143,8 @@ export default function MDFlowWorkbench() {
   const setFile = useMDFlowStore((state) => state.setFile);
   const setSheets = useMDFlowStore((state) => state.setSheets);
   const setSelectedSheet = useMDFlowStore((state) => state.setSelectedSheet);
+  const setGsheetTabs = useMDFlowStore((state) => state.setGsheetTabs);
+  const setSelectedGid = useMDFlowStore((state) => state.setSelectedGid);
   const setTemplate = useMDFlowStore((state) => state.setTemplate);
   const setResult = useMDFlowStore((state) => state.setResult);
   const setLoading = useMDFlowStore((state) => state.setLoading);
@@ -160,7 +168,6 @@ export default function MDFlowWorkbench() {
   const addToHistory = useHistoryStore((state) => state.addToHistory);
   const history = useHistoryStore((state) => state.history);
 
-  const [templates, setTemplates] = useState<string[]>(["default"]);
   const [copied, setCopied] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
@@ -171,6 +178,7 @@ export default function MDFlowWorkbench() {
     useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [gsheetLoading, setGsheetLoading] = useState(false);
   const [creatingShare, setCreatingShare] = useState(false);
   const [shareTitle, setShareTitle] = useState("");
   const [shareSlug, setShareSlug] = useState("");
@@ -183,8 +191,13 @@ export default function MDFlowWorkbench() {
   const shareOptionsRef = useRef<HTMLDivElement>(null);
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
 
+  useBodyScrollLock(showDiff);
+
   const { data: templateList = ["default"] } = useMDFlowTemplatesQuery();
+  const templates = templateList;
   const getSheetsMutation = useGetXLSXSheetsMutation();
+  const { mutateAsync: fetchGoogleSheetTabs } =
+    useGetGoogleSheetSheetsMutation();
   const convertPasteMutation = useConvertPasteMutation();
   const convertXLSXMutation = useConvertXLSXMutation();
   const convertTSVMutation = useConvertTSVMutation();
@@ -202,10 +215,6 @@ export default function MDFlowWorkbench() {
     selectedSheet,
     mode === "xlsx"
   );
-
-  useEffect(() => {
-    setTemplates(templateList);
-  }, [templateList]);
 
   // Reset store when leaving Studio so data is not shown when user comes back
   useEffect(() => {
@@ -225,6 +234,62 @@ export default function MDFlowWorkbench() {
 
     return () => clearTimeout(timer);
   }, [pasteText, mode]);
+
+  useEffect(() => {
+    if (mode !== "paste") {
+      setGsheetTabs([]);
+      setSelectedGid("");
+      return;
+    }
+
+    const trimmed = debouncedPasteText.trim();
+    if (!trimmed || !isGoogleSheetsURL(trimmed)) {
+      setGsheetTabs([]);
+      setSelectedGid("");
+      return;
+    }
+
+    let cancelled = false;
+    const loadTabs = async () => {
+      setGsheetLoading(true);
+      setError(null);
+      try {
+        const result = await fetchGoogleSheetTabs({
+          url: trimmed,
+        });
+        if (cancelled) return;
+        setGsheetTabs(result.sheets);
+        setSelectedGid(result.active_gid);
+      } catch (error) {
+        if (cancelled) return;
+        setGsheetTabs([]);
+        setSelectedGid("");
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to read Google Sheets tabs";
+        if (!message.toLowerCase().includes("not configured")) {
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setGsheetLoading(false);
+        }
+      }
+    };
+
+    loadTabs();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    debouncedPasteText,
+    mode,
+    fetchGoogleSheetTabs,
+    setError,
+    setGsheetTabs,
+    setSelectedGid,
+  ]);
 
   useEffect(() => {
     if (mode !== "paste") return;
@@ -329,8 +394,13 @@ export default function MDFlowWorkbench() {
           result = await convertGoogleSheetMutation.mutateAsync({
             url: pasteText.trim(),
             template,
+            gid: selectedGid,
           });
-          inputPreview = `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
+          const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
+          const tabLabel = selectedTab?.title || selectedGid;
+          inputPreview = tabLabel
+            ? `Google Sheet: ${pasteText.trim().slice(0, 60)}... (${tabLabel})`
+            : `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
         } else {
           result = await convertPasteMutation.mutateAsync({
             pasteText,
@@ -391,11 +461,13 @@ export default function MDFlowWorkbench() {
     pasteText,
     file,
     selectedSheet,
+    selectedGid,
     template,
     setLoading,
     setError,
     setResult,
     addToHistory,
+    gsheetTabs,
     convertGoogleSheetMutation,
     convertPasteMutation,
     convertTSVMutation,
@@ -730,7 +802,38 @@ export default function MDFlowWorkbench() {
                             Analyzing...
                           </span>
                         )}
+                        {isGoogleSheetsURL(pasteText.trim()) && gsheetLoading && (
+                          <span className="flex items-center gap-1 text-blue-400/70">
+                            <RefreshCcw className="w-3 h-3 animate-spin" />
+                            Loading sheets...
+                          </span>
+                        )}
                       </div>
+
+                      {isGoogleSheetsURL(pasteText.trim()) && gsheetTabs.length > 0 && (
+                        <div className="mb-3 shrink-0">
+                          <Select
+                            value={selectedGid}
+                            onValueChange={setSelectedGid}
+                            options={gsheetTabs.map((tab) => ({
+                              label: tab.title,
+                              value: tab.gid,
+                            }))}
+                            placeholder="Choose sheet"
+                            size="compact"
+                            className="w-auto min-w-[160px]"
+                          />
+                        </div>
+                      )}
+                      {isGoogleSheetsURL(pasteText.trim()) && (
+                        <div className="mb-3 flex items-start gap-2 rounded-lg border border-accent-orange/20 bg-accent-orange/10 px-3 py-2 text-[10px] text-white/70">
+                          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-accent-orange/80" />
+                          <span>
+                            Private sheet? Share it with the service account email and
+                            set Viewer permission.
+                          </span>
+                        </div>
+                      )}
 
                       {/* Preview Table - Collapsible */}
                       <AnimatePresence>

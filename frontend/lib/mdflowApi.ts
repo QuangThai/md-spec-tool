@@ -28,6 +28,16 @@ export interface GoogleSheetResponse {
   data: string;
 }
 
+export interface GoogleSheetTab {
+  title: string;
+  gid: string;
+}
+
+export interface GoogleSheetSheetsResponse {
+  sheets: GoogleSheetTab[];
+  active_gid: string;
+}
+
 /**
  * Helper to make API calls and handle errors consistently
  */
@@ -220,12 +230,35 @@ export async function fetchGoogleSheet(
 }
 
 /**
+ * Fetch Google Sheet tabs
+ */
+export async function getGoogleSheetSheets(
+  url: string
+): Promise<ApiResult<GoogleSheetSheetsResponse>> {
+  return apiCall<GoogleSheetSheetsResponse>(`${API_URL}/api/mdflow/gsheet/sheets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ url }),
+  });
+}
+
+/**
  * Convert Google Sheet to MDFlow markdown
  */
 export async function convertGoogleSheet(
   url: string,
-  template?: string
+  template?: string,
+  gid?: string
 ): Promise<ApiResult<MDFlowConvertResponse>> {
+  const payload: { url: string; template: string; gid?: string } = {
+    url,
+    template: template || '',
+  };
+  if (gid) {
+    payload.gid = gid;
+  }
   return apiCall<MDFlowConvertResponse>(
     `${API_URL}/api/mdflow/gsheet/convert`,
     {
@@ -233,10 +266,7 @@ export async function convertGoogleSheet(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        url,
-        template: template || '',
-      }),
+      body: JSON.stringify(payload),
     }
   );
 }

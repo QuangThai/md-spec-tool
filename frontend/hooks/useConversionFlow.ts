@@ -22,6 +22,7 @@ interface ConversionFlowProps {
   pasteText: string;
   file: File | null;
   selectedSheet: string;
+  selectedGid: string;
   template: string;
   columnOverrides: Record<string, string>;
   aiConfigured: boolean | null;
@@ -42,6 +43,7 @@ export function useConversionFlow({
   pasteText,
   file,
   selectedSheet,
+  selectedGid,
   template,
   columnOverrides,
   aiConfigured,
@@ -76,6 +78,7 @@ export function useConversionFlow({
             result = await convertGoogleSheetMutation.mutateAsync({
               url: trimmedPaste,
               template,
+              gid: selectedGid,
             });
           } else {
             // Paste TSV/CSV
@@ -123,6 +126,7 @@ export function useConversionFlow({
     pasteText,
     file,
     selectedSheet,
+    selectedGid,
     template,
     setResult,
     setLoading,

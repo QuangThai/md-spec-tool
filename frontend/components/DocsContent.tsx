@@ -691,15 +691,21 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 </h4>
               </div>
               <p className="text-sm text-white/70 mb-4">
-                Automatically detect and fetch data from public Google Sheets
-                URLs. Supports both conversion and preview modes.
+                Automatically detect and fetch data from Google Sheets URLs.
+                Supports public sheets and private sheets shared with the
+                configured service account.
               </p>
               <ul className="space-y-2 text-sm text-white/60">
                 <li>• Paste Google Sheets URL directly into paste mode</li>
                 <li>• Auto-detection of sheet ID and optional gid parameter</li>
-                <li>• Fetches CSV export format from public sheets</li>
-                <li>• Supports preview and full conversion</li>
+                <li>• List tabs and select a specific sheet</li>
+                <li>• Fetches via Sheets API when configured</li>
+                <li>• Falls back to CSV export for public sheets</li>
               </ul>
+              <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+                POST /api/mdflow/gsheet/sheets <br />
+                {`{ "url": "https://docs.google.com/spreadsheets/d/..." }`}
+              </div>
               <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/gsheet <br />
                 {`{ "url": "https://docs.google.com/spreadsheets/d/..." }`}
@@ -707,7 +713,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/gsheet/convert
                 <br />
-                {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "default" }`}
+                {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "default", "gid": "123" }`}
               </div>
             </div>
 

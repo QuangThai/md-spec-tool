@@ -77,6 +77,11 @@ func (c *Converter) ConvertPaste(text string, template string) (*ConvertResponse
 	return c.convertMatrix(matrix, "", template)
 }
 
+// ConvertMatrix converts a CellMatrix to MDFlow
+func (c *Converter) ConvertMatrix(matrix CellMatrix, sheetName string, template string) (*ConvertResponse, error) {
+	return c.convertMatrix(matrix, sheetName, template)
+}
+
 // convertMarkdown handles markdown/prose input without table parsing
 func (c *Converter) convertMarkdown(text string, template string) (*ConvertResponse, error) {
 	specDoc := BuildMarkdownSpecDoc(text, "Specification")

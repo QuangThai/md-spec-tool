@@ -21,6 +21,8 @@ export interface MDFlowStore {
   file: File | null;
   sheets: string[];
   selectedSheet: string;
+  gsheetTabs: { title: string; gid: string }[];
+  selectedGid: string;
   template: string;
 
   // Output state
@@ -54,6 +56,8 @@ export interface MDFlowStore {
   setFile: (file: File | null) => void;
   setSheets: (sheets: string[]) => void;
   setSelectedSheet: (sheet: string) => void;
+  setGsheetTabs: (tabs: { title: string; gid: string }[]) => void;
+  setSelectedGid: (gid: string) => void;
   setTemplate: (template: string) => void;
 
   // Actions: Output
@@ -85,12 +89,14 @@ export interface MDFlowStore {
   reset: () => void;
 }
 
-const initialState: Omit<MDFlowStore, 'setMode' | 'setPasteText' | 'setFile' | 'setSheets' | 'setSelectedSheet' | 'setTemplate' | 'setResult' | 'setValidationRules' | 'setLoading' | 'setError' | 'dismissWarning' | 'clearDismissedWarnings' | 'setPreview' | 'setPreviewLoading' | 'setShowPreview' | 'setColumnOverride' | 'clearColumnOverrides' | 'setAISuggestions' | 'setAISuggestionsLoading' | 'setAISuggestionsError' | 'clearAISuggestions' | 'reset'> = {
+const initialState: Omit<MDFlowStore, 'setMode' | 'setPasteText' | 'setFile' | 'setSheets' | 'setSelectedSheet' | 'setGsheetTabs' | 'setSelectedGid' | 'setTemplate' | 'setResult' | 'setValidationRules' | 'setLoading' | 'setError' | 'dismissWarning' | 'clearDismissedWarnings' | 'setPreview' | 'setPreviewLoading' | 'setShowPreview' | 'setColumnOverride' | 'clearColumnOverrides' | 'setAISuggestions' | 'setAISuggestionsLoading' | 'setAISuggestionsError' | 'clearAISuggestions' | 'reset'> = {
   mode: 'paste',
   pasteText: '',
   file: null,
   sheets: [],
   selectedSheet: '',
+  gsheetTabs: [],
+  selectedGid: '',
   template: 'default',
   mdflowOutput: '',
   warnings: [],
@@ -167,6 +173,8 @@ export const useMDFlowStore = create<MDFlowStore>((set) => ({
   setFile: (file) => set({ file, sheets: [], selectedSheet: '', preview: null, showPreview: false }),
   setSheets: (sheets) => set({ sheets, selectedSheet: sheets[0] || '' }),
   setSelectedSheet: (selectedSheet) => set({ selectedSheet }),
+  setGsheetTabs: (gsheetTabs) => set({ gsheetTabs, selectedGid: gsheetTabs[0]?.gid || '' }),
+  setSelectedGid: (selectedGid) => set({ selectedGid }),
   setTemplate: (template) => set({ template }),
 
   // Output actions

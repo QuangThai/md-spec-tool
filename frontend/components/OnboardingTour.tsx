@@ -1,6 +1,7 @@
 "use client";
 
 import { useOnboardingStore, ONBOARDING_STEPS } from "@/lib/onboardingStore";
+import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -26,6 +27,8 @@ export function OnboardingTour() {
 
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  useBodyScrollLock(showWelcome);
 
   // Show welcome modal for first-time users
   useEffect(() => {
