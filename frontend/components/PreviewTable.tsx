@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Table } from "lucide-react";
+import { Table, ExternalLink } from "lucide-react";
 import { PreviewResponse } from "@/lib/types";
 import { CANONICAL_FIELDS } from "@/constants/mdflow";
 import { Select } from "./ui/Select";
@@ -8,6 +8,7 @@ interface PreviewTableProps {
   preview: PreviewResponse;
   columnOverrides: Record<string, string>;
   onColumnOverride: (column: string, field: string) => void;
+  sourceUrl?: string;
 }
 
 /**
@@ -18,6 +19,7 @@ export function PreviewTable({
   preview,
   columnOverrides,
   onColumnOverride,
+  sourceUrl,
 }: PreviewTableProps) {
   const [expanded, setExpanded] = useState(false);
   const maxCollapsedRows = 4;
@@ -41,6 +43,18 @@ export function PreviewTable({
             <span className="text-[9px] text-accent-gold/80 font-medium">
               (low confidence: {preview.confidence}%)
             </span>
+          )}
+          {sourceUrl && (
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[9px] text-green-400/80 hover:text-green-400 transition-colors font-medium"
+              title={sourceUrl}
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span className="truncate max-w-[150px]">Google Sheet</span>
+            </a>
           )}
         </div>
         {hasMoreRows && (

@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
@@ -84,12 +85,14 @@ var xlsxMagic = []byte{0x50, 0x4B, 0x03, 0x04}
 type PasteConvertRequest struct {
 	PasteText string `json:"paste_text" binding:"required"`
 	Template  string `json:"template"`
+	Format    string `json:"format"`
 }
 
 // XLSXConvertRequest represents the request for XLSX sheet conversion
 type XLSXConvertRequest struct {
 	SheetName string `json:"sheet_name"`
 	Template  string `json:"template"`
+	Format    string `json:"format"`
 }
 
 // MDFlowConvertResponse represents the conversion response
@@ -97,6 +100,20 @@ type MDFlowConvertResponse struct {
 	MDFlow   string                `json:"mdflow"`
 	Warnings []converter.Warning   `json:"warnings"`
 	Meta     converter.SpecDocMeta `json:"meta"`
+	Format   string                `json:"format"`
+	Template string                `json:"template"`
+}
+
+// TemplateListResponse represents available templates
+type TemplateListResponse struct {
+	Templates []TemplateInfo `json:"templates"`
+}
+
+// TemplateInfo represents metadata about a template
+type TemplateInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Format      string `json:"format"`
 }
 
 // InputAnalysisResponse represents the input type detection response
@@ -149,7 +166,12 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 	}
 
 	req.Template = strings.TrimSpace(req.Template)
+	req.Format = strings.TrimSpace(req.Format)
 	if err := h.validateTemplate(req.Template); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := h.validateFormat(req.Format); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -164,7 +186,7 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 		return
 	}
 
-	slog.Info("mdflow.ConvertPaste", "detectOnly", detectOnly, "template", req.Template, "pasteBytes", len(req.PasteText), "type", string(analysis.Type), "confidence", analysis.Confidence)
+	slog.Info("mdflow.ConvertPaste", "detectOnly", detectOnly, "template", req.Template, "format", req.Format, "pasteBytes", len(req.PasteText), "type", string(analysis.Type), "confidence", analysis.Confidence)
 	if detectOnly {
 		typeStr := "unknown"
 		switch analysis.Type {
@@ -182,8 +204,8 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 		return
 	}
 
-	// Full conversion
-	result, err := h.converter.ConvertPaste(req.PasteText, req.Template)
+	// Full conversion with format support
+	result, err := h.converter.ConvertPasteWithFormat(req.PasteText, req.Template, req.Format)
 	if err != nil {
 		slog.Error("mdflow.ConvertPaste failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert input"})
@@ -194,6 +216,8 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 		MDFlow:   result.MDFlow,
 		Warnings: result.Warnings,
 		Meta:     result.Meta,
+		Format:   req.Format,
+		Template: req.Template,
 	})
 }
 
@@ -231,8 +255,13 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 	// Get optional parameters
 	sheetName := strings.TrimSpace(c.PostForm("sheet_name"))
 	template := strings.TrimSpace(c.PostForm("template"))
+	format := strings.TrimSpace(c.PostForm("format"))
 
 	if err := h.validateTemplate(template); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := h.validateFormat(format); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -284,7 +313,14 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 		return
 	}
 
-	result, err := h.converter.ConvertXLSX(tempName, sheetName, template)
+	matrix, err := h.converter.ParseXLSX(tempName, sheetName)
+	if err != nil {
+		slog.Error("mdflow.ConvertXLSX parse error", "error", err)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to parse file"})
+		return
+	}
+
+	result, err := h.converter.ConvertMatrixWithFormat(matrix, sheetName, template, format)
 	if err != nil {
 		slog.Error("mdflow.ConvertXLSX failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
@@ -295,6 +331,8 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 		MDFlow:   result.MDFlow,
 		Warnings: result.Warnings,
 		Meta:     result.Meta,
+		Format:   format,
+		Template: template,
 	})
 }
 
@@ -485,12 +523,25 @@ func (h *MDFlowHandler) Validate(c *gin.Context) {
 }
 
 // GetTemplates handles GET /api/mdflow/templates
-// Returns available MDFlow templates
+// Returns available MDFlow templates with metadata
 func (h *MDFlowHandler) GetTemplates(c *gin.Context) {
-	templates := h.renderer.GetTemplateNames()
+	// Get Phase 3 config-driven templates
+	phase3Templates := h.converter.ListTemplates()
 
-	c.JSON(http.StatusOK, gin.H{
-		"templates": templates,
+	// Combine into response
+	templateInfos := make([]TemplateInfo, 0)
+
+	// Add Phase 3 templates (Name = format key for convert API)
+	for _, cfg := range phase3Templates {
+		templateInfos = append(templateInfos, TemplateInfo{
+			Name:        cfg.Name,
+			Description: cfg.Description,
+			Format:      cfg.Name,
+		})
+	}
+
+	c.JSON(http.StatusOK, TemplateListResponse{
+		Templates: templateInfos,
 	})
 }
 
@@ -606,6 +657,28 @@ func (h *MDFlowHandler) validateTemplate(template string) error {
 	}
 	if !h.renderer.HasTemplate(template) {
 		return fmt.Errorf("unknown template")
+	}
+	return nil
+}
+
+// validateFormat validates the format parameter
+func (h *MDFlowHandler) validateFormat(format string) error {
+	if format == "" {
+		return nil // Default format is allowed
+	}
+	// Allowed formats: test_spec, test_spec_v1, generic_table, and all row_cards formats
+	allowed := map[string]bool{
+		"test_spec":           true,
+		"test_spec_v1":        true,
+		"generic_table":       true,
+		"test_case_cards":     true, // Phase 4 cookbook templates
+		"ui_specs_cards":      true,
+		"api_endpoints_cards": true,
+		"bdd_scenarios_cards": true,
+		"requirements_cards":  true,
+	}
+	if !allowed[format] {
+		return fmt.Errorf("unknown format: %s", format)
 	}
 	return nil
 }
@@ -843,8 +916,20 @@ func findSheetTitleByGID(tabs []GoogleSheetTab, gid string) (string, bool) {
 	return "", false
 }
 
+// sheetRange returns the range string for Values.Get (whole sheet). Sheet names with spaces or special chars must be single-quoted.
+func sheetRange(sheetTitle string) string {
+	if sheetTitle == "" {
+		return "A1"
+	}
+	if strings.ContainsAny(sheetTitle, " \t-'!,&") {
+		escaped := strings.ReplaceAll(sheetTitle, "'", "''")
+		return "'" + escaped + "'"
+	}
+	return sheetTitle
+}
+
 func convertValuesToRows(values [][]interface{}) [][]string {
-	if len(values) == 0 {
+	if values == nil || len(values) == 0 {
 		return nil
 	}
 
@@ -866,6 +951,38 @@ func convertValuesToRows(values [][]interface{}) [][]string {
 	}
 
 	return rows
+}
+
+// fetchGoogleSheetWithService fetches sheet data via Sheets API (uses user OAuth token, works for private sheets).
+func (h *MDFlowHandler) fetchGoogleSheetWithService(service *sheets.Service, sheetID string, gid string) ([]byte, error) {
+	tabs, err := getGoogleSheetTabsWithService(service, sheetID)
+	if err != nil {
+		return nil, err
+	}
+	activeGID := findActiveGID(tabs, gid)
+	if activeGID == "" {
+		return nil, fmt.Errorf("no sheets available")
+	}
+	sheetTitle, ok := findSheetTitleByGID(tabs, activeGID)
+	if !ok {
+		return nil, fmt.Errorf("sheet gid not found")
+	}
+	rangeStr := sheetRange(sheetTitle)
+	resp, err := service.Spreadsheets.Values.Get(sheetID, rangeStr).Do()
+	if err != nil {
+		return nil, err
+	}
+	rows := convertValuesToRows(resp.Values)
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	for _, row := range rows {
+		_ = w.Write(row)
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (h *MDFlowHandler) fetchGoogleSheetCSV(sheetID string, gid string) ([]byte, int, error) {
@@ -907,12 +1024,11 @@ func (h *MDFlowHandler) convertGoogleSheetWithService(service *sheets.Service, s
 	if !ok {
 		return nil, fmt.Errorf("sheet gid not found")
 	}
-
-	resp, err := service.Spreadsheets.Values.Get(sheetID, sheetTitle).Do()
+	rangeStr := sheetRange(sheetTitle)
+	resp, err := service.Spreadsheets.Values.Get(sheetID, rangeStr).Do()
 	if err != nil {
 		return nil, err
 	}
-
 	rows := convertValuesToRows(resp.Values)
 	matrix := converter.NewCellMatrix(rows).Normalize()
 	return h.converter.ConvertMatrix(matrix, sheetTitle, template)
@@ -1001,7 +1117,7 @@ func (h *MDFlowHandler) GetGoogleSheetSheets(c *gin.Context) {
 }
 
 // FetchGoogleSheet handles POST /api/mdflow/gsheet
-// Fetches data from a public Google Sheet and returns it as CSV/TSV
+// Fetches sheet data as CSV. Uses OAuth when Authorization Bearer is present (private sheets); otherwise public export URL.
 func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 	var req GoogleSheetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1023,6 +1139,26 @@ func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 
 	slog.Info("mdflow.FetchGoogleSheet", "sheetID", sheetID, "gid", gid)
 
+	// Prefer OAuth when client sends Bearer token (e.g. frontend with "Connect Google") so private sheets work
+	if accessToken := getBearerToken(c); accessToken != "" {
+		service, err := h.getSheetsServiceWithToken(accessToken)
+		if err == nil {
+			body, err := h.fetchGoogleSheetWithService(service, sheetID, gid)
+			if err == nil {
+				c.JSON(http.StatusOK, GoogleSheetResponse{
+					SheetID:   sheetID,
+					SheetName: gid,
+					Data:      string(body),
+				})
+				return
+			}
+			if isAuthError(err) {
+				slog.Warn("mdflow.FetchGoogleSheet auth error", "error", err)
+			}
+		}
+	}
+
+	// Fallback: public export URL (fails with 401 for private sheets)
 	body, statusCode, err := h.fetchGoogleSheetCSV(sheetID, gid)
 	if err != nil {
 		slog.Error("mdflow.FetchGoogleSheet fetch error", "error", err)
@@ -1034,11 +1170,14 @@ func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 			c.JSON(http.StatusNotFound, ErrorResponse{Error: "Google Sheet not found or not public"})
 			return
 		}
+		if statusCode == http.StatusUnauthorized {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Google Sheet is private; connect Google in the app to access it"})
+			return
+		}
 		c.JSON(http.StatusBadGateway, ErrorResponse{Error: fmt.Sprintf("Google Sheets returned status %d", statusCode)})
 		return
 	}
 
-	// Return the CSV data
 	c.JSON(http.StatusOK, GoogleSheetResponse{
 		SheetID:   sheetID,
 		SheetName: gid,
@@ -1154,47 +1293,47 @@ func (h *MDFlowHandler) PreviewPaste(c *gin.Context) {
 		return
 	}
 
-	// Detect input type
-	analysis := converter.DetectInputType(req.PasteText)
-	inputType := "table"
-	if analysis.Type == converter.InputTypeMarkdown {
-		inputType = "markdown"
-		// For markdown, return minimal preview
-		c.JSON(http.StatusOK, PreviewResponse{
-			Headers:       []string{},
-			Rows:          [][]string{},
-			TotalRows:     0,
-			PreviewRows:   0,
-			HeaderRow:     -1,
-			Confidence:    analysis.Confidence,
-			ColumnMapping: map[string]string{},
-			UnmappedCols:  []string{},
-			InputType:     inputType,
-		})
-		return
-	}
-
-	// Parse as table
+	// Try parsing as table first (CSV/TSV). If we get a valid multi-column table, use it.
+	// This fixes Google Sheet CSV being misclassified as markdown by DetectInputType.
 	parser := converter.NewPasteParser()
-	matrix, err := parser.Parse(req.PasteText)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "failed to parse input"})
-		return
-	}
+	matrix, parseErr := parser.Parse(req.PasteText)
+	hasTable := parseErr == nil && matrix.RowCount() >= 1 && matrix.ColCount() >= 2
 
-	if len(matrix) == 0 {
-		c.JSON(http.StatusOK, PreviewResponse{
-			Headers:       []string{},
-			Rows:          [][]string{},
-			TotalRows:     0,
-			PreviewRows:   0,
-			HeaderRow:     -1,
-			Confidence:    0,
-			ColumnMapping: map[string]string{},
-			UnmappedCols:  []string{},
-			InputType:     inputType,
-		})
-		return
+	if !hasTable {
+		// Empty, parse failed, or single-column: use DetectInputType (e.g. real markdown)
+		analysis := converter.DetectInputType(req.PasteText)
+		if analysis.Type == converter.InputTypeMarkdown {
+			c.JSON(http.StatusOK, PreviewResponse{
+				Headers:       []string{},
+				Rows:          [][]string{},
+				TotalRows:     0,
+				PreviewRows:   0,
+				HeaderRow:     -1,
+				Confidence:    analysis.Confidence,
+				ColumnMapping: map[string]string{},
+				UnmappedCols:  []string{},
+				InputType:     "markdown",
+			})
+			return
+		}
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "failed to parse input"})
+			return
+		}
+		if matrix.RowCount() == 0 {
+			c.JSON(http.StatusOK, PreviewResponse{
+				Headers:       []string{},
+				Rows:          [][]string{},
+				TotalRows:     0,
+				PreviewRows:   0,
+				HeaderRow:     -1,
+				Confidence:    0,
+				ColumnMapping: map[string]string{},
+				UnmappedCols:  []string{},
+				InputType:     "table",
+			})
+			return
+		}
 	}
 
 	// Detect header row
@@ -1202,17 +1341,9 @@ func (h *MDFlowHandler) PreviewPaste(c *gin.Context) {
 	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
 	headers := matrix.GetRow(headerRow)
 
-	// Map columns
-	columnMapper := converter.NewColumnMapper()
-	colMap, unmapped := columnMapper.MapColumns(headers)
-
-	// Build column mapping as string map for JSON
-	columnMapping := make(map[string]string)
-	for field, idx := range colMap {
-		if idx >= 0 && idx < len(headers) {
-			columnMapping[headers[idx]] = string(field)
-		}
-	}
+	// Map columns via template-driven HeaderResolver (Phase 3; plan refactor-plan-dynamic-converter)
+	templateName := strings.TrimSpace(req.Template)
+	columnMapping, unmapped := h.converter.GetPreviewColumnMapping(headers, templateName)
 
 	// Get preview rows (after header)
 	totalDataRows := matrix.RowCount() - headerRow - 1
@@ -1235,7 +1366,7 @@ func (h *MDFlowHandler) PreviewPaste(c *gin.Context) {
 		Confidence:    confidence,
 		ColumnMapping: columnMapping,
 		UnmappedCols:  unmapped,
-		InputType:     inputType,
+		InputType:     "table",
 	})
 }
 
@@ -1314,17 +1445,9 @@ func (h *MDFlowHandler) PreviewTSV(c *gin.Context) {
 	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
 	headers := matrix.GetRow(headerRow)
 
-	// Map columns
-	columnMapper := converter.NewColumnMapper()
-	colMap, unmapped := columnMapper.MapColumns(headers)
-
-	// Build column mapping as string map for JSON
-	columnMapping := make(map[string]string)
-	for field, idx := range colMap {
-		if idx >= 0 && idx < len(headers) {
-			columnMapping[headers[idx]] = string(field)
-		}
-	}
+	// Map columns via template-driven HeaderResolver (Phase 3)
+	templateName := strings.TrimSpace(c.PostForm("template"))
+	columnMapping, unmapped := h.converter.GetPreviewColumnMapping(headers, templateName)
 
 	// Get preview rows (after header)
 	totalDataRows := matrix.RowCount() - headerRow - 1
@@ -1451,17 +1574,9 @@ func (h *MDFlowHandler) PreviewXLSX(c *gin.Context) {
 	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
 	headers := matrix.GetRow(headerRow)
 
-	// Map columns
-	columnMapper := converter.NewColumnMapper()
-	colMap, unmapped := columnMapper.MapColumns(headers)
-
-	// Build column mapping as string map for JSON
-	columnMapping := make(map[string]string)
-	for field, idx := range colMap {
-		if idx >= 0 && idx < len(headers) {
-			columnMapping[headers[idx]] = string(field)
-		}
-	}
+	// Map columns via template-driven HeaderResolver (Phase 3)
+	templateName := strings.TrimSpace(c.PostForm("template"))
+	columnMapping, unmapped := h.converter.GetPreviewColumnMapping(headers, templateName)
 
 	// Get preview rows (after header)
 	totalDataRows := matrix.RowCount() - headerRow - 1

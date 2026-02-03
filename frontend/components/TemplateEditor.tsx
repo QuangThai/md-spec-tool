@@ -458,7 +458,7 @@ export function TemplateEditor({
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className={`
                 fixed lg:relative inset-y-0 left-0 z-50 lg:z-auto
-                w-[280px] sm:w-72 lg:w-64 xl:w-72
+                w-70 sm:w-72 lg:w-64 xl:w-72
                 border-r border-white/10 flex flex-col bg-surface lg:bg-black/30
                 lg:translate-x-0 transform
                 h-full lg:h-auto

@@ -1,0 +1,56 @@
+name: test_case_cards
+description: "Test cases rendered as per-row cards with scenario, steps, and expected results"
+
+header_synonyms:
+  id:
+    - ID
+    - Test ID
+    - Case ID
+    - Identifier
+  scenario:
+    - Scenario
+    - Test Case
+    - Case Name
+    - Title
+  steps:
+    - Steps
+    - Instructions
+    - "How To"
+    - Procedure
+  expected:
+    - Expected
+    - "Expected Result"
+    - Outcome
+    - "Expected Outcome"
+  notes:
+    - Notes
+    - Comments
+    - Remarks
+
+required_fields:
+  - id
+  - scenario
+
+output:
+  type: row_cards
+  row_cards:
+    title_from:
+      any_of: [ID, Test ID, Case ID]
+    sections:
+      - label: "Scenario"
+        from:
+          any_of: [Scenario, Test Case, Case Name]
+      - label: "Steps"
+        from:
+          any_of: [Steps, Instructions, "How To"]
+      - label: "Expected"
+        from:
+          any_of: [Expected, "Expected Result", Outcome]
+    extras:
+      mode: append_section
+      label: "Additional Fields"
+
+metadata:
+  template_type: test_case
+  version: "1.0"
+  use_case: "Quality assurance test case documentation"

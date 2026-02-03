@@ -29,6 +29,8 @@ export interface MDFlowConvertResponse {
   mdflow: string;
   warnings: MDFlowWarning[];
   meta: MDFlowMeta;
+  format?: string;
+  template?: string;
 }
 
 export interface PreviewResponse {
@@ -116,6 +118,12 @@ export interface TemplateFunction {
   description: string;
 }
 
+export interface TemplateMetadata {
+  name: string;
+  description: string;
+  format: string;
+}
+
 export interface TemplateInfo {
   variables: TemplateVariable[];
   functions: TemplateFunction[];
@@ -130,6 +138,10 @@ export interface TemplatePreviewResponse {
   output: string;
   error?: string;
   warnings: MDFlowWarning[];
+}
+
+export interface TemplatesListResponse {
+  templates: TemplateMetadata[];
 }
 
 // ============ UI State Types ============

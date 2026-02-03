@@ -1,0 +1,63 @@
+name: requirements_cards
+description: "Functional requirements rendered as cards with title, description, acceptance criteria, and priority"
+
+header_synonyms:
+  id:
+    - ID
+    - "Req ID"
+    - "Requirement ID"
+  scenario:
+    - Requirement
+    - Title
+    - "Requirement Title"
+  instructions:
+    - Description
+    - Details
+    - "Full Description"
+  expected:
+    - "Acceptance Criteria"
+    - Criteria
+    - Validation
+  priority:
+    - Priority
+    - Severity
+    - Importance
+  type:
+    - Type
+    - Category
+    - "Requirement Type"
+  status:
+    - Status
+    - State
+    - Progress
+  notes:
+    - Notes
+    - Comments
+    - Tags
+
+required_fields:
+  - scenario
+
+output:
+  type: row_cards
+  row_cards:
+    title_from:
+      any_of: [ID, Requirement, Title]
+    sections:
+      - label: "Description"
+        from:
+          any_of: [Description, Details, "Full Description"]
+      - label: "Acceptance Criteria"
+        from:
+          any_of: ["Acceptance Criteria", Criteria, Validation]
+      - label: "Priority"
+        from:
+          any_of: [Priority, Severity, Importance]
+    extras:
+      mode: append_section
+      label: "Metadata"
+
+metadata:
+  template_type: requirements
+  version: "1.0"
+  use_case: "Requirements management and specification"

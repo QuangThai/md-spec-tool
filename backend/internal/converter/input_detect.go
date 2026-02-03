@@ -147,8 +147,9 @@ func calculateTableScore(text string) (int, []string) {
 	var reasons []string
 	lines := strings.Split(text, "\n")
 
-	// Count lines with tabs
+	// Count lines with tabs and/or commas (CSV from Google Sheets etc.)
 	tabLineCount := 0
+	commaLineCount := 0
 	columnCounts := make(map[int]int) // column count -> occurrence
 
 	for _, line := range lines {
@@ -157,19 +158,29 @@ func calculateTableScore(text string) (int, []string) {
 			continue
 		}
 
-		// Check for tabs
+		// Check for tabs (TSV)
 		if strings.Contains(line, "\t") {
 			tabLineCount++
-			// Count columns (tab-separated)
 			cols := len(strings.Split(line, "\t"))
 			columnCounts[cols]++
 		}
+		// Check for commas (CSV) - e.g. Google Sheet export
+		if strings.Contains(line, ",") {
+			commaLineCount++
+			cols := len(strings.Split(line, ","))
+			if cols > 1 {
+				columnCounts[cols]++
+			}
+		}
 	}
 
-	// Apply scoring weights
 	if tabLineCount > 0 {
 		score += 20
 		reasons = append(reasons, "tabs found")
+	}
+	if commaLineCount > 0 {
+		score += 20
+		reasons = append(reasons, "commas found (CSV)")
 	}
 
 	// Check for 3+ consistent columns
@@ -187,7 +198,6 @@ func calculateTableScore(text string) (int, []string) {
 		reasons = append(reasons, "3+ consistent columns")
 	}
 
-	// Check for 2+ rows with same column count
 	if maxColOccurrence >= 2 {
 		score += 30
 		reasons = append(reasons, "2+ rows with same column count")

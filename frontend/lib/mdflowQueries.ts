@@ -1,4 +1,3 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   convertGoogleSheet,
   convertPaste,
@@ -6,8 +5,8 @@ import {
   convertXLSX,
   diffMDFlow,
   fetchGoogleSheet,
-  getGoogleSheetSheets,
   getAISuggestions,
+  getGoogleSheetSheets,
   getMDFlowTemplates,
   getTemplateContent,
   getTemplateInfo,
@@ -19,15 +18,20 @@ import {
   validatePaste,
 } from "@/lib/mdflowApi";
 import { ApiResult, ValidationRules } from "@/lib/types";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 const queryKeys = {
   templates: ["mdflow", "templates"] as const,
   templateInfo: ["mdflow", "template-info"] as const,
   templateContent: (name: string) => ["mdflow", "template", name] as const,
-  previewPaste: (hash: string) => ["mdflow", "preview", "paste", hash] as const,
-  previewTSV: (fileKey: string) => ["mdflow", "preview", "tsv", fileKey] as const,
-  previewXLSX: (fileKey: string, sheet: string) =>
-    ["mdflow", "preview", "xlsx", fileKey, sheet] as const,
+  previewPaste: (hash: string, template?: string) =>
+    ["mdflow", "preview", "paste", hash, template ?? ""] as const,
+  previewTSV: (fileKey: string, template?: string) =>
+    ["mdflow", "preview", "tsv", fileKey, template ?? ""] as const,
+  previewXLSX: (fileKey: string, sheet: string, template?: string) =>
+    ["mdflow", "preview", "xlsx", fileKey, sheet, template ?? ""] as const,
+  previewGoogleSheet: (url: string, gid: string, template?: string) =>
+    ["mdflow", "preview", "gsheet", url, gid, template ?? ""] as const,
 };
 
 /**
@@ -63,9 +67,9 @@ export function useMDFlowTemplatesQuery() {
     staleTime: 5 * 60 * 1000,
     select: (data) => {
       const sorted = [...data.templates].sort((a, b) => {
-        if (a === "default") return -1;
-        if (b === "default") return 1;
-        return 0;
+        if (a.name === "test_spec_v1" || a.name === "default") return -1;
+        if (b.name === "test_spec_v1" || b.name === "default") return 1;
+        return (a.name || "").localeCompare(b.name || "");
       });
       return sorted;
     },
@@ -89,48 +93,80 @@ export function useTemplateContentQuery(name: string, enabled: boolean) {
   });
 }
 
-export function usePreviewPasteQuery(pasteText: string, enabled: boolean) {
+export function usePreviewPasteQuery(
+  pasteText: string,
+  enabled: boolean,
+  template?: string
+) {
   const hash = hashString(pasteText.trim());
   return useQuery({
-    queryKey: queryKeys.previewPaste(hash),
-    queryFn: async () => unwrap(await previewPaste(pasteText)),
+    queryKey: queryKeys.previewPaste(hash, template),
+    queryFn: async () => unwrap(await previewPaste(pasteText, template)),
     enabled: enabled && pasteText.trim().length > 0,
     gcTime: 2 * 60 * 1000,
   });
 }
 
-export function usePreviewTSVQuery(file: File | null, enabled: boolean) {
+export function usePreviewTSVQuery(
+  file: File | null,
+  enabled: boolean,
+  template?: string
+) {
   return useQuery({
-    queryKey: queryKeys.previewTSV(fileKey(file)),
-    queryFn: async () => unwrap(await previewTSV(file!)),
+    queryKey: queryKeys.previewTSV(fileKey(file), template),
+    queryFn: async () => unwrap(await previewTSV(file!, template)),
     enabled: enabled && Boolean(file),
     gcTime: 2 * 60 * 1000,
   });
 }
 
-export function usePreviewTSVMutation() {
+export function usePreviewTSVMutation(template?: string) {
   return useMutation({
-    mutationFn: async (file: File) => unwrap(await previewTSV(file)),
+    mutationFn: async (file: File) => unwrap(await previewTSV(file, template)),
   });
 }
 
 export function usePreviewXLSXQuery(
   file: File | null,
   sheetName: string,
-  enabled: boolean
+  enabled: boolean,
+  template?: string
 ) {
   return useQuery({
-    queryKey: queryKeys.previewXLSX(fileKey(file), sheetName),
-    queryFn: async () => unwrap(await previewXLSX(file!, sheetName)),
+    queryKey: queryKeys.previewXLSX(fileKey(file), sheetName, template),
+    queryFn: async () => unwrap(await previewXLSX(file!, sheetName, template)),
     enabled: enabled && Boolean(file) && Boolean(sheetName),
     gcTime: 2 * 60 * 1000,
   });
 }
 
-export function usePreviewXLSXMutation() {
+export function usePreviewXLSXMutation(template?: string) {
   return useMutation({
     mutationFn: async (payload: { file: File; sheetName?: string }) =>
-      unwrap(await previewXLSX(payload.file, payload.sheetName)),
+      unwrap(await previewXLSX(payload.file, payload.sheetName, template)),
+  });
+}
+
+/**
+ * Preview for Google Sheet: fetches sheet data by url+gid, then runs preview (same as paste).
+ * Refetches when url, gid, or template changes so changing sheet shows the correct table.
+ */
+export function usePreviewGoogleSheetQuery(
+  url: string,
+  gid: string,
+  enabled: boolean,
+  template?: string
+) {
+  return useQuery({
+    queryKey: queryKeys.previewGoogleSheet(url, gid, template),
+    queryFn: async () => {
+      const sheetResult = await fetchGoogleSheet(url, gid);
+      const sheetData = unwrap(sheetResult);
+      const previewResult = await previewPaste(sheetData.data, template);
+      return unwrap(previewResult);
+    },
+    enabled: enabled && Boolean(url.trim()) && Boolean(gid),
+    gcTime: 2 * 60 * 1000,
   });
 }
 
@@ -142,29 +178,29 @@ export function useGetXLSXSheetsMutation() {
 
 export function useConvertPasteMutation() {
   return useMutation({
-    mutationFn: async (payload: { pasteText: string; template?: string }) =>
-      unwrap(await convertPaste(payload.pasteText, payload.template)),
+    mutationFn: async (payload: { pasteText: string; template?: string; format?: string }) =>
+      unwrap(await convertPaste(payload.pasteText, payload.template, payload.format)),
   });
 }
 
 export function useConvertXLSXMutation() {
   return useMutation({
-    mutationFn: async (payload: { file: File; sheetName?: string; template?: string }) =>
-      unwrap(await convertXLSX(payload.file, payload.sheetName, payload.template)),
+    mutationFn: async (payload: { file: File; sheetName?: string; template?: string; format?: string }) =>
+      unwrap(await convertXLSX(payload.file, payload.sheetName, payload.template, payload.format)),
   });
 }
 
 export function useConvertTSVMutation() {
   return useMutation({
-    mutationFn: async (payload: { file: File; template?: string }) =>
-      unwrap(await convertTSV(payload.file, payload.template)),
+    mutationFn: async (payload: { file: File; template?: string; format?: string }) =>
+      unwrap(await convertTSV(payload.file, payload.template, payload.format)),
   });
 }
 
 export function useConvertGoogleSheetMutation() {
   return useMutation({
-    mutationFn: async (payload: { url: string; template?: string; gid?: string }) =>
-      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid)),
+    mutationFn: async (payload: { url: string; template?: string; gid?: string; format?: string }) =>
+      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid, payload.format)),
   });
 }
 

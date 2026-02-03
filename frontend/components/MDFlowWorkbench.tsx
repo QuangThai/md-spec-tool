@@ -1,5 +1,6 @@
 "use client";
 
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 import { isGoogleSheetsURL } from "@/lib/mdflowApi";
 import {
   useAISuggestionsMutation,
@@ -11,6 +12,7 @@ import {
   useGetGoogleSheetSheetsMutation,
   useGetXLSXSheetsMutation,
   useMDFlowTemplatesQuery,
+  usePreviewGoogleSheetQuery,
   usePreviewPasteQuery,
   usePreviewTSVQuery,
   usePreviewXLSXQuery,
@@ -22,8 +24,8 @@ import {
 } from "@/lib/mdflowStore";
 import { createShare } from "@/lib/shareApi";
 import { ConversionRecord } from "@/lib/types";
-import { useKeyboardShortcuts } from "@/lib/useKeyboardShortcuts";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import { useKeyboardShortcuts } from "@/lib/useKeyboardShortcuts";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -60,7 +62,6 @@ import { Select } from "./ui/Select";
 import { OutputSkeleton } from "./ui/Skeleton";
 import { toast, ToastContainer } from "./ui/Toast";
 import { Tooltip } from "./ui/Tooltip";
-import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 const DiffViewer = dynamic(
   () => import("./DiffViewer").then((mod) => mod.DiffViewer),
@@ -101,6 +102,7 @@ export default function MDFlowWorkbench() {
     gsheetTabs,
     selectedGid,
     template,
+    format,
     mdflowOutput,
     warnings,
     meta,
@@ -124,6 +126,7 @@ export default function MDFlowWorkbench() {
       gsheetTabs: state.gsheetTabs,
       selectedGid: state.selectedGid,
       template: state.template,
+      format: state.format,
       mdflowOutput: state.mdflowOutput,
       warnings: state.warnings,
       meta: state.meta,
@@ -148,6 +151,7 @@ export default function MDFlowWorkbench() {
   const setGsheetTabs = useMDFlowStore((state) => state.setGsheetTabs);
   const setSelectedGid = useMDFlowStore((state) => state.setSelectedGid);
   const setTemplate = useMDFlowStore((state) => state.setTemplate);
+  const setFormat = useMDFlowStore((state) => state.setFormat);
   const setResult = useMDFlowStore((state) => state.setResult);
   const setLoading = useMDFlowStore((state) => state.setLoading);
   const setError = useMDFlowStore((state) => state.setError);
@@ -196,7 +200,7 @@ export default function MDFlowWorkbench() {
 
   useBodyScrollLock(showDiff);
 
-  const { data: templateList = ["default"] } = useMDFlowTemplatesQuery();
+  const { data: templateList = [] } = useMDFlowTemplatesQuery();
   const templates = templateList;
   const getSheetsMutation = useGetXLSXSheetsMutation();
   const { mutateAsync: fetchGoogleSheetTabs } =
@@ -208,15 +212,25 @@ export default function MDFlowWorkbench() {
   const diffMDFlowMutation = useDiffMDFlowMutation();
   const aiSuggestionsMutation = useAISuggestionsMutation();
 
+  const isGsheetUrl = isGoogleSheetsURL(debouncedPasteText.trim());
+  const isInputGsheetUrl = isGoogleSheetsURL(pasteText.trim());
   const previewPasteQuery = usePreviewPasteQuery(
     debouncedPasteText,
-    mode === "paste"
+    mode === "paste" && debouncedPasteText.trim().length > 0 && !isGsheetUrl,
+    template
   );
-  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv");
+  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv", template);
   const previewXLSXQuery = usePreviewXLSXQuery(
     file,
     selectedSheet,
-    mode === "xlsx"
+    mode === "xlsx",
+    template
+  );
+  const previewGoogleSheetQuery = usePreviewGoogleSheetQuery(
+    debouncedPasteText.trim(),
+    selectedGid,
+    mode === "paste" && isGsheetUrl && gsheetTabs.length > 0 && Boolean(selectedGid),
+    template
   );
 
   // Reset store when leaving Studio so data is not shown when user comes back
@@ -302,6 +316,16 @@ export default function MDFlowWorkbench() {
       setShowPreview(false);
       return;
     }
+    if (isGsheetUrl) {
+      if (previewGoogleSheetQuery.data) {
+        setPreview(previewGoogleSheetQuery.data);
+        setShowPreview(true);
+      } else {
+        setPreview(null);
+        setShowPreview(false);
+      }
+      return;
+    }
     if (previewPasteQuery.data) {
       setPreview(previewPasteQuery.data);
       setShowPreview(true);
@@ -309,7 +333,9 @@ export default function MDFlowWorkbench() {
   }, [
     debouncedPasteText,
     mode,
+    isGsheetUrl,
     previewPasteQuery.data,
+    previewGoogleSheetQuery.data,
     setPreview,
     setShowPreview,
   ]);
@@ -386,12 +412,15 @@ export default function MDFlowWorkbench() {
   useEffect(() => {
     const isLoading =
       (mode === "paste" && previewPasteQuery.isFetching) ||
+      (mode === "paste" && isGsheetUrl && previewGoogleSheetQuery.isFetching) ||
       (mode === "xlsx" && previewXLSXQuery.isFetching) ||
       (mode === "tsv" && previewTSVQuery.isFetching);
     setPreviewLoading(isLoading);
   }, [
     mode,
+    isGsheetUrl,
     previewPasteQuery.isFetching,
+    previewGoogleSheetQuery.isFetching,
     previewTSVQuery.isFetching,
     previewXLSXQuery.isFetching,
     setPreviewLoading,
@@ -414,8 +443,9 @@ export default function MDFlowWorkbench() {
         if (isGoogleSheetsURL(pasteText.trim())) {
           result = await convertGoogleSheetMutation.mutateAsync({
             url: pasteText.trim(),
-            template,
+            template: "default",
             gid: selectedGid,
+            format,
           });
           const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
           const tabLabel = selectedTab?.title || selectedGid;
@@ -425,7 +455,8 @@ export default function MDFlowWorkbench() {
         } else {
           result = await convertPasteMutation.mutateAsync({
             pasteText,
-            template,
+            template: "default",
+            format,
           });
           inputPreview =
             pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
@@ -438,7 +469,8 @@ export default function MDFlowWorkbench() {
         result = await convertXLSXMutation.mutateAsync({
           file,
           sheetName: selectedSheet,
-          template,
+          template: "default",
+          format,
         });
         inputPreview = `${file.name}${selectedSheet ? ` (${selectedSheet})` : ""
           }`;
@@ -449,17 +481,18 @@ export default function MDFlowWorkbench() {
         }
         result = await convertTSVMutation.mutateAsync({
           file,
-          template,
+          template: "default",
+          format,
         });
         inputPreview = file.name;
       }
 
       if (result) {
         setResult(result.mdflow, result.warnings, result.meta);
-        // Add to history
+        // Add to history (use format as display template name)
         addToHistory({
           mode,
-          template,
+          template: format,
           inputPreview,
           output: result.mdflow,
           meta: result.meta,
@@ -484,6 +517,7 @@ export default function MDFlowWorkbench() {
     selectedSheet,
     selectedGid,
     template,
+    format,
     setLoading,
     setError,
     setResult,
@@ -529,7 +563,7 @@ export default function MDFlowWorkbench() {
     setCreatingShare(true);
     const result = await createShare({
       mdflow: mdflowOutput,
-      template,
+      template: format,
       title: shareTitle.trim(),
       slug: shareSlug.trim() || undefined,
       is_public: shareVisibility === "public",
@@ -562,7 +596,7 @@ export default function MDFlowWorkbench() {
   }, [
     creatingShare,
     mdflowOutput,
-    template,
+    format,
     shareTitle,
     shareSlug,
     shareVisibility,
@@ -842,36 +876,35 @@ export default function MDFlowWorkbench() {
                             }))}
                             placeholder="Choose sheet"
                             size="compact"
-                            className="w-auto min-w-[160px]"
+                            className="w-auto min-w-40"
                           />
                         </div>
                       )}
-                       {isGoogleSheetsURL(pasteText.trim()) && (
-                         <div className={`mb-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-[10px] text-white/70 border ${
-                           googleAuth.connected
-                             ? "border-green-500/20 bg-green-500/10"
-                             : "border-accent-orange/20 bg-accent-orange/10"
-                         }`}>
-                           {googleAuth.connected ? (
-                             <Check className="h-3 w-3 shrink-0 text-green-400" />
-                           ) : (
-                             <AlertCircle className="h-3 w-3 shrink-0 text-accent-orange/80" />
-                           )}
-                           <span className="flex-1 min-w-[160px]">
-                             {googleAuth.connected
-                               ? "Google connected. You can access private sheets without sharing."
-                               : "Private sheet? Connect Google to access without sharing."}
-                           </span>
-                           {googleAuth.connected ? (
-                             <button
-                               type="button"
-                               onClick={googleAuth.logout}
-                               className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/70 hover:text-white transition-colors"
-                             >
-                               Disconnect
-                             </button>
-                           ) : (
-                           <button
+                      {isInputGsheetUrl && (
+                        <div className={`mb-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-[10px] text-white/70 border ${googleAuth.connected
+                          ? "border-green-500/20 bg-green-500/10"
+                          : "border-accent-orange/20 bg-accent-orange/10"
+                          }`}>
+                          {googleAuth.connected ? (
+                            <Check className="h-3 w-3 shrink-0 text-green-400" />
+                          ) : (
+                            <AlertCircle className="h-3 w-3 shrink-0 text-accent-orange/80" />
+                          )}
+                          <span className="flex-1 min-w-40">
+                            {googleAuth.connected
+                              ? "Google connected. You can access private sheets without sharing."
+                              : "Private sheet? Connect Google to access without sharing."}
+                          </span>
+                          {googleAuth.connected ? (
+                            <button
+                              type="button"
+                              onClick={googleAuth.logout}
+                              className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/70 hover:text-white transition-colors"
+                            >
+                              Disconnect
+                            </button>
+                          ) : (
+                            <button
                               type="button"
                               onClick={googleAuth.login}
                               disabled={googleAuth.loading}
@@ -879,10 +912,10 @@ export default function MDFlowWorkbench() {
                             >
                               <KeyRound className="h-3 w-3" />
                               Connect Google
-                             </button>
-                           )}
-                         </div>
-                       )}
+                            </button>
+                          )}
+                        </div>
+                      )}
 
                       {/* Preview Table - Collapsible */}
                       <AnimatePresence>
@@ -901,6 +934,7 @@ export default function MDFlowWorkbench() {
                                 preview={preview}
                                 columnOverrides={columnOverrides}
                                 onColumnOverride={setColumnOverride}
+                                sourceUrl={undefined}
                               />
                             </motion.div>
                           )}
@@ -925,7 +959,7 @@ export default function MDFlowWorkbench() {
                         value={pasteText}
                         onChange={(e) => setPasteText(e.target.value)}
                         placeholder="Paste your table data here (TSV, CSV, or Google Sheets URL)…"
-                        className="input flex-1 font-mono text-[12px] leading-relaxed resize-none border-white/5 bg-black/30 focus:bg-black/40 focus:border-accent-orange/30 custom-scrollbar min-h-[120px] rounded-lg"
+                        className="input flex-1 font-mono text-[12px] leading-relaxed resize-none border-white/5 bg-black/30 focus:bg-black/40 focus:border-accent-orange/30 custom-scrollbar min-h-30 rounded-lg"
                         aria-label="Paste TSV or CSV data"
                         data-tour="paste-area"
                       />
@@ -988,8 +1022,8 @@ export default function MDFlowWorkbench() {
                             ) : (
                               <FileSpreadsheet
                                 className={`w-8 h-8 ${dragOver
-                                    ? "text-accent-orange"
-                                    : "text-white/40"
+                                  ? "text-accent-orange"
+                                  : "text-white/40"
                                   }`}
                               />
                             )}
@@ -997,7 +1031,7 @@ export default function MDFlowWorkbench() {
                           <div className={file ? "text-left" : "text-center"}>
                             {file ? (
                               <>
-                                <p className="text-sm font-bold text-white truncate max-w-[250px]">
+                                <p className="text-sm font-bold text-white truncate max-w-62.5">
                                   {file.name}
                                 </p>
                                 <p className="text-xs text-white/50 font-mono">
@@ -1034,7 +1068,7 @@ export default function MDFlowWorkbench() {
                             }))}
                             placeholder="Choose sheet"
                             size="compact"
-                            className="w-auto min-w-[120px]"
+                            className="w-auto min-w-30"
                           />
                         </div>
                       )}
@@ -1091,7 +1125,7 @@ export default function MDFlowWorkbench() {
                 </AnimatePresence>
               </div>
 
-              {/* Compact footer with template & run */}
+              {/* Compact footer with template, format & run */}
               <div className="px-3 sm:px-4 py-2.5 sm:py-3 border-t border-white/5 bg-white/2 shrink-0">
                 <div
                   className="flex items-center gap-2 sm:gap-3"
@@ -1101,8 +1135,8 @@ export default function MDFlowWorkbench() {
                   <div className="flex-1 min-w-0">
                     <TemplateCards
                       templates={templates}
-                      selected={template}
-                      onSelect={setTemplate}
+                      selected={format}
+                      onSelect={setFormat}
                       compact
                     />
                   </div>
@@ -1198,8 +1232,8 @@ export default function MDFlowWorkbench() {
                       onClick={handleCopy}
                       disabled={!mdflowOutput}
                       className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
-                          ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
-                          : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                        ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
+                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
                         }`}
                     >
                       {copied ? (
@@ -1221,8 +1255,8 @@ export default function MDFlowWorkbench() {
                       }}
                       disabled={!mdflowOutput}
                       className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
-                          ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
-                          : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                        ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
+                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
                         }`}
                     >
                       <Save className="w-3.5 h-3.5" />
@@ -1254,8 +1288,8 @@ export default function MDFlowWorkbench() {
                       type="button"
                       disabled={!mdflowOutput}
                       className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
-                          ? "bg-accent-orange/90 hover:bg-accent-orange border-accent-orange/50 text-white"
-                          : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
+                        ? "bg-accent-orange/90 hover:bg-accent-orange border-accent-orange/50 text-white"
+                        : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
                         }`}
                       onClick={() => {
                         if (mdflowOutput) {
@@ -1435,8 +1469,8 @@ export default function MDFlowWorkbench() {
         onOpenTemplateEditor={() => setShowTemplateEditor(true)}
         onOpenValidation={() => setShowValidationConfigurator(true)}
         templates={templates}
-        currentTemplate={template}
-        onSelectTemplate={setTemplate}
+        currentTemplate={format}
+        onSelectTemplate={setFormat}
         hasOutput={Boolean(mdflowOutput)}
       />
 

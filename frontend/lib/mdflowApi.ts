@@ -6,6 +6,7 @@ import {
   PreviewResponse,
   TemplateContentResponse,
   TemplateInfo,
+  TemplateMetadata,
   TemplatePreviewResponse,
   ValidationResult,
   ValidationRules
@@ -19,7 +20,7 @@ export interface SheetsResponse {
 }
 
 export interface TemplatesResponse {
-  templates: string[];
+  templates: TemplateMetadata[];
 }
 
 export interface GoogleSheetResponse {
@@ -69,7 +70,8 @@ async function apiCall<T>(
  */
 export async function convertPaste(
   pasteText: string,
-  template?: string
+  template?: string,
+  format?: string
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/paste`, {
     method: 'POST',
@@ -77,6 +79,7 @@ export async function convertPaste(
     body: JSON.stringify({
       paste_text: pasteText,
       template: template || '',
+      format: format || '',
     }),
   });
 }
@@ -87,12 +90,14 @@ export async function convertPaste(
 export async function convertXLSX(
   file: File,
   sheetName?: string,
-  template?: string
+  template?: string,
+  format?: string
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const formData = new FormData();
   formData.append('file', file);
   if (sheetName) formData.append('sheet_name', sheetName);
   if (template) formData.append('template', template);
+  if (format) formData.append('format', format);
 
   return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/xlsx`, {
     method: 'POST',
@@ -105,11 +110,13 @@ export async function convertXLSX(
  */
 export async function convertTSV(
   file: File,
-  template?: string
+  template?: string,
+  format?: string
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const formData = new FormData();
   formData.append('file', file);
   if (template) formData.append('template', template);
+  if (format) formData.append('format', format);
 
   return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/tsv`, {
     method: 'POST',
@@ -159,10 +166,11 @@ export async function diffMDFlow(
 }
 
 /**
- * Preview pasted TSV/CSV data
+ * Preview pasted TSV/CSV data (template-driven column mapping)
  */
 export async function previewPaste(
-  pasteText: string
+  pasteText: string,
+  template?: string
 ): Promise<ApiResult<PreviewResponse>> {
   return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/preview`, {
     method: 'POST',
@@ -171,18 +179,21 @@ export async function previewPaste(
     },
     body: JSON.stringify({
       paste_text: pasteText,
+      template: template || undefined,
     }),
   });
 }
 
 /**
- * Preview TSV file
+ * Preview TSV file (template-driven column mapping)
  */
 export async function previewTSV(
-  file: File
+  file: File,
+  template?: string
 ): Promise<ApiResult<PreviewResponse>> {
   const formData = new FormData();
   formData.append('file', file);
+  if (template) formData.append('template', template);
 
   return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/tsv/preview`, {
     method: 'POST',
@@ -191,15 +202,17 @@ export async function previewTSV(
 }
 
 /**
- * Preview XLSX file
+ * Preview XLSX file (template-driven column mapping)
  */
 export async function previewXLSX(
   file: File,
-  sheetName?: string
+  sheetName?: string,
+  template?: string
 ): Promise<ApiResult<PreviewResponse>> {
   const formData = new FormData();
   formData.append('file', file);
   if (sheetName) formData.append('sheet_name', sheetName);
+  if (template) formData.append('template', template);
 
   return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/xlsx/preview`, {
     method: 'POST',
@@ -215,17 +228,22 @@ export function isGoogleSheetsURL(text: string): boolean {
 }
 
 /**
- * Fetch Google Sheet data
+ * Fetch Google Sheet data (optionally for a specific sheet by gid).
+ * Uses Next.js /api/gsheet/fetch so OAuth cookie is sent and backend gets Bearer token (private sheets).
  */
 export async function fetchGoogleSheet(
-  url: string
+  url: string,
+  gid?: string
 ): Promise<ApiResult<GoogleSheetResponse>> {
-  return apiCall<GoogleSheetResponse>(`${API_URL}/api/mdflow/gsheet`, {
+  const body: { url: string; gid?: string } = { url };
+  if (gid) body.gid = gid;
+  return apiCall<GoogleSheetResponse>(`/api/gsheet/fetch`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify(body),
+    credentials: 'include',
   });
 }
 
@@ -251,14 +269,18 @@ export async function getGoogleSheetSheets(
 export async function convertGoogleSheet(
   url: string,
   template?: string,
-  gid?: string
+  gid?: string,
+  format?: string
 ): Promise<ApiResult<MDFlowConvertResponse>> {
-  const payload: { url: string; template: string; gid?: string } = {
+  const payload: { url: string; template: string; gid?: string; format?: string } = {
     url,
     template: template || '',
   };
   if (gid) {
     payload.gid = gid;
+  }
+  if (format) {
+    payload.format = format;
   }
   return apiCall<MDFlowConvertResponse>(
     `/api/gsheet/convert`,

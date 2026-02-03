@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
 import {
   usePreviewPasteQuery,
   usePreviewTSVQuery,
   usePreviewXLSXQuery,
 } from "@/lib/mdflowQueries";
 import { InputMode, PreviewResponse } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
 
 interface PreviewManagementProps {
   mode: InputMode;
   pasteText: string;
   file: File | null;
   selectedSheet: string;
+  template?: string;
   preview: PreviewResponse | null;
   previewLoading: boolean;
   showPreview: boolean;
@@ -28,6 +29,7 @@ export function usePreviewManagement({
   pasteText,
   file,
   selectedSheet,
+  template,
   preview,
   previewLoading,
   showPreview,
@@ -38,13 +40,15 @@ export function usePreviewManagement({
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
   const previewPasteQuery = usePreviewPasteQuery(
     debouncedPasteText,
-    mode === "paste"
+    mode === "paste",
+    template
   );
-  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv");
+  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv", template);
   const previewXLSXQuery = usePreviewXLSXQuery(
     file,
     selectedSheet,
-    mode === "xlsx"
+    mode === "xlsx",
+    template
   );
 
   // Auto-preview with debounce when paste text changes

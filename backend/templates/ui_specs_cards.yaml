@@ -1,0 +1,71 @@
+name: ui_specs_cards
+description: "UI/UX specification items rendered as cards with requirements, behaviors, and validations"
+
+header_synonyms:
+  no:
+    - "No"
+    - Item Number
+    - "Item #"
+  item_name:
+    - "Item Name"
+    - Component
+    - Element
+    - Field Name
+  item_type:
+    - "Item Type"
+    - Type
+    - Control Type
+    - Widget Type
+  required_optional:
+    - "Required/Optional"
+    - Required
+    - Mandatory
+    - Optional
+  display_conditions:
+    - "Display Conditions"
+    - Visibility
+    - Show When
+    - Conditions
+  input_restrictions:
+    - "Input Restrictions"
+    - Validation
+    - Constraints
+    - Rules
+  action:
+    - Action
+    - Behavior
+    - On Click
+    - Handler
+
+required_fields:
+  - item_name
+
+output:
+  type: row_cards
+  row_cards:
+    title_from:
+      any_of: ["Item Name", Component, Element]
+    sections:
+      - label: "Type"
+        from:
+          any_of: ["Item Type", Type, "Control Type"]
+      - label: "Required"
+        from:
+          any_of: ["Required/Optional", Required, Mandatory]
+      - label: "Display Conditions"
+        from:
+          any_of: ["Display Conditions", Visibility, "Show When"]
+      - label: "Input Restrictions"
+        from:
+          any_of: ["Input Restrictions", Validation, Constraints]
+      - label: "Action"
+        from:
+          any_of: [Action, Behavior, "On Click"]
+    extras:
+      mode: append_section
+      label: "Other Properties"
+
+metadata:
+  template_type: ui_spec
+  version: "1.0"
+  use_case: "UI/UX specification and design documentation"

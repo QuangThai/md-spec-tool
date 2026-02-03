@@ -160,11 +160,11 @@ const HeroSection = memo(function HeroSection() {
 
 export default function BatchPageClient() {
   const [template, setTemplate] = useState("default");
-  const { data: templates = ["default"] } = useMDFlowTemplatesQuery();
+  const { data: templates = [] } = useMDFlowTemplatesQuery();
 
-  // Sync template with available templates
+  // Sync template with available templates (templates are TemplateMetadata[], template is name string)
   useEffect(() => {
-    if (!templates.includes(template)) {
+    if (templates.length > 0 && !templates.some((t) => t.name === template)) {
       setTemplate("default");
     }
   }, [templates, template]);

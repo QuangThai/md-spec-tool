@@ -1,9 +1,9 @@
-import { useCallback } from "react";
 import {
   useGetXLSXSheetsMutation,
   usePreviewTSVMutation,
   usePreviewXLSXMutation,
 } from "@/lib/mdflowQueries";
+import { useCallback } from "react";
 
 interface FileHandlingProps {
   setFile: (file: File) => void;
@@ -13,6 +13,7 @@ interface FileHandlingProps {
   setSelectedSheet: (sheet: string) => void;
   setPreview: (preview: any) => void;
   setShowPreview: (show: boolean) => void;
+  template?: string;
 }
 
 /**
@@ -27,10 +28,11 @@ export function useFileHandling({
   setSelectedSheet,
   setPreview,
   setShowPreview,
+  template,
 }: FileHandlingProps) {
   const getSheetsMutation = useGetXLSXSheetsMutation();
-  const previewTSVMutation = usePreviewTSVMutation();
-  const previewXLSXMutation = usePreviewXLSXMutation();
+  const previewTSVMutation = usePreviewTSVMutation(template);
+  const previewXLSXMutation = usePreviewXLSXMutation(template);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,0 +1,54 @@
+name: bdd_scenarios_cards
+description: "BDD-style scenario specifications with Given-When-Then structure rendered as cards"
+
+header_synonyms:
+  feature:
+    - Feature
+    - Epic
+    - Story
+  scenario:
+    - Scenario
+    - "Scenario Name"
+    - Title
+  instructions:
+    - "Given"
+    - Preconditions
+    - Setup
+    - "Given When"
+  expected:
+    - Then
+    - Expected
+    - "Expected Behavior"
+    - Outcome
+  notes:
+    - Notes
+    - Comments
+    - Tags
+
+required_fields:
+  - feature
+  - scenario
+
+output:
+  type: row_cards
+  row_cards:
+    title_from:
+      any_of: [Scenario, "Scenario Name", Feature]
+    sections:
+      - label: "Feature"
+        from:
+          any_of: [Feature, Epic, Story]
+      - label: "Given"
+        from:
+          any_of: ["Given", Preconditions, Setup]
+      - label: "When/Then"
+        from:
+          any_of: [Then, Expected, "Expected Behavior"]
+    extras:
+      mode: append_section
+      label: "Additional Context"
+
+metadata:
+  template_type: bdd
+  version: "1.0"
+  use_case: "Behavior-Driven Development scenario documentation"

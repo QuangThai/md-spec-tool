@@ -1,7 +1,7 @@
 "use client";
 
-import { formatShortcut, SHORTCUTS } from "@/lib/useKeyboardShortcuts";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
+import { formatShortcut, SHORTCUTS } from "@/lib/useKeyboardShortcuts";
 import { Command } from "cmdk";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -49,7 +49,7 @@ export interface CommandPaletteProps {
   onShowHistory: () => void;
   onOpenTemplateEditor: () => void;
   onOpenValidation: () => void;
-  templates: string[];
+  templates: Array<string | { name: string; description?: string }>;
   currentTemplate: string;
   onSelectTemplate: (template: string) => void;
   hasOutput: boolean;
@@ -79,7 +79,7 @@ export function CommandPalette({
       if (stored) {
         setRecentCommandIds(JSON.parse(stored));
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const addToRecent = useCallback((id: CommandId) => {
@@ -88,7 +88,7 @@ export function CommandPalette({
       const updated = [id, ...filtered].slice(0, MAX_RECENT);
       try {
         localStorage.setItem(RECENT_COMMANDS_KEY, JSON.stringify(updated));
-      } catch {}
+      } catch { }
       return updated;
     });
   }, []);
@@ -140,14 +140,19 @@ export function CommandPalette({
       },
     ];
 
-    const templateItems: CommandItem[] = templates.map((t) => ({
-      id: `template-${t}` as CommandId,
-      label: t === currentTemplate ? `${t} (current)` : t,
-      icon: <FileText className="h-4 w-4" />,
-      group: "templates",
-      onSelect: () =>
-        handleSelect(`template-${t}` as CommandId, () => onSelectTemplate(t)),
-    }));
+    const templateItems: CommandItem[] = templates.map((t) => {
+      const name = typeof t === "string" ? t : t.name;
+      return {
+        id: `template-${name}` as CommandId,
+        label: name === currentTemplate ? `${name} (current)` : name,
+        icon: <FileText className="h-4 w-4" />,
+        group: "templates",
+        onSelect: () =>
+          handleSelect(`template-${name}` as CommandId, () =>
+            onSelectTemplate(name)
+          ),
+      };
+    });
 
     const tools: CommandItem[] = [
       {

@@ -45,8 +45,6 @@ var HeaderSynonyms = map[string]CanonicalField{
 	"steps":        FieldInstructions,
 	"test steps":   FieldInstructions,
 	"test_steps":   FieldInstructions,
-	"action":       FieldInstructions,
-	"actions":      FieldInstructions,
 	"procedure":    FieldInstructions,
 
 	// Inputs
@@ -163,10 +161,12 @@ var HeaderSynonyms = map[string]CanonicalField{
 	"条件":                 FieldDisplayConditions,
 
 	// === Action (Phase 3) ===
-	"操作":       FieldAction,
+	"action":       FieldAction,
+	"actions":      FieldAction,
+	"操作":         FieldAction,
 	"アクション":    FieldAction,
 	"イベント":     FieldAction,
-	"on click": FieldAction,
+	"on click":     FieldAction,
 
 	// === Navigation Destination (Phase 3) ===
 	"navigation destination": FieldNavigationDest,

@@ -1,0 +1,65 @@
+name: api_endpoints_cards
+description: "API endpoint specifications rendered as cards with method, path, request, and response details"
+
+header_synonyms:
+  endpoint:
+    - Endpoint
+    - "API Path"
+    - URL
+    - Route
+  type:
+    - Type
+    - Method
+    - "HTTP Method"
+    - Verb
+  scenario:
+    - Scenario
+    - Description
+    - "Use Case"
+    - Purpose
+  instructions:
+    - Instructions
+    - Request
+    - "Request Body"
+    - Payload
+  expected:
+    - Expected
+    - Response
+    - "Response Body"
+    - Result
+  notes:
+    - Notes
+    - Comments
+    - Remarks
+    - Status
+
+required_fields:
+  - endpoint
+  - type
+
+output:
+  type: row_cards
+  row_cards:
+    title_from:
+      any_of: [Endpoint, "API Path", URL]
+    sections:
+      - label: "Method"
+        from:
+          any_of: [Type, Method, "HTTP Method"]
+      - label: "Description"
+        from:
+          any_of: [Scenario, Description, "Use Case"]
+      - label: "Request"
+        from:
+          any_of: [Instructions, Request, "Request Body"]
+      - label: "Response"
+        from:
+          any_of: [Expected, Response, "Response Body"]
+    extras:
+      mode: append_section
+      label: "Additional Info"
+
+metadata:
+  template_type: api_spec
+  version: "1.0"
+  use_case: "REST API endpoint documentation"
