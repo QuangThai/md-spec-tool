@@ -38,3 +38,5 @@ postgres_data/
 logs/
 
 use-cases
+
+.opencode/
