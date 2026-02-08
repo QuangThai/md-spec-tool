@@ -1,63 +1,20 @@
 package converter
 
-import "fmt"
-
 // TemplateConfig defines a conversion template with field mappings
 type TemplateConfig struct {
-	Name            string                       `yaml:"name"`
-	Description     string                       `yaml:"description"`
-	HeaderSynonyms  map[string][]string          `yaml:"header_synonyms"`
-	RequiredFields  []string                     `yaml:"required_fields"`
-	Output          TemplateOutputConfig         `yaml:"output"`
-	Metadata        map[string]interface{}       `yaml:"metadata,omitempty"`
-}
-
-// HeaderReference allows selecting a header by exact name or synonym list (first match wins)
-type HeaderReference struct {
-	Exact  string   `yaml:"exact,omitempty"`
-	AnyOf  []string `yaml:"any_of,omitempty"`
-}
-
-// RowCardsConfig configures per-row card/section output format
-type RowCardsConfig struct {
-	TitleFrom HeaderReference `yaml:"title_from"`
-	Sections  []RowCardSection `yaml:"sections"`
-	Extras    ExtrasConfig    `yaml:"extras,omitempty"`
-}
-
-// RowCardSection defines a section within a row card
-type RowCardSection struct {
-	Label string           `yaml:"label"`
-	From  HeaderReference `yaml:"from"`
-}
-
-// ExtrasConfig configures how unmapped columns are handled in cards
-type ExtrasConfig struct {
-	Mode  string `yaml:"mode"`  // append_section, ignore
-	Label string `yaml:"label"` // Section label if mode=append_section
-}
-
-// NarrativeConfig configures narrative/template-based output (future)
-type NarrativeConfig struct {
-	Template string `yaml:"template"`
-}
-
-// MultiSheetConfig handles multi-sheet document conversion
-type MultiSheetConfig struct {
-	Enabled           bool              `yaml:"enabled"`
-	PerSheetTemplate  map[string]string `yaml:"per_sheet_template,omitempty"`
-	DefaultTemplate   string            `yaml:"default_template,omitempty"`
-	SheetHeadingLevel int               `yaml:"sheet_heading_level"` // 1 for #, 2 for ##, etc
+	Name           string                 `yaml:"name"`
+	Description    string                 `yaml:"description"`
+	HeaderSynonyms map[string][]string    `yaml:"header_synonyms"`
+	RequiredFields []string               `yaml:"required_fields"`
+	Output         TemplateOutputConfig   `yaml:"output"`
+	Metadata       map[string]interface{} `yaml:"metadata,omitempty"`
 }
 
 // TemplateOutputConfig configures output format and how unmapped columns are handled
 type TemplateOutputConfig struct {
-	Type              string               `yaml:"type"` // generic_table, test_spec_markdown, row_cards, narrative
-	UnmappedColumns   string               `yaml:"unmapped_columns"` // append_section, ignore, generic_table
-	PreserveAllFields bool                 `yaml:"preserve_all_fields"`
-	RowCards          *RowCardsConfig      `yaml:"row_cards,omitempty"`
-	Narrative         *NarrativeConfig     `yaml:"narrative,omitempty"`
-	MultiSheet        *MultiSheetConfig    `yaml:"multi_sheet,omitempty"`
+	Type              string `yaml:"type"`             // spec, table
+	UnmappedColumns   string `yaml:"unmapped_columns"` // append_section, ignore
+	PreserveAllFields bool   `yaml:"preserve_all_fields"`
 }
 
 // TemplateValidationError represents a template validation error
@@ -78,77 +35,18 @@ func (t *TemplateConfig) Validate() []TemplateValidationError {
 		errors = append(errors, TemplateValidationError{"header_synonyms", "at least one field mapping is required"})
 	}
 
-	// Validate output type specific requirements (Phase 4)
+	// Validate output type specific requirements.
 	outputType := t.Output.Type
 	switch outputType {
-	case "generic_table":
-		// No special requirements
-		
-	case "test_spec_markdown":
+	case "spec", "table", "":
 		// No strict field requirements - can work with any columns
-		
-	case "row_cards":
-		if t.Output.RowCards == nil {
-			errors = append(errors, TemplateValidationError{
-				"output.row_cards", "RowCardsConfig required for row_cards output type"})
-		} else {
-			// Validate row_cards config references valid headers
-			if !isValidHeaderReference(t.Output.RowCards.TitleFrom, t.HeaderSynonyms) {
-				errors = append(errors, TemplateValidationError{
-					"output.row_cards.title_from", "title_from must reference a field in header_synonyms"})
-			}
-			for i, section := range t.Output.RowCards.Sections {
-				if !isValidHeaderReference(section.From, t.HeaderSynonyms) {
-					errors = append(errors, TemplateValidationError{
-						"output.row_cards.sections", 
-						fmt.Sprintf("Section %d 'from' must reference a field in header_synonyms", i)})
-				}
-			}
-		}
-		
-	case "narrative":
-		if t.Output.Narrative == nil {
-			errors = append(errors, TemplateValidationError{
-				"output.narrative", "NarrativeConfig required for narrative output type"})
-		}
-		
+
 	default:
-		if outputType != "" {
-			errors = append(errors, TemplateValidationError{
-				"output.type", "unknown output type: "+outputType})
-		}
+		errors = append(errors, TemplateValidationError{
+			"output.type", "unknown output type: " + outputType + " (supported: spec, table)"})
 	}
 
 	return errors
-}
-
-// isValidHeaderReference checks if a HeaderReference can resolve to a field in header_synonyms
-func isValidHeaderReference(ref HeaderReference, headerSynonyms map[string][]string) bool {
-	// If exact match, check if field exists in synonyms
-	if ref.Exact != "" {
-		normalized := normalizeCanonicalField(ref.Exact)
-		for field := range headerSynonyms {
-			if field == normalized {
-				return true
-			}
-		}
-		return false
-	}
-
-	// If any_of, at least one must match a field in synonyms
-	if len(ref.AnyOf) > 0 {
-		for _, synonym := range ref.AnyOf {
-			normalized := normalizeCanonicalField(synonym)
-			for field := range headerSynonyms {
-				if field == normalized {
-					return true
-				}
-			}
-		}
-		return false
-	}
-
-	return false
 }
 
 // GetCanonicalFieldName extracts the canonical field name from the YAML key
@@ -248,51 +146,4 @@ func (t *TemplateConfig) GetFieldValue(normalizedHeader string) (CanonicalField,
 		return CanonicalField(fieldName), true
 	}
 	return "", false
-}
-
-// Resolve finds the index of a header matching this HeaderReference
-// Returns -1 if no match found
-// Searches through actual table headers and uses template header_synonyms for matching
-func (ref HeaderReference) Resolve(headers []string, headerMap map[string]string) int {
-	// 1. Try exact match first
-	if ref.Exact != "" {
-		for i, h := range headers {
-			if h == ref.Exact {
-				return i
-			}
-		}
-		// Try to find by normalized synonym match
-		normalized := normalizeHeaderForMatching(ref.Exact)
-		if fieldName, ok := headerMap[normalized]; ok {
-			// Find first column that maps to this field
-			for i, h := range headers {
-				if normalizeHeaderForMatching(h) != "" {
-					checkNorm := normalizeHeaderForMatching(h)
-					if checkNorm == normalized || headerMap[checkNorm] == fieldName {
-						return i
-					}
-				}
-			}
-		}
-		return -1
-	}
-
-	// 2. Try any_of list (first match wins)
-	if len(ref.AnyOf) > 0 {
-		for _, synonym := range ref.AnyOf {
-			normalized := normalizeHeaderForMatching(synonym)
-			if fieldName, ok := headerMap[normalized]; ok {
-				// Find first column that maps to this field
-				for i, h := range headers {
-					checkNorm := normalizeHeaderForMatching(h)
-					if checkNorm == normalized || headerMap[checkNorm] == fieldName {
-						return i
-					}
-				}
-			}
-		}
-		return -1
-	}
-
-	return -1
 }

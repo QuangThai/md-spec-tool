@@ -97,7 +97,7 @@ export default function GalleryPageClient() {
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest text-white/40">
-                  {item.template || "default"}
+                  {item.template || "spec"}
                 </span>
                 <span className="text-[10px] text-white/40">
                   {new Date(item.created_at).toLocaleDateString()}

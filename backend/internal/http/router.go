@@ -1,8 +1,8 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/md-spec-tool/internal/ai"
@@ -11,11 +11,14 @@ import (
 	"github.com/yourorg/md-spec-tool/internal/http/handlers"
 	"github.com/yourorg/md-spec-tool/internal/http/middleware"
 	"github.com/yourorg/md-spec-tool/internal/share"
+	"github.com/yourorg/md-spec-tool/internal/suggest"
 )
 
 func SetupRouter(cfg *config.Config) *gin.Engine {
 	router := gin.Default()
-	router.MaxMultipartMemory = 8 << 20
+	// MaxMultipartMemory controls when to spill to disk, should be much smaller than MaxUploadBytes
+	// to avoid OOM under concurrent load. Use 8MB buffer for safety under concurrent uploads.
+	router.MaxMultipartMemory = 8 * 1024 * 1024 // 8MB
 
 	// Apply middlewares
 	router.Use(middleware.CORS(cfg))
@@ -23,24 +26,52 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// Public routes
 	router.GET("/health", handlers.HealthHandler)
 
-	// Create shared HTTP client for outbound requests (Google Sheets, OpenAI, etc.)
-	// This avoids creating new clients per request and ensures proper timeout handling
+	// Create shared HTTP client for outbound requests (Google Sheets, etc.)
 	httpClient := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: cfg.HTTPClientTimeout,
 	}
 
 	// MDFlow converter routes (public, no auth required)
-	// Inject dependencies: converter, renderer, httpClient
+	conv := converter.NewConverter()
+	if cfg.UseNewConverterPipeline {
+		conv.WithNewPipeline()
+	}
+
+	// Create shared AI service for all AI operations (auto-enabled when OPENAI_API_KEY is set)
+	var aiService ai.Service
+	if cfg.AIEnabled {
+		aiConfig := ai.DefaultConfig()
+		aiConfig.Model = cfg.OpenAIModel
+		aiConfig.APIKey = cfg.OpenAIAPIKey
+		aiConfig.RequestTimeout = cfg.AIRequestTimeout
+		aiConfig.MaxRetries = cfg.AIMaxRetries
+		aiConfig.CacheTTL = cfg.AICacheTTL
+		aiConfig.MaxCacheSize = cfg.AIMaxCacheSize
+		aiConfig.RetryBaseDelay = cfg.AIRetryBaseDelay
+
+		var err error
+		aiService, err = ai.NewService(aiConfig)
+		if err != nil {
+			slog.Warn("AI service initialization failed", "error", err)
+		} else {
+			conv.WithAIService(aiService)
+			slog.Info("AI service initialized", "model", aiConfig.Model)
+		}
+	}
+
 	mdflowHandler := handlers.NewMDFlowHandler(
-		converter.NewConverter(),
+		conv,
 		converter.NewMDFlowRenderer(),
 		httpClient,
+		cfg,
 	)
 
-	// Configure AI suggester if API key is available
-	if cfg.OpenAIAPIKey != "" {
-		aiSuggester := ai.NewSuggester(cfg.OpenAIAPIKey, cfg.OpenAIModel)
+	// Create diff handler (always created; supports BYOK even when no server AI key)
+	diffHandler := handlers.NewDiffHandler(aiService, cfg)
+	if aiService != nil {
+		aiSuggester := suggest.NewSuggester(aiService)
 		mdflowHandler.SetAISuggester(aiSuggester)
+		mdflowHandler.SetAIService(aiService)
 	}
 
 	mdflow := router.Group("/api/mdflow")
@@ -56,9 +87,10 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		mdflow.GET("/templates/info", mdflowHandler.GetTemplateInfo)
 		mdflow.GET("/templates/:name", mdflowHandler.GetTemplateContent)
 		mdflow.POST("/templates/preview", mdflowHandler.PreviewTemplate)
-		mdflow.POST("/diff", handlers.DiffMDFlow())
+		mdflow.POST("/diff", diffHandler.DiffMDFlow)
 		mdflow.POST("/gsheet", mdflowHandler.FetchGoogleSheet)
 		mdflow.POST("/gsheet/sheets", mdflowHandler.GetGoogleSheetSheets)
+		mdflow.POST("/gsheet/preview", mdflowHandler.PreviewGoogleSheet)
 		mdflow.POST("/gsheet/convert", mdflowHandler.ConvertGoogleSheet)
 		mdflow.POST("/validate", mdflowHandler.Validate)
 		mdflow.POST("/ai/suggest", mdflowHandler.GetAISuggestions)
@@ -69,13 +101,13 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 
 	shareRoutes := router.Group("/api/share")
 	{
-		shareRoutes.POST("", middleware.RateLimit(10, time.Minute), shareHandler.CreateShare)
+		shareRoutes.POST("", middleware.RateLimit(cfg.ShareCreateRateLimit, cfg.RateLimitWindow), shareHandler.CreateShare)
 		shareRoutes.GET("/public", shareHandler.ListPublic)
 		shareRoutes.GET("/:key", shareHandler.GetShare)
-		shareRoutes.PATCH("/:key", middleware.RateLimit(20, time.Minute), shareHandler.UpdateShare)
+		shareRoutes.PATCH("/:key", middleware.RateLimit(cfg.ShareUpdateRateLimit, cfg.RateLimitWindow), shareHandler.UpdateShare)
 		shareRoutes.GET("/:key/comments", shareHandler.ListComments)
-		shareRoutes.POST("/:key/comments", middleware.RateLimit(20, time.Minute), shareHandler.CreateComment)
-		shareRoutes.PATCH("/:key/comments/:commentId", middleware.RateLimit(20, time.Minute), shareHandler.UpdateComment)
+		shareRoutes.POST("/:key/comments", middleware.RateLimit(cfg.ShareCommentRateLimit, cfg.RateLimitWindow), shareHandler.CreateComment)
+		shareRoutes.PATCH("/:key/comments/:commentId", middleware.RateLimit(cfg.ShareCommentRateLimit, cfg.RateLimitWindow), shareHandler.UpdateComment)
 	}
 
 	return router

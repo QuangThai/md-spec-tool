@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/yourorg/md-spec-tool/internal/converter"
@@ -32,12 +31,9 @@ func main() {
 		return
 	}
 
-	renderer := converter.NewMDFlowRenderer()
-	templates := renderer.GetTemplateNames()
-	sort.Strings(templates)
-
 	results := make([]diffResult, 0)
 	totalChecks := 0
+	parser := converter.NewPasteParser()
 
 	for _, filePath := range files {
 		inputBytes, readErr := os.ReadFile(filePath)
@@ -60,25 +56,29 @@ func main() {
 			continue
 		}
 		analysis := converter.DetectInputType(content)
+		formats := []string{"spec", "table"}
+		if analysis.Type == converter.InputTypeMarkdown {
+			formats = []string{"spec"}
+		}
 
-		for _, tmpl := range templates {
+		for _, format := range formats {
 			totalChecks++
-			outputPath := filepath.Join(outputRoot, tmpl, filepath.Base(filePath))
+			outputPath := filepath.Join(outputRoot, format, filepath.Base(filePath))
 			outputBytes, outErr := os.ReadFile(outputPath)
 			if outErr != nil {
 				results = append(results, diffResult{
 					file:     filepath.Base(filePath),
-					template: tmpl,
+					template: format,
 					err:      outErr,
 				})
 				continue
 			}
 
-			missing := validateOutput(specDoc, analysis, tmpl, string(outputBytes))
+			missing := validateOutput(specDoc, analysis, format, string(outputBytes), content, parser)
 			if len(missing) > 0 {
 				results = append(results, diffResult{
 					file:     filepath.Base(filePath),
-					template: tmpl,
+					template: format,
 					missing:  missing,
 				})
 			}
@@ -110,15 +110,17 @@ func collectUseCaseFiles(dir string) ([]string, error) {
 		}
 		files = append(files, matches...)
 	}
-	sort.Strings(files)
 	return files, nil
 }
 
-func validateOutput(doc *converter.SpecDoc, analysis converter.InputAnalysis, template string, output string) []string {
+func validateOutput(doc *converter.SpecDoc, analysis converter.InputAnalysis, format string, output string, source string, parser *converter.PasteParser) []string {
 	if analysis.Type == converter.InputTypeMarkdown {
 		return validateMarkdown(doc, output)
 	}
-	return validateTable(doc, template, output)
+	if format == "table" {
+		return validateTableOutput(source, output, parser)
+	}
+	return validateSpecOutput(source, output, parser)
 }
 
 func validateMarkdown(doc *converter.SpecDoc, output string) []string {
@@ -156,6 +158,51 @@ func validateTable(doc *converter.SpecDoc, template string, output string) []str
 	return uniqueMissing(missing)
 }
 
+func validateTableOutput(source string, output string, parser *converter.PasteParser) []string {
+	matrix, err := parser.Parse(source)
+	if err != nil || len(matrix) == 0 {
+		return nil
+	}
+	normalizedOutput := normalizeTableOutput(output)
+	missing := make([]string, 0)
+	for _, row := range matrix {
+		for _, cell := range row {
+			cell = strings.TrimSpace(cell)
+			if cell == "" || cell == "-" {
+				continue
+			}
+			if !strings.Contains(normalizedOutput, normalizeTableOutput(cell)) {
+				missing = append(missing, preview(cell))
+			}
+		}
+	}
+	return uniqueMissing(missing)
+}
+
+func validateSpecOutput(source string, output string, parser *converter.PasteParser) []string {
+	matrix, err := parser.Parse(source)
+	if err != nil || len(matrix) == 0 {
+		return nil
+	}
+	normalizedOutput := normalizeSpecOutput(output)
+	missing := make([]string, 0)
+	for rowIndex, row := range matrix {
+		if rowIndex == 0 {
+			continue
+		}
+		for _, cell := range row {
+			cell = strings.TrimSpace(cell)
+			if cell == "" || cell == "-" {
+				continue
+			}
+			if !strings.Contains(normalizedOutput, normalizeSpecOutput(cell)) {
+				missing = append(missing, preview(cell))
+			}
+		}
+	}
+	return uniqueMissing(missing)
+}
+
 func validateRow(row converter.SpecRow, template string, normalizedOutput string) []string {
 	missing := make([]string, 0)
 	check := func(value string) {
@@ -185,43 +232,28 @@ func validateRow(row converter.SpecRow, template string, normalizedOutput string
 	}
 
 	switch template {
-	case "default":
+	case "spec":
 		check(row.ID)
-		check(row.Priority)
-		check(row.Type)
-		check(row.Precondition)
-		check(row.Instructions)
-		check(row.Inputs)
-		check(row.Expected)
-		check(row.Endpoint)
-		check(row.Notes)
-	case "feature-spec":
-		check(row.Instructions)
-		check(row.Expected)
-		check(row.Notes)
-	case "test-plan":
-		check(row.ID)
+		check(row.Feature)
+		check(row.Scenario)
 		check(row.Priority)
 		check(row.Type)
 		check(row.Status)
-		check(row.Endpoint)
 		check(row.Precondition)
 		check(row.Instructions)
 		check(row.Inputs)
 		check(row.Expected)
+		check(row.Endpoint)
 		check(row.Notes)
-	case "api-endpoint":
-		if strings.TrimSpace(row.Endpoint) != "" {
-			check(row.Endpoint)
-		} else {
-			check(row.Scenario)
-		}
-		check(row.Scenario)
-		check(row.Instructions)
-		check(row.Inputs)
-		check(row.Expected)
-		check(row.Notes)
-	case "spec-table":
+		check(row.No)
+		check(row.ItemName)
+		check(row.ItemType)
+		check(row.RequiredOptional)
+		check(row.DisplayConditions)
+		check(row.InputRestrictions)
+		check(row.Action)
+		check(row.NavigationDest)
+	case "table":
 		check(row.No)
 		check(row.ItemName)
 		check(row.ItemType)
@@ -241,6 +273,26 @@ func normalize(value string) string {
 	value = strings.ReplaceAll(value, "\n", " ")
 	value = strings.ReplaceAll(value, "\t", " ")
 	return strings.Join(strings.Fields(value), " ")
+}
+
+func normalizeTableOutput(value string) string {
+	value = strings.ReplaceAll(value, "<br>", " ")
+	value = strings.ReplaceAll(value, "\\|", "|")
+	return normalize(value)
+}
+
+func normalizeSpecOutput(value string) string {
+	replacer := strings.NewReplacer(
+		"\\*", "*",
+		"\\_", "_",
+		"\\[", "[",
+		"\\]", "]",
+		"\\`", "`",
+	)
+	value = replacer.Replace(value)
+	value = strings.ReplaceAll(value, "**", "")
+	value = strings.ReplaceAll(value, "`", "")
+	return normalize(value)
 }
 
 func preview(value string) string {

@@ -19,8 +19,10 @@ import {
 } from "@/lib/mdflowQueries";
 import {
   useHistoryStore,
+  useMDFlowActions,
   useMDFlowStore,
-  type MDFlowStore,
+  useOpenAIKeyStore,
+  type MDFlowState,
 } from "@/lib/mdflowStore";
 import { createShare } from "@/lib/shareApi";
 import { ConversionRecord } from "@/lib/types";
@@ -93,6 +95,7 @@ const stagger = {
 };
 
 export default function MDFlowWorkbench() {
+  // Subscribe to state values with shallow comparison for performance
   const {
     mode,
     pasteText,
@@ -101,7 +104,6 @@ export default function MDFlowWorkbench() {
     selectedSheet,
     gsheetTabs,
     selectedGid,
-    template,
     format,
     mdflowOutput,
     warnings,
@@ -117,7 +119,7 @@ export default function MDFlowWorkbench() {
     aiSuggestionsError,
     aiConfigured,
   } = useMDFlowStore(
-    useShallow((state: MDFlowStore) => ({
+    useShallow((state): Omit<MDFlowState, 'validationRules' | 'dismissedWarningCodes' | 'template'> => ({
       mode: state.mode,
       pasteText: state.pasteText,
       file: state.file,
@@ -125,7 +127,6 @@ export default function MDFlowWorkbench() {
       selectedSheet: state.selectedSheet,
       gsheetTabs: state.gsheetTabs,
       selectedGid: state.selectedGid,
-      template: state.template,
       format: state.format,
       mdflowOutput: state.mdflowOutput,
       warnings: state.warnings,
@@ -143,33 +144,29 @@ export default function MDFlowWorkbench() {
     }))
   );
 
-  const setMode = useMDFlowStore((state) => state.setMode);
-  const setPasteText = useMDFlowStore((state) => state.setPasteText);
-  const setFile = useMDFlowStore((state) => state.setFile);
-  const setSheets = useMDFlowStore((state) => state.setSheets);
-  const setSelectedSheet = useMDFlowStore((state) => state.setSelectedSheet);
-  const setGsheetTabs = useMDFlowStore((state) => state.setGsheetTabs);
-  const setSelectedGid = useMDFlowStore((state) => state.setSelectedGid);
-  const setTemplate = useMDFlowStore((state) => state.setTemplate);
-  const setFormat = useMDFlowStore((state) => state.setFormat);
-  const setResult = useMDFlowStore((state) => state.setResult);
-  const setLoading = useMDFlowStore((state) => state.setLoading);
-  const setError = useMDFlowStore((state) => state.setError);
-  const setPreview = useMDFlowStore((state) => state.setPreview);
-  const setPreviewLoading = useMDFlowStore((state) => state.setPreviewLoading);
-  const setShowPreview = useMDFlowStore((state) => state.setShowPreview);
-  const setColumnOverride = useMDFlowStore((state) => state.setColumnOverride);
-  const setAISuggestions = useMDFlowStore((state) => state.setAISuggestions);
-  const setAISuggestionsLoading = useMDFlowStore(
-    (state) => state.setAISuggestionsLoading
-  );
-  const setAISuggestionsError = useMDFlowStore(
-    (state) => state.setAISuggestionsError
-  );
-  const clearAISuggestions = useMDFlowStore(
-    (state) => state.clearAISuggestions
-  );
-  const reset = useMDFlowStore((state) => state.reset);
+  // Get all actions with single selector - no performance impact since actions never change
+  const {
+    setMode,
+    setPasteText,
+    setFile,
+    setSheets,
+    setSelectedSheet,
+    setGsheetTabs,
+    setSelectedGid,
+    setFormat,
+    setResult,
+    setLoading,
+    setError,
+    setPreview,
+    setPreviewLoading,
+    setShowPreview,
+    setColumnOverride,
+    setAISuggestions,
+    setAISuggestionsLoading,
+    setAISuggestionsError,
+    clearAISuggestions,
+    reset,
+  } = useMDFlowActions();
 
   const addToHistory = useHistoryStore((state) => state.addToHistory);
   const history = useHistoryStore((state) => state.history);
@@ -196,6 +193,11 @@ export default function MDFlowWorkbench() {
   const [shareSlugError, setShareSlugError] = useState<string | null>(null);
   const shareOptionsRef = useRef<HTMLDivElement>(null);
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const openaiKey = useOpenAIKeyStore((s) => s.apiKey);
+  const setOpenaiKey = useOpenAIKeyStore((s) => s.setApiKey);
+  const clearOpenaiKey = useOpenAIKeyStore((s) => s.clearApiKey);
   const googleAuth = useGoogleAuth();
 
   useBodyScrollLock(showDiff);
@@ -217,20 +219,20 @@ export default function MDFlowWorkbench() {
   const previewPasteQuery = usePreviewPasteQuery(
     debouncedPasteText,
     mode === "paste" && debouncedPasteText.trim().length > 0 && !isGsheetUrl,
-    template
+    format
   );
-  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv", template);
+  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv", format);
   const previewXLSXQuery = usePreviewXLSXQuery(
     file,
     selectedSheet,
     mode === "xlsx",
-    template
+    format
   );
   const previewGoogleSheetQuery = usePreviewGoogleSheetQuery(
     debouncedPasteText.trim(),
     selectedGid,
     mode === "paste" && isGsheetUrl && gsheetTabs.length > 0 && Boolean(selectedGid),
-    template
+    format
   );
 
   // Reset store when leaving Studio so data is not shown when user comes back
@@ -440,27 +442,31 @@ export default function MDFlowWorkbench() {
         }
 
         // Check if it's a Google Sheets URL
-        if (isGoogleSheetsURL(pasteText.trim())) {
-          result = await convertGoogleSheetMutation.mutateAsync({
-            url: pasteText.trim(),
-            template: "default",
-            gid: selectedGid,
-            format,
-          });
-          const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
-          const tabLabel = selectedTab?.title || selectedGid;
-          inputPreview = tabLabel
-            ? `Google Sheet: ${pasteText.trim().slice(0, 60)}... (${tabLabel})`
-            : `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
-        } else {
-          result = await convertPasteMutation.mutateAsync({
-            pasteText,
-            template: "default",
-            format,
-          });
-          inputPreview =
-            pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
-        }
+         if (isGoogleSheetsURL(pasteText.trim())) {
+           // Note: format must correspond to a valid template registered in the backend
+           // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
+           result = await convertGoogleSheetMutation.mutateAsync({
+             url: pasteText.trim(),
+             template: format,
+             gid: selectedGid,
+             format,
+           });
+           const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
+           const tabLabel = selectedTab?.title || selectedGid;
+           inputPreview = tabLabel
+             ? `Google Sheet: ${pasteText.trim().slice(0, 60)}... (${tabLabel})`
+             : `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
+         } else {
+           // Note: format must correspond to a valid template registered in the backend
+           // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
+           result = await convertPasteMutation.mutateAsync({
+             pasteText,
+             template: format,
+             format,
+           });
+           inputPreview =
+             pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
+         }
       } else if (mode === "xlsx") {
         if (!file) {
           setError("No file uploaded");
@@ -469,7 +475,7 @@ export default function MDFlowWorkbench() {
         result = await convertXLSXMutation.mutateAsync({
           file,
           sheetName: selectedSheet,
-          template: "default",
+          template: format,
           format,
         });
         inputPreview = `${file.name}${selectedSheet ? ` (${selectedSheet})` : ""
@@ -481,7 +487,7 @@ export default function MDFlowWorkbench() {
         }
         result = await convertTSVMutation.mutateAsync({
           file,
-          template: "default",
+          template: format,
           format,
         });
         inputPreview = file.name;
@@ -516,7 +522,6 @@ export default function MDFlowWorkbench() {
     file,
     selectedSheet,
     selectedGid,
-    template,
     format,
     setLoading,
     setError,
@@ -625,7 +630,7 @@ export default function MDFlowWorkbench() {
     try {
       const result = await aiSuggestionsMutation.mutateAsync({
         pasteText,
-        template,
+        template: format,
       });
       setAISuggestions(result.suggestions, result.configured);
       if (result.error) {
@@ -640,7 +645,7 @@ export default function MDFlowWorkbench() {
     }
   }, [
     pasteText,
-    template,
+    format,
     aiSuggestionsLoading,
     setAISuggestionsLoading,
     setAISuggestionsError,
@@ -781,6 +786,19 @@ export default function MDFlowWorkbench() {
 
                 {/* Quick actions */}
                 <div className="flex items-center gap-1.5">
+                  <Tooltip content={openaiKey ? "OpenAI Key Active" : "Set OpenAI API Key"}>
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all cursor-pointer ${
+                        openaiKey
+                          ? "bg-green-500/15 hover:bg-green-500/25 border-green-500/30 hover:border-green-500/40 text-green-400"
+                          : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
+                      }`}
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                    </button>
+                  </Tooltip>
                   <Tooltip content="Template Editor">
                     <button
                       type="button"
@@ -801,6 +819,77 @@ export default function MDFlowWorkbench() {
                   </Tooltip>
                 </div>
               </div>
+
+              {/* BYOK: OpenAI API Key input panel */}
+              <AnimatePresence>
+                {showApiKeyInput && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="px-3 sm:px-4 py-2.5 border-b border-white/5 bg-black/20 shrink-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                      {openaiKey ? (
+                        <>
+                          <div className="flex-1 bg-black/30 border border-green-500/20 rounded-lg px-3 py-1.5 text-xs text-green-400/80 font-mono">
+                            sk-...{openaiKey.slice(-4)}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              clearOpenaiKey();
+                              setApiKeyDraft("");
+                              toast.success("API key cleared");
+                            }}
+                            className="shrink-0 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            type="password"
+                            value={apiKeyDraft}
+                            onChange={(e) => setApiKeyDraft(e.target.value)}
+                            placeholder="sk-..."
+                            className="flex-1 min-w-0 bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/90 placeholder-white/30 focus:border-accent-orange/30 focus:outline-none font-mono"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && apiKeyDraft.trim().length >= 10) {
+                                setOpenaiKey(apiKeyDraft.trim());
+                                toast.success("API key saved", "AI features are now enabled");
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (apiKeyDraft.trim().length >= 10) {
+                                setOpenaiKey(apiKeyDraft.trim());
+                                toast.success("API key saved", "AI features are now enabled");
+                              }
+                            }}
+                            disabled={apiKeyDraft.trim().length < 10}
+                            className={`shrink-0 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider rounded-lg border transition-all ${
+                              apiKeyDraft.trim().length >= 10
+                                ? "border-accent-orange/30 bg-accent-orange/20 text-white hover:bg-accent-orange/30 cursor-pointer"
+                                : "border-white/10 bg-white/5 text-white/30 cursor-not-allowed"
+                            }`}
+                          >
+                            Save
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-white/35 mt-1.5 pl-5.5">
+                      Your key is stored locally in your browser and sent to the backend as a per-request header. Never stored on our server.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3 custom-scrollbar bg-black/3">
                 <AnimatePresence mode="wait" initial={false}>
@@ -1134,7 +1223,6 @@ export default function MDFlowWorkbench() {
                   {/* Template dropdown - collapsible on mobile */}
                   <div className="flex-1 min-w-0">
                     <TemplateCards
-                      templates={templates}
                       selected={format}
                       onSelect={setFormat}
                       compact
@@ -1310,7 +1398,7 @@ export default function MDFlowWorkbench() {
                   </Tooltip>
                   <ShareButton
                     mdflowOutput={mdflowOutput}
-                    template={template}
+                    template={format}
                   />
                   {history.length > 0 && (
                     <Tooltip content="History">

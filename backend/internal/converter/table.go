@@ -18,12 +18,19 @@ type TableRow struct {
 
 // TableMeta contains metadata about the parsed table
 type TableMeta struct {
-	HeaderRowIndex   int      // 0-based index of header row in source
-	SourceURL        string   // Optional source URL (for Google Sheets)
-	Warnings         []string // Parsing warnings (e.g., "Duplicate header 'Status' renamed to 'Status (2)'")
-	TotalSourceRows  int      // Total rows in source (before filtering)
-	BlankHeaderCount int      // Count of blank headers encountered
-	DuplicateHeaders int      // Count of duplicate headers encountered
+	HeaderRowIndex    int       // 0-based index of header row in source
+	SourceURL         string    // Optional source URL (for Google Sheets)
+	Warnings          []string  // Parsing warnings (e.g., "Duplicate header 'Status' renamed to 'Status (2)'")
+	TotalSourceRows   int       // Total rows in source (before filtering)
+	BlankHeaderCount  int       // Count of blank headers encountered
+	DuplicateHeaders  int       // Count of duplicate headers encountered
+	ColumnMap         ColumnMap // Canonical field -> column index mapping
+	AIMode            string    // "on", "shadow", "off"
+	AIUsed            bool      // True if AI mapping was used
+	AIDegraded        bool      // True if fallback was used
+	AIAvgConfidence   float64   // Average AI confidence
+	AIMappedColumns   int       // Count of mapped columns by AI
+	AIUnmappedColumns int       // Count of unmapped columns by AI
 }
 
 // NewTable creates a new Table with basic validation

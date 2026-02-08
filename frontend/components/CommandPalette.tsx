@@ -2,6 +2,7 @@
 
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { formatShortcut, SHORTCUTS } from "@/lib/useKeyboardShortcuts";
+import { OutputFormat } from "@/lib/types";
 import { Command } from "cmdk";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -14,7 +15,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 
 const RECENT_COMMANDS_KEY = "mdflow-recent-commands";
 const MAX_RECENT = 5;
@@ -51,7 +52,7 @@ export interface CommandPaletteProps {
   onOpenValidation: () => void;
   templates: Array<string | { name: string; description?: string }>;
   currentTemplate: string;
-  onSelectTemplate: (template: string) => void;
+  onSelectTemplate: (format: OutputFormat) => void;
   hasOutput: boolean;
 }
 
@@ -149,7 +150,7 @@ export function CommandPalette({
         group: "templates",
         onSelect: () =>
           handleSelect(`template-${name}` as CommandId, () =>
-            onSelectTemplate(name)
+            onSelectTemplate(name as OutputFormat)
           ),
       };
     });
@@ -246,7 +247,7 @@ export function CommandPalette({
                     className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-white/50"
                   >
                     {recentCommands.map((cmd) => (
-                      <CommandItem key={`recent-${cmd.id}`} command={cmd} />
+                      <CommandItemRow key={`recent-${cmd.id}`} command={cmd} />
                     ))}
                   </Command.Group>
                 )}
@@ -256,7 +257,7 @@ export function CommandPalette({
                   className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-white/50"
                 >
                   {actionCommands.map((cmd) => (
-                    <CommandItem key={cmd.id} command={cmd} />
+                    <CommandItemRow key={cmd.id} command={cmd} />
                   ))}
                 </Command.Group>
 
@@ -265,7 +266,7 @@ export function CommandPalette({
                   className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-white/50"
                 >
                   {templateCommands.map((cmd) => (
-                    <CommandItem key={cmd.id} command={cmd} />
+                    <CommandItemRow key={cmd.id} command={cmd} />
                   ))}
                 </Command.Group>
 
@@ -274,7 +275,7 @@ export function CommandPalette({
                   className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-white/50"
                 >
                   {toolCommands.map((cmd) => (
-                    <CommandItem key={cmd.id} command={cmd} />
+                    <CommandItemRow key={cmd.id} command={cmd} />
                   ))}
                 </Command.Group>
               </Command.List>
@@ -286,7 +287,7 @@ export function CommandPalette({
   );
 }
 
-function CommandItem({ command }: { command: CommandItem }) {
+const CommandItemRow = memo(function CommandItemRow({ command }: { command: CommandItem }) {
   return (
     <Command.Item
       value={command.label}
@@ -303,4 +304,4 @@ function CommandItem({ command }: { command: CommandItem }) {
       )}
     </Command.Item>
   );
-}
+});

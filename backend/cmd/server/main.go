@@ -23,14 +23,7 @@ func main() {
 	_ = godotenv.Load("../.env")
 
 	cfg := config.LoadConfig()
-	slog.Info("Starting server", "host", cfg.Host, "port", cfg.Port)
-	
-	// Log OpenAI configuration status
-	if cfg.OpenAIAPIKey != "" {
-		slog.Info("OpenAI API key configured", "model", cfg.OpenAIModel)
-	} else {
-		slog.Warn("OpenAI API key not configured - AI suggestions will be disabled")
-	}
+	slog.Info("Starting server", "host", cfg.Host, "port", cfg.Port, "ai_enabled", cfg.AIEnabled)
 
 	// Setup router
 	router := httphandler.SetupRouter(cfg)

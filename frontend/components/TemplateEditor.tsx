@@ -1,19 +1,35 @@
 "use client";
 
 import {
-  BUILT_IN_TEMPLATES,
-  DEFAULT_SAMPLE_DATA,
-  STARTER_TEMPLATE,
   STORAGE_KEY,
 } from "@/constants/template-editor";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+
+// Default template for custom template editor
+const DEFAULT_TEMPLATE_CONTENT = `# {{.Title}}
+
+This specification contains {{.TotalCount}} items.
+
+{{range .Items}}
+## {{.Title}}
+
+**Description:** {{.Description}}
+
+{{end}}
+`;
+
+// Default sample data for preview
+const DEFAULT_SAMPLE_DATA = `Title\tDescription
+Feature 1\tDescription of feature 1
+Feature 2\tDescription of feature 2
+`;
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { TemplateFunction, TemplateVariable } from "@/lib/types";
 import {
   usePreviewTemplateMutation,
   useTemplateContentQuery,
-  useTemplateInfoQuery,
 } from "@/lib/mdflowQueries";
+import { useTemplatesSync } from "@/hooks/useTemplatesSync";
 import {
   getFunctionInsertSnippet,
   normalizeVariableName,
@@ -44,7 +60,7 @@ import {
   Variable,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 interface CustomTemplate {
   id: string;
@@ -69,7 +85,7 @@ export function TemplateEditor({
 }: TemplateEditorProps) {
   useBodyScrollLock(isOpen);
   // Editor state
-  const [templateContent, setTemplateContent] = useState(STARTER_TEMPLATE);
+  const [templateContent, setTemplateContent] = useState(DEFAULT_TEMPLATE_CONTENT);
   const [templateName, setTemplateName] = useState("My Custom Template");
   const [sampleData, setSampleData] = useState(
     currentSampleData || DEFAULT_SAMPLE_DATA
@@ -78,17 +94,15 @@ export function TemplateEditor({
   // Preview state
   const [previewOutput, setPreviewOutput] = useState("");
   const [previewError, setPreviewError] = useState<string | null>(null);
-  // Template info (variables/functions)
-  const { data: templateInfo } = useTemplateInfoQuery(isOpen);
+  
+  // Template info (variables/functions) - synced from backend
+  const { templateInfo, loading: templatesLoading, error: templatesError } = useTemplatesSync(isOpen);
   const [showVariables, setShowVariables] = useState(true);
   const [showFunctions, setShowFunctions] = useState(true);
 
   // Custom templates
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    null
-  );
-  const [selectedBuiltInId, setSelectedBuiltInId] = useState<string | null>(
     null
   );
   const [isUnsavedImport, setIsUnsavedImport] = useState(false);
@@ -114,22 +128,12 @@ export function TemplateEditor({
     previewTemplateMutation;
   const isPreviewLoading = previewLoading || manualPreviewLoading;
 
-  const { data: builtInTemplate } = useTemplateContentQuery(
-    selectedBuiltInId || "",
-    isOpen && Boolean(selectedBuiltInId)
-  );
-
   // Load custom templates on mount
   useEffect(() => {
     if (isOpen) {
       loadCustomTemplates();
       // Reset initial preview flag when modal opens
       initialPreviewRan.current = false;
-      // Auto-select default built-in template on first open
-      if (isInitialOpen.current) {
-        isInitialOpen.current = false;
-        setSelectedBuiltInId("default");
-      }
     }
   }, [isOpen]);
 
@@ -206,19 +210,11 @@ export function TemplateEditor({
     return () => clearTimeout(timer);
   }, [templateContent, sampleData, activeTab, isOpen, runPreview]);
 
-  // Load built-in template
-  const loadBuiltInTemplate = (id: string) => {
-    setSelectedTemplateId(null);
-    setSelectedBuiltInId(id);
-    setIsUnsavedImport(false);
-  };
-
   // Load custom template
   const loadCustomTemplate = (template: CustomTemplate) => {
     setTemplateContent(template.content);
     setTemplateName(template.name);
     setSelectedTemplateId(template.id);
-    setSelectedBuiltInId(null);
     setIsUnsavedImport(false);
   };
 
@@ -250,7 +246,6 @@ export function TemplateEditor({
       };
       saveCustomTemplates([...customTemplates, newTemplate]);
       setSelectedTemplateId(newTemplate.id);
-      setSelectedBuiltInId(null);
       onSaveTemplate?.(newTemplate);
     }
 
@@ -264,7 +259,7 @@ export function TemplateEditor({
     saveCustomTemplates(updated);
     if (selectedTemplateId === id) {
       setSelectedTemplateId(null);
-      setTemplateContent(STARTER_TEMPLATE);
+      setTemplateContent(DEFAULT_TEMPLATE_CONTENT);
       setTemplateName("My Custom Template");
     }
   };
@@ -300,7 +295,6 @@ export function TemplateEditor({
           setTemplateContent(data.content);
           setTemplateName(data.name || "Imported Template");
           setSelectedTemplateId(null);
-          setSelectedBuiltInId(null);
           setIsUnsavedImport(true);
         }
       } catch (err) {
@@ -343,14 +337,6 @@ export function TemplateEditor({
       textarea.scrollLeft = scrollLeft;
     }, 0);
   };
-
-  useEffect(() => {
-    if (builtInTemplate) {
-      setTemplateContent(builtInTemplate.content);
-      setTemplateName(`${builtInTemplate.name} (copy)`);
-      setIsUnsavedImport(false);
-    }
-  }, [builtInTemplate]);
 
   if (!isOpen) return null;
 
@@ -484,38 +470,24 @@ export function TemplateEditor({
                   Templates
                 </h3>
 
-                {/* Built-in templates */}
+                {/* Starter template option */}
                 <div className="space-y-1 mb-4">
                   <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">
-                    Built-in
+                    Templates
                   </p>
-                  {BUILT_IN_TEMPLATES.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        loadBuiltInTemplate(t.id);
-                        setSidebarOpen(false);
-                      }}
-                      className={`w-full text-left px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer ${
-                        selectedBuiltInId === t.id
-                          ? "bg-accent-orange/20 text-accent-orange border border-accent-orange/30"
-                          : "text-white/70 hover:bg-white/5 hover:text-white border border-transparent"
-                      }`}
-                    >
-                      <FileText
-                        className={`w-3.5 h-3.5 shrink-0 ${
-                          selectedBuiltInId === t.id
-                            ? "text-accent-orange"
-                            : "text-white/40"
-                        }`}
-                      />
-                      <span className="truncate">{t.name}</span>
-                      {selectedBuiltInId === t.id && (
-                        <Check className="w-3 h-3 ml-auto shrink-0 text-accent-orange" />
-                      )}
+                  <button
+                    onClick={() => {
+                      setTemplateContent(DEFAULT_TEMPLATE_CONTENT);
+                      setTemplateName("Default Template");
+                      setSelectedTemplateId(null);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full text-left px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer text-white/70 hover:bg-white/5 hover:text-white border border-transparent`}
+                  >
+                    <FileText className="w-3.5 h-3.5 shrink-0 text-white/40" />
+                    <span className="truncate">Default Template</span>
                     </button>
-                  ))}
-                </div>
+                    </div>
 
                 {/* Custom templates */}
                 {customTemplates.length > 0 && (
@@ -604,10 +576,9 @@ export function TemplateEditor({
                 {/* New template button */}
                 <button
                   onClick={() => {
-                    setTemplateContent(STARTER_TEMPLATE);
+                    setTemplateContent(DEFAULT_TEMPLATE_CONTENT);
                     setTemplateName("My Custom Template");
                     setSelectedTemplateId(null);
-                    setSelectedBuiltInId(null);
                     setIsUnsavedImport(false);
                     setSidebarOpen(false);
                   }}
@@ -624,6 +595,21 @@ export function TemplateEditor({
                   <BookOpen className="w-3.5 h-3.5" />
                   Reference
                 </h3>
+
+                {/* Error state */}
+                {templatesError && (
+                  <div className="p-2 rounded bg-red-500/20 border border-red-500/30 text-red-400 text-xs mb-4">
+                    {templatesError}
+                  </div>
+                )}
+
+                {/* Loading state */}
+                {templatesLoading && (
+                  <div className="flex items-center gap-2 text-white/50 text-xs mb-4">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Loading templates...
+                  </div>
+                )}
 
                 {templateInfo && (
                   <div className="space-y-4">
@@ -932,8 +918,8 @@ export function TemplateEditor({
   );
 }
 
-// Tab button component
-function TabButton({
+// Tab button component - memoized
+const TabButton = memo(function TabButton({
   active,
   onClick,
   icon,
@@ -968,10 +954,10 @@ function TabButton({
       )}
     </button>
   );
-}
+});
 
-// Variable item component
-function VariableItem({
+// Variable item component - memoized
+const VariableItem = memo(function VariableItem({
   variable,
   onInsert,
 }: {
@@ -1002,10 +988,10 @@ function VariableItem({
       </p>
     </button>
   );
-}
+});
 
-// Function item component
-function FunctionItem({
+// Function item component - memoized
+const FunctionItem = memo(function FunctionItem({
   func,
   onInsert,
 }: {
@@ -1036,4 +1022,4 @@ function FunctionItem({
       </p>
     </button>
   );
-}
+});

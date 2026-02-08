@@ -1,7 +1,7 @@
 "use client";
 
 import { MDFlowWarning } from "@/lib/types";
-import { useMDFlowStore } from "@/lib/mdflowStore";
+import { useMDFlowActions, useMDFlowStore } from "@/lib/mdflowStore";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -14,7 +14,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { memo, useState, useMemo } from "react";
 
 interface WarningPanelProps {
   warnings: MDFlowWarning[];
@@ -139,7 +139,7 @@ function getQuickFixes(warning: MDFlowWarning): { label: string; action: FixActi
   return fixes;
 }
 
-function WarningItem({
+const WarningItem = memo(function WarningItem({
   warning,
   onDismiss,
   onApplyFix,
@@ -293,10 +293,11 @@ function WarningItem({
       </AnimatePresence>
     </motion.div>
   );
-}
+});
 
 export function WarningPanel({ warnings, onApplyFix }: WarningPanelProps) {
-  const { dismissWarning, dismissedWarningCodes } = useMDFlowStore();
+  const dismissedWarningCodes = useMDFlowStore((s) => s.dismissedWarningCodes);
+  const { dismissWarning } = useMDFlowActions();
   const [collapsed, setCollapsed] = useState(false);
 
   // Filter out dismissed warnings

@@ -1,4 +1,5 @@
 import { DiffResponse } from './diffTypes';
+import { backendClient, nextApiClient } from './httpClient';
 import {
   AISuggestResponse,
   ApiResult,
@@ -8,20 +9,17 @@ import {
   TemplateInfo,
   TemplateMetadata,
   TemplatePreviewResponse,
+  TemplatesListResponse,
   ValidationResult,
   ValidationRules
 } from './types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export interface SheetsResponse {
   sheets: string[];
   active_sheet: string;
 }
 
-export interface TemplatesResponse {
-  templates: TemplateMetadata[];
-}
+
 
 export interface GoogleSheetResponse {
   sheet_id: string;
@@ -39,54 +37,18 @@ export interface GoogleSheetSheetsResponse {
   active_gid: string;
 }
 
-/**
- * Helper to make API calls and handle errors consistently
- */
-async function apiCall<T>(
-  url: string,
-  options?: RequestInit
-): Promise<ApiResult<T>> {
-  try {
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return {
-        error: errorData.error || `HTTP ${response.status}`,
-      };
-    }
-
-    const data = await response.json();
-    return { data };
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : 'Network error',
-    };
-  }
-}
-
-/**
- * Convert pasted TSV/CSV data to MDFlow markdown
- */
 export async function convertPaste(
   pasteText: string,
   template?: string,
   format?: string
 ): Promise<ApiResult<MDFlowConvertResponse>> {
-  return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/paste`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      paste_text: pasteText,
-      template: template || '',
-      format: format || '',
-    }),
+  return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/paste', {
+    paste_text: pasteText,
+    template: template || '',
+    format: format || '',
   });
 }
 
-/**
- * Convert XLSX file to MDFlow markdown
- */
 export async function convertXLSX(
   file: File,
   sheetName?: string,
@@ -99,15 +61,9 @@ export async function convertXLSX(
   if (template) formData.append('template', template);
   if (format) formData.append('format', format);
 
-  return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/xlsx`, {
-    method: 'POST',
-    body: formData,
-  });
+  return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/xlsx', formData);
 }
 
-/**
- * Convert TSV file to MDFlow markdown
- */
 export async function convertTSV(
   file: File,
   template?: string,
@@ -118,154 +74,112 @@ export async function convertTSV(
   if (template) formData.append('template', template);
   if (format) formData.append('format', format);
 
-  return apiCall<MDFlowConvertResponse>(`${API_URL}/api/mdflow/tsv`, {
-    method: 'POST',
-    body: formData,
-  });
+  return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/tsv', formData);
 }
 
-/**
- * Get sheets from XLSX file
- */
 export async function getXLSXSheets(
   file: File
 ): Promise<ApiResult<SheetsResponse>> {
   const formData = new FormData();
   formData.append('file', file);
 
-  return apiCall<SheetsResponse>(`${API_URL}/api/mdflow/xlsx/sheets`, {
-    method: 'POST',
-    body: formData,
-  });
+  return backendClient.safePost<SheetsResponse>('/api/mdflow/xlsx/sheets', formData);
 }
 
-/**
- * Get available MDFlow templates
- */
-export async function getMDFlowTemplates(): Promise<ApiResult<TemplatesResponse>> {
-  return apiCall<TemplatesResponse>(`${API_URL}/api/mdflow/templates`);
+export async function getMDFlowTemplates(): Promise<ApiResult<TemplatesListResponse>> {
+  return backendClient.safeGet<TemplatesListResponse>('/api/mdflow/templates');
 }
 
-/**
- * Get diff between two MDFlow markdown documents
- * Returns null on error (preserving backward compatibility)
- */
 export async function diffMDFlow(
   before: string,
   after: string
-): Promise<DiffResponse | null> {
-  const result = await apiCall<DiffResponse>(`${API_URL}/api/mdflow/diff`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ before, after }),
-  });
-
-  return result.error ? null : result.data || null;
+): Promise<ApiResult<DiffResponse | null>> {
+  return backendClient.safePost<DiffResponse | null>('/api/mdflow/diff', { before, after });
 }
 
-/**
- * Preview pasted TSV/CSV data (template-driven column mapping)
- */
 export async function previewPaste(
   pasteText: string,
-  template?: string
+  template?: string,
+  format?: string,
+  skipAI: boolean = true
 ): Promise<ApiResult<PreviewResponse>> {
-  return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/preview`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      paste_text: pasteText,
-      template: template || undefined,
-    }),
+  const params = new URLSearchParams();
+  if (!skipAI) params.set('skip_ai', 'false');
+  const query = params.toString();
+  const url = `/api/mdflow/preview${query ? `?${query}` : ''}`;
+  return backendClient.safePost<PreviewResponse>(url, {
+    paste_text: pasteText,
+    template: template || undefined,
+    format: format || undefined,
   });
 }
 
-/**
- * Preview TSV file (template-driven column mapping)
- */
 export async function previewTSV(
   file: File,
-  template?: string
+  template?: string,
+  format?: string,
+  skipAI: boolean = true
 ): Promise<ApiResult<PreviewResponse>> {
   const formData = new FormData();
   formData.append('file', file);
   if (template) formData.append('template', template);
+  if (format) formData.append('format', format);
 
-  return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/tsv/preview`, {
-    method: 'POST',
-    body: formData,
-  });
+  const params = new URLSearchParams();
+  if (!skipAI) params.set('skip_ai', 'false');
+  const query = params.toString();
+  const url = `/api/mdflow/tsv/preview${query ? `?${query}` : ''}`;
+  return backendClient.safePost<PreviewResponse>(url, formData);
 }
 
-/**
- * Preview XLSX file (template-driven column mapping)
- */
 export async function previewXLSX(
   file: File,
   sheetName?: string,
-  template?: string
+  template?: string,
+  format?: string,
+  skipAI: boolean = true
 ): Promise<ApiResult<PreviewResponse>> {
   const formData = new FormData();
   formData.append('file', file);
   if (sheetName) formData.append('sheet_name', sheetName);
   if (template) formData.append('template', template);
+  if (format) formData.append('format', format);
 
-  return apiCall<PreviewResponse>(`${API_URL}/api/mdflow/xlsx/preview`, {
-    method: 'POST',
-    body: formData,
-  });
+  const params = new URLSearchParams();
+  if (!skipAI) params.set('skip_ai', 'false');
+  const query = params.toString();
+  const url = `/api/mdflow/xlsx/preview${query ? `?${query}` : ''}`;
+  return backendClient.safePost<PreviewResponse>(url, formData);
 }
 
-/**
- * Check if a text is a Google Sheets URL
- */
 export function isGoogleSheetsURL(text: string): boolean {
-  return text.includes('docs.google.com/spreadsheets');
+  try {
+    const url = new URL(text.trim());
+    return (
+      url.protocol === 'https:' &&
+      url.hostname === 'docs.google.com' &&
+      url.pathname.startsWith('/spreadsheets/')
+    );
+  } catch {
+    return false;
+  }
 }
 
-/**
- * Fetch Google Sheet data (optionally for a specific sheet by gid).
- * Uses Next.js /api/gsheet/fetch so OAuth cookie is sent and backend gets Bearer token (private sheets).
- */
 export async function fetchGoogleSheet(
   url: string,
   gid?: string
 ): Promise<ApiResult<GoogleSheetResponse>> {
   const body: { url: string; gid?: string } = { url };
   if (gid) body.gid = gid;
-  return apiCall<GoogleSheetResponse>(`/api/gsheet/fetch`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-    credentials: 'include',
-  });
+  return nextApiClient.safePost<GoogleSheetResponse>('/api/gsheet/fetch', body);
 }
 
-/**
- * Fetch Google Sheet tabs
- */
 export async function getGoogleSheetSheets(
   url: string
 ): Promise<ApiResult<GoogleSheetSheetsResponse>> {
-  return apiCall<GoogleSheetSheetsResponse>(`/api/gsheet/sheets`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ url }),
-    credentials: 'include',
-  });
+  return nextApiClient.safePost<GoogleSheetSheetsResponse>('/api/gsheet/sheets', { url });
 }
 
-/**
- * Convert Google Sheet to MDFlow markdown
- */
 export async function convertGoogleSheet(
   url: string,
   template?: string,
@@ -276,99 +190,50 @@ export async function convertGoogleSheet(
     url,
     template: template || '',
   };
-  if (gid) {
-    payload.gid = gid;
-  }
-  if (format) {
-    payload.format = format;
-  }
-  return apiCall<MDFlowConvertResponse>(
-    `/api/gsheet/convert`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      credentials: 'include',
-    }
-  );
+  if (gid) payload.gid = gid;
+  if (format) payload.format = format;
+
+  return nextApiClient.safePost<MDFlowConvertResponse>('/api/gsheet/convert', payload);
 }
 
-/**
- * Validate pasted data against custom validation rules
- */
 export async function validatePaste(
   pasteText: string,
   rules: ValidationRules
 ): Promise<ApiResult<ValidationResult>> {
-  return apiCall<ValidationResult>(`${API_URL}/api/mdflow/validate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      paste_text: pasteText,
-      validation_rules: rules,
-    }),
+  return backendClient.safePost<ValidationResult>('/api/mdflow/validate', {
+    paste_text: pasteText,
+    validation_rules: rules,
   });
 }
 
-/**
- * Get template info (variables and functions)
- */
 export async function getTemplateInfo(): Promise<ApiResult<TemplateInfo>> {
-  return apiCall<TemplateInfo>(`${API_URL}/api/mdflow/templates/info`);
+  return backendClient.safeGet<TemplateInfo>('/api/mdflow/templates/info');
 }
 
-/**
- * Get template content by name
- */
 export async function getTemplateContent(
   name: string
 ): Promise<ApiResult<TemplateContentResponse>> {
-  return apiCall<TemplateContentResponse>(
-    `${API_URL}/api/mdflow/templates/${name}`
+  return backendClient.safeGet<TemplateContentResponse>(
+    `/api/mdflow/templates/${encodeURIComponent(name)}`
   );
 }
 
-/**
- * Preview template with sample data
- */
 export async function previewTemplate(
   templateContent: string,
   sampleData?: string
 ): Promise<ApiResult<TemplatePreviewResponse>> {
-  return apiCall<TemplatePreviewResponse>(
-    `${API_URL}/api/mdflow/templates/preview`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        template_content: templateContent,
-        sample_data: sampleData || '',
-      }),
-    }
-  );
+  return backendClient.safePost<TemplatePreviewResponse>('/api/mdflow/templates/preview', {
+    template_content: templateContent,
+    sample_data: sampleData || '',
+  });
 }
 
-/**
- * Get AI suggestions for data improvement
- */
 export async function getAISuggestions(
   pasteText: string,
   template?: string
 ): Promise<ApiResult<AISuggestResponse>> {
-  return apiCall<AISuggestResponse>(`${API_URL}/api/mdflow/ai/suggest`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      paste_text: pasteText,
-      template: template || 'default',
-    }),
+  return backendClient.safePost<AISuggestResponse>('/api/mdflow/ai/suggest', {
+    paste_text: pasteText,
+    template: template || 'spec',
   });
 }

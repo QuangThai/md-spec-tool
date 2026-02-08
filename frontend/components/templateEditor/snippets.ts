@@ -33,18 +33,29 @@ export function getKnownFunctionSnippet(name: string) {
   const rowRef = "(index $.Rows 0)";
   const rowField = (field: string) => `${rowRef}.${field}`;
   const snippets: Record<string, string> = {
+    // Core formatting functions
     formatSteps: `{{formatSteps ${rowField("Instructions")}}}`,
     formatBullets: `{{formatBullets ${rowField("Expected")}}}`,
     notEmpty: `{{notEmpty ${rowField("Instructions")}}}`,
     displayTitle: `{{displayTitle ${rowField("Feature")} ${rowField("Scenario")}}}`,
     escapeYAML: `{{escapeYAML ${rowField("Scenario")}}}`,
+    // Cell/header access
     cellValue: `{{cellValue ${rowRef} "Header"}}`,
     headerCell: `{{headerCell "Header"}}`,
     metadataPairs: `{{metadataPairs ${rowRef}}}`,
+    // String manipulation
     trimPrefix: `{{trimPrefix ${rowField("Scenario")} "prefix"}}`,
     lower: `{{lower ${rowField("Scenario")}}}`,
     upper: `{{upper ${rowField("Scenario")}}}`,
     replace: `{{replace ${rowField("Scenario")} "old" "new"}}`,
+    // UI Spec field examples
+    itemName: `{{${rowField("ItemName")}}}`,
+    itemType: `{{${rowField("ItemType")}}}`,
+    requiredOptional: `{{${rowField("RequiredOptional")}}}`,
+    inputRestrictions: `{{${rowField("InputRestrictions")}}}`,
+    displayConditions: `{{${rowField("DisplayConditions")}}}`,
+    action: `{{${rowField("Action")}}}`,
+    navigationDest: `{{${rowField("NavigationDest")}}}`,
   };
 
   return snippets[name];

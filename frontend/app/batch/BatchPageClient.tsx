@@ -1,12 +1,11 @@
 "use client";
 
 import { TemplateCards } from "@/components/TemplateCards";
-import { useMDFlowTemplatesQuery } from "@/lib/mdflowQueries";
 import { motion } from "framer-motion";
 import { ArrowLeft, Boxes, FileSpreadsheet, Layers, Zap } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { memo, useEffect, useState } from "react";
+import { memo, useState } from "react";
 
 // Dynamic import for heavy BatchProcessor component
 const BatchProcessor = dynamic(
@@ -159,15 +158,7 @@ const HeroSection = memo(function HeroSection() {
 });
 
 export default function BatchPageClient() {
-  const [template, setTemplate] = useState("default");
-  const { data: templates = [] } = useMDFlowTemplatesQuery();
-
-  // Sync template with available templates (templates are TemplateMetadata[], template is name string)
-  useEffect(() => {
-    if (templates.length > 0 && !templates.some((t) => t.name === template)) {
-      setTemplate("default");
-    }
-  }, [templates, template]);
+  const [format, setFormat] = useState<'spec' | 'table'>('spec');
 
   return (
     <div className="min-h-screen bg-white/2 rounded-2xl overflow-hidden">
@@ -195,12 +186,11 @@ export default function BatchPageClient() {
           <motion.div variants={STAGGER_CONFIG.item}>
             <div className="rounded-2xl border border-white/10 bg-white/2 p-6">
               <label className="text-[10px] font-black uppercase tracking-widest text-white/50 block mb-4">
-                Output Template
+                Output Format
               </label>
               <TemplateCards
-                templates={templates}
-                selected={template}
-                onSelect={setTemplate}
+                selected={format}
+                onSelect={setFormat}
                 compact
               />
             </div>
@@ -208,7 +198,7 @@ export default function BatchPageClient() {
 
           <motion.div variants={STAGGER_CONFIG.item}>
             <div className="rounded-2xl border border-white/10 bg-white/2 p-6">
-              <BatchProcessor template={template} />
+              <BatchProcessor format={format} />
             </div>
           </motion.div>
 

@@ -47,7 +47,7 @@ const (
 	FieldStatus       CanonicalField = "status"
 	FieldEndpoint     CanonicalField = "endpoint"
 	FieldNotes        CanonicalField = "notes"
-	
+
 	// Spec table fields (Phase 3)
 	FieldNo                CanonicalField = "no"
 	FieldItemName          CanonicalField = "item_name"
@@ -67,51 +67,57 @@ type ColumnMap map[CanonicalField]int
 
 // SpecRow represents a single spec requirement
 type SpecRow struct {
-	ID           string            `json:"id,omitempty"`
-	Feature      string            `json:"feature"`
-	Scenario     string            `json:"scenario,omitempty"`
-	Instructions string            `json:"instructions,omitempty"`
-	Inputs       string            `json:"inputs,omitempty"`
-	Expected     string            `json:"expected,omitempty"`
-	Precondition string            `json:"precondition,omitempty"`
-	Priority     string            `json:"priority,omitempty"`
-	Type         string            `json:"type,omitempty"`
-	Status       string            `json:"status,omitempty"`
-	Endpoint     string            `json:"endpoint,omitempty"`
-	Notes        string            `json:"notes,omitempty"`
-	
+	ID           string `json:"id,omitempty"`
+	Feature      string `json:"feature"`
+	Scenario     string `json:"scenario,omitempty"`
+	Instructions string `json:"instructions,omitempty"`
+	Inputs       string `json:"inputs,omitempty"`
+	Expected     string `json:"expected,omitempty"`
+	Precondition string `json:"precondition,omitempty"`
+	Priority     string `json:"priority,omitempty"`
+	Type         string `json:"type,omitempty"`
+	Status       string `json:"status,omitempty"`
+	Endpoint     string `json:"endpoint,omitempty"`
+	Notes        string `json:"notes,omitempty"`
+
 	// Spec table fields (Phase 3)
-	No                string            `json:"no,omitempty"`
-	ItemName          string            `json:"item_name,omitempty"`
-	ItemType          string            `json:"item_type,omitempty"`
-	RequiredOptional  string            `json:"required_optional,omitempty"`
-	InputRestrictions string            `json:"input_restrictions,omitempty"`
-	DisplayConditions string            `json:"display_conditions,omitempty"`
-	Action            string            `json:"action,omitempty"`
-	NavigationDest    string            `json:"navigation_destination,omitempty"`
-	
-	Metadata     map[string]string `json:"metadata,omitempty"`
+	No                string `json:"no,omitempty"`
+	ItemName          string `json:"item_name,omitempty"`
+	ItemType          string `json:"item_type,omitempty"`
+	RequiredOptional  string `json:"required_optional,omitempty"`
+	InputRestrictions string `json:"input_restrictions,omitempty"`
+	DisplayConditions string `json:"display_conditions,omitempty"`
+	Action            string `json:"action,omitempty"`
+	NavigationDest    string `json:"navigation_destination,omitempty"`
+
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // SpecDoc represents the complete parsed document
 type SpecDoc struct {
-	Title    string         `json:"title"`
-	Rows     []SpecRow      `json:"rows"`
-	Warnings []Warning      `json:"warnings"`
-	Meta     SpecDocMeta    `json:"meta"`
-	Headers  []string       `json:"headers"`
-	Prose    *ProseContent  `json:"prose,omitempty"`
+	Title    string        `json:"title"`
+	Rows     []SpecRow     `json:"rows"`
+	Warnings []Warning     `json:"warnings"`
+	Meta     SpecDocMeta   `json:"meta"`
+	Headers  []string      `json:"headers"`
+	Prose    *ProseContent `json:"prose,omitempty"`
 }
 
 // SpecDocMeta contains metadata about the parsed document
 type SpecDocMeta struct {
-	SheetName       string              `json:"sheet_name,omitempty"`
-	HeaderRow       int                 `json:"header_row"`
-	ColumnMap       ColumnMap           `json:"column_map"`
-	UnmappedColumns []string            `json:"unmapped_columns,omitempty"`
-	TotalRows       int                 `json:"total_rows"`
-	RowsByFeature   map[string]int      `json:"rows_by_feature,omitempty"`
-	SourceURL       string              `json:"source_url,omitempty"`
+	SheetName         string         `json:"sheet_name,omitempty"`
+	HeaderRow         int            `json:"header_row"`
+	ColumnMap         ColumnMap      `json:"column_map"`
+	UnmappedColumns   []string       `json:"unmapped_columns,omitempty"`
+	TotalRows         int            `json:"total_rows"`
+	RowsByFeature     map[string]int `json:"rows_by_feature,omitempty"`
+	SourceURL         string         `json:"source_url,omitempty"`
+	AIMode            string         `json:"ai_mode,omitempty"`
+	AIUsed            bool           `json:"ai_used,omitempty"`
+	AIDegraded        bool           `json:"ai_degraded,omitempty"`
+	AIAvgConfidence   float64        `json:"ai_avg_confidence,omitempty"`
+	AIMappedColumns   int            `json:"ai_mapped_columns,omitempty"`
+	AIUnmappedColumns int            `json:"ai_unmapped_columns,omitempty"`
 }
 
 // ConvertRequest represents the API request for conversion

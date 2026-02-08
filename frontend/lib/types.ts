@@ -3,6 +3,32 @@
  * Eliminates all 'any' types and provides type-safe interfaces
  */
 
+// ============ Output Format Types ============
+export type OutputFormat = 'spec' | 'table';
+
+// ============ Column Mapping Types ============
+export interface ColumnMapping {
+  canonical_name: string;
+  source_header: string;
+  column_index: number;
+  confidence: number;
+  reasoning?: string;
+}
+
+export interface ExtraColumn {
+  name: string;
+  semantic_role: string;
+  column_index: number;
+}
+
+export interface MappingMeta {
+  detected_type: string;
+  source_language: string;
+  total_columns: number;
+  mapped_columns: number;
+  avg_confidence: number;
+}
+
 // ============ API Response Types ============
 export type WarningSeverity = 'info' | 'warn' | 'error';
 export type WarningCategory = 'input' | 'detect' | 'header' | 'mapping' | 'rows' | 'render';
@@ -23,13 +49,39 @@ export interface MDFlowMeta {
   unmapped_columns?: string[];
   total_rows: number;
   rows_by_feature?: Record<string, number>;
+
+  // AI metadata (optional)
+  ai_mode?: 'off' | 'shadow' | 'on';
+  ai_used?: boolean;
+  ai_degraded?: boolean;
+  ai_avg_confidence?: number;
+  ai_mapped_columns?: number;
+  ai_unmapped_columns?: number;
+}
+
+export interface ConversionResponse {
+  markdown: string;
+  format: OutputFormat;
+  meta: {
+    title: string;
+    total_items: number;
+    schema_version: string;
+    ai_mode: 'off' | 'shadow' | 'on';
+    degraded?: boolean;
+  };
+  column_mappings: {
+    canonical_fields: ColumnMapping[];
+    extra_columns: ExtraColumn[];
+    meta: MappingMeta;
+  };
+  warnings?: string[];
 }
 
 export interface MDFlowConvertResponse {
   mdflow: string;
   warnings: MDFlowWarning[];
   meta: MDFlowMeta;
-  format?: string;
+  format?: OutputFormat;
   template?: string;
 }
 
@@ -43,6 +95,7 @@ export interface PreviewResponse {
   column_mapping: Record<string, string>;
   unmapped_columns: string[];
   input_type: 'table' | 'markdown';
+  ai_available: boolean;
 }
 
 // ============ Diff Types ============
@@ -163,6 +216,40 @@ export interface CustomTemplate {
   content: string;
   createdAt: number;
   updatedAt: number;
+}
+
+// ============ API Error Types ============
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status?: number,
+    public code?: string,
+    public details?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+
+  static fromResponse(status: number, body?: { error?: string; code?: string; details?: Record<string, unknown> }): ApiError {
+    const message = body?.error || `HTTP ${status}`;
+    return new ApiError(message, status, body?.code, body?.details);
+  }
+
+  get isUnauthorized(): boolean {
+    return this.status === 401;
+  }
+
+  get isForbidden(): boolean {
+    return this.status === 403;
+  }
+
+  get isNotFound(): boolean {
+    return this.status === 404;
+  }
+
+  get isNetworkError(): boolean {
+    return !this.status;
+  }
 }
 
 // ============ API Response Wrapper ============

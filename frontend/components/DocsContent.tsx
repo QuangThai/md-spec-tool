@@ -246,9 +246,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                   MDFlow Renderer
                 </strong>
                 <span className="text-sm text-white/40">
-                  Built-in templates render test cases, feature specs, API docs,
-                  and spec tables, with a default fallback if the template name
-                  is missing or unknown.
+                  Built-in templates render specification documents and markdown
+                  tables. Use canonical template names <code>spec</code> and
+                  <code>table</code>.
                 </span>
               </div>
             </li>
@@ -261,8 +261,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
       content: (
         <div className="space-y-6">
           <p className="text-muted">
-            The engine supports two distinct modes of data ingestion, handled by
-            the `mdflowApi` service.
+            The engine supports three primary ingestion paths, handled by the
+            `mdflowApi` service.
           </p>
 
           <div className="space-y-8">
@@ -272,21 +272,21 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               </h4>
               <p className="text-sm text-muted mb-4">
                 Designed for quick prototyping. Accepts raw text buffer from CSV
-                or TSV sources (1MB limit). Supports Google Sheets URLs. Use{" "}
-                <code>detect_only=true</code> to return input type analysis
-                without conversion.
+                or TSV sources (1MB limit). Supports input detection with{" "}
+                <code>detect_only=true</code> and optional output selection via{" "}
+                <code>template</code>/<code>format</code>.
               </p>
               <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/paste <br />
-                {`{ "paste_text": "...", "template": "default" }`}
+                {`{ "paste_text": "...", "template": "spec", "format": "spec" }`}
               </div>
               <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/preview <br />
-                {`{ "paste_text": "..." }`}
+                {`{ "paste_text": "...", "template": "spec" }`}
               </div>
               <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/gsheet/convert <br />
-                {`{ "url": "https://docs.google.com/...", "template": "default" }`}
+                {`{ "url": "https://docs.google.com/...", "template": "spec", "format": "spec" }`}
               </div>
             </div>
 
@@ -300,13 +300,16 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               </p>
               <ul className="list-disc list-inside text-sm text-white/60 space-y-2 mb-4">
                 <li>No sheet selection required</li>
-                <li>Optional `template` parameter for output format</li>
+                  <li>
+                    Optional <code>template</code>/<code>format</code> for
+                    output type
+                  </li>
               </ul>
               <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/tsv (form-data: file, template?)
+                POST /api/mdflow/tsv (form-data: file, template?, format?)
               </div>
               <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/tsv/preview (form-data: file)
+                POST /api/mdflow/tsv/preview (form-data: file, template?)
               </div>
             </div>
 
@@ -323,13 +326,16 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                   Supports multi-sheet discovery (`/api/mdflow/xlsx/sheets`)
                 </li>
                 <li>Sheet-specific targeting via `sheet_name` parameter</li>
-                <li>Optional `template` parameter for output format</li>
+                  <li>
+                    Optional <code>template</code>/<code>format</code> for
+                    output type
+                  </li>
               </ul>
               <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/xlsx (form-data: file, sheet_name?, template?)
+                POST /api/mdflow/xlsx (form-data: file, sheet_name?, template?, format?)
               </div>
               <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/xlsx/preview (form-data: file, sheet_name?)
+                POST /api/mdflow/xlsx/preview (form-data: file, sheet_name?, template?)
               </div>
             </div>
           </div>
@@ -467,23 +473,20 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
       content: (
         <div className="space-y-6">
           <p className="text-muted">
-            MDFlow renders outputs using named templates. The API defaults to{" "}
-            <code className="text-accent-orange">default</code> when no template
-            is provided, and falls back to <code>default</code> when the
-            template name is unknown. Markdown/prose inputs always render with
-            the built-in markdown template.
+            MDFlow renders outputs using two canonical output modes:
+            <code className="text-accent-orange"> spec </code> and
+            <code className="text-accent-orange"> table </code>. Requests can
+            send either <code>template</code> (preferred) or <code>format</code>
+            as aliases.
           </p>
           <div className="grid gap-4">
             <div className="p-5 rounded-xl bg-white/5 border border-white/5">
               <div className="text-xs font-black uppercase tracking-widest text-accent-orange mb-2">
-                Available Templates
+                Output Formats
               </div>
               <ul className="text-sm text-white/60 list-disc list-inside space-y-1">
-                <li className="capitalize">default</li>
-                <li className="capitalize">feature-spec</li>
-                <li className="capitalize">test-plan</li>
-                <li className="capitalize">api-endpoint</li>
-                <li className="capitalize">spec-table</li>
+                <li><strong>spec</strong> - Spec Document (AGENTS.md compatible specification)</li>
+                <li><strong>table</strong> - Simple Table (clean markdown table format)</li>
               </ul>
             </div>
             <div className="p-5 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-accent-green">
@@ -499,13 +502,13 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             </div>
             <div className="p-5 rounded-xl bg-white/5 border border-white/5">
               <div className="text-xs font-black uppercase tracking-widest text-accent-orange mb-2">
-                Template Usage
+                Format Usage
               </div>
               <div className="text-sm text-white/50">
-                Include <code>template</code> in paste/XLSX requests. If
-                omitted, the backend falls back to <code>default</code>. The
-                <code>spec-table</code> template highlights Phase 3 fields like
-                Item Name, Display Conditions, and Navigation Destination.
+                Use <code>template</code> (or <code>format</code> alias) in
+                conversion requests. Choose <code>spec</code> for structured
+                requirement output or <code>table</code> for markdown table
+                output. Default is <code>spec</code>.
               </div>
             </div>
           </div>
@@ -585,6 +588,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
   column_mapping: Record<string, string>
   unmapped_columns: string[]
   input_type: 'table' | 'markdown'
+  ai_available: boolean
 }`}
                 </pre>
               </div>
@@ -678,8 +682,8 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
       content: (
         <div className="space-y-6">
           <p className="text-muted">
-            MDFlow Studio integrates with external services and provides
-            multiple export formats for seamless workflow integration.
+            MDFlow Studio integrates with Google Sheets, OAuth-based private
+            sheet access, and CLI workflows for automation.
           </p>
 
           <div className="space-y-6">
@@ -714,18 +718,16 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
                 POST /api/mdflow/gsheet/convert
                 <br />
-                {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "default", "gid": "123" }`}
+                {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "spec", "gid": "123" }`}
               </div>
               <div className="mt-4 rounded-lg border border-accent-orange/20 bg-accent-orange/10 p-4 text-xs text-white/70">
-                <p className="font-bold text-white mb-2">Render Web Service (free plan)</p>
-                <p className="mb-2">
-                  If Secret Files aren’t available, store the JSON in
-                  <span className="font-mono text-white/80"> GOOGLE_SA_JSON </span>
-                  and update the Start Command:
+                <p className="font-bold text-white mb-2">Private Sheet Access</p>
+                <p>
+                  Private sheets can be accessed by connecting Google in the
+                  frontend (OAuth bearer token), or by configuring
+                  <span className="font-mono text-white/80"> GOOGLE_APPLICATION_CREDENTIALS </span>
+                  on the backend for service-account based access.
                 </p>
-                <div className="font-mono text-[11px] text-accent-green bg-black/40 p-3 rounded-lg border border-white/5">
-                  /bin/sh -c "echo \"$GOOGLE_SA_JSON\" &gt; /tmp/gcp-sa.json && export GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcp-sa.json && ./app"
-                </div>
               </div>
             </div>
 
@@ -735,23 +737,23 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 <h4 className="text-white font-bold">Export Formats</h4>
               </div>
               <p className="text-sm text-white/70 mb-4">
-                Export conversion results in multiple formats for different use
-                cases.
+                Conversion output is Markdown-first with two canonical
+                structures and ZIP bundling in batch workflows.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="p-3 rounded-lg bg-black/40 border border-white/5">
                   <div className="text-xs font-bold text-white mb-1">
-                    Markdown
+                    Spec Format
                   </div>
-                  <div className="text-xs text-white/50">.mdflow.md</div>
+                  <div className="text-xs text-white/50">template/format = spec</div>
                 </div>
                 <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                  <div className="text-xs font-bold text-white mb-1">JSON</div>
-                  <div className="text-xs text-white/50">.json</div>
+                  <div className="text-xs font-bold text-white mb-1">Table Format</div>
+                  <div className="text-xs text-white/50">template/format = table</div>
                 </div>
                 <div className="p-3 rounded-lg bg-black/40 border border-white/5">
-                  <div className="text-xs font-bold text-white mb-1">YAML</div>
-                  <div className="text-xs text-white/50">.yaml</div>
+                  <div className="text-xs font-bold text-white mb-1">Batch ZIP</div>
+                  <div className="text-xs text-white/50">multiple *.mdflow.md files</div>
                 </div>
               </div>
             </div>
@@ -769,7 +771,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                   <span className="text-white/50"># Convert file</span>
                   <br />
                   mdflow convert --input spec.xlsx --output spec.mdflow.md
-                  --template test-plan
+                  --template spec
                 </div>
                 <div>
                   <span className="text-white/50"># Diff comparison</span>
@@ -867,14 +869,15 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
       content: (
         <div className="space-y-6">
           <p className="text-muted">
-            AI suggestions are optional and only activate when the backend is
-            configured with <code>OPENAI_API_KEY</code>. The Studio calls the AI
-            endpoint to return actionable improvements for clarity,
-            completeness, and formatting.
+            AI suggestions are optional and activate when AI is available via
+            backend <code>OPENAI_API_KEY</code> or per-request BYOK header
+            (<code>X-OpenAI-API-Key</code>). The Studio calls the AI endpoint to
+            return actionable improvements for clarity, completeness, and
+            formatting.
           </p>
           <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green space-y-2">
             <div>POST /api/mdflow/ai/suggest</div>
-            <div>{`{ "paste_text": "...", "template": "default" }`}</div>
+            <div>{`{ "paste_text": "...", "template": "spec" }`}</div>
           </div>
           <ul className="space-y-2 text-sm text-white/60">
             <li>
@@ -882,6 +885,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
               <code>{`{ suggestions: [], configured: boolean }`}</code>
             </li>
             <li>• Safe to call even when AI is disabled (configured=false)</li>
+            <li>• Supports BYOK without persisting user keys server-side</li>
             <li>• Suggestions are not stored server-side</li>
           </ul>
         </div>
@@ -943,17 +947,26 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
       content: (
         <div className="space-y-6">
           <p className="text-muted">
-            Share links are generated client-side by compressing the MDFlow
-            output into a URL-safe payload. This keeps sharing fast and avoids
-            storing data on the server.
+            Share links are primarily server-backed: Studio creates a share via
+            API and returns a stable URL that can be public/private and support
+            comments. A legacy stateless URL mode is still available for quick
+            client-side sharing.
           </p>
           <ul className="space-y-2 text-sm text-white/60">
-            <li>• Links open in the read-only Share page</li>
-            <li>• The payload lives entirely in the URL</li>
-            <li>• Large specs may exceed browser URL limits</li>
+            <li>• Create links via POST /api/share with title/slug/permissions</li>
+            <li>• Open persisted links at /s/&lt;slug-or-token&gt;</li>
+            <li>• Optional comment threads via /api/share/:key/comments</li>
+            <li>• Legacy stateless links still work at /share?d=&lt;payload&gt;</li>
           </ul>
-          <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green">
-            /share?d=&lt;compressed-payload&gt;
+          <div className="space-y-3">
+            <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green">
+              POST /api/share
+              <br />
+              {`{ "mdflow": "...", "title": "Spec", "slug": "checkout-flow", "is_public": true, "allow_comments": true, "permission": "comment" }`}
+            </div>
+            <div className="bg-black/40 p-5 rounded-xl border border-white/10 font-mono text-xs text-accent-green">
+              /s/&lt;slug-or-token&gt; (preferred)  |  /share?d=&lt;compressed-payload&gt; (legacy)
+            </div>
           </div>
         </div>
       ),

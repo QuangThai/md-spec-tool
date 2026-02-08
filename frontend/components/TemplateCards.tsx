@@ -1,106 +1,66 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
-import { Check, FileText, Globe, Sparkles, Table2, TestTube, Workflow } from "lucide-react";
+import { Check, FileText, Table2 } from "lucide-react";
+import { OutputFormat } from "@/lib/types";
 
 interface TemplateCardProps {
-  templates: Array<string | { id?: string; name?: string }>;
-  selected: string;
-  onSelect: (template: string) => void;
+  selected: OutputFormat;
+  onSelect: (format: OutputFormat) => void;
   compact?: boolean;
 }
 
-// Template metadata with preview snippets
-const TEMPLATE_META: Record<string, {
+// ONLY 2 formats - spec & table
+const FORMAT_META: Record<OutputFormat, {
   icon: typeof FileText;
   label: string;
   description: string;
   preview: string;
 }> = {
-  test_spec_v1: {
+  spec: {
     icon: FileText,
-    label: "Standard Spec",
-    description: "Traditional table-based specification",
-    preview: `## Feature: Login
-### TC-001: Valid Login
-**Steps:**
-1. Enter credentials
-2. Click login
-**Expected:** Dashboard shown`,
+    label: "Spec Document",
+    description: "AGENTS.md compatible specification",
+    preview: `# Feature Specification
+## Column Mappings
+| Original | Mapped To | Confidence |
+|----------|-----------|------------|
+| Name | title | 95% |
+
+## Specifications
+### REQ-001: User Login
+...`,
   },
-  bdd_scenarios_cards: {
-    icon: Workflow,
-    label: "BDD / Gherkin",
-    description: "Given/When/Then behavioral specs",
-    preview: `## Scenario: User Login
-**Given** I am on the login page
-**When** I enter valid credentials
-**And** I click the login button
-**Then** I should be redirected to the dashboard`,
-  },
-  test_case_cards: {
-    icon: TestTube,
-    label: "QA Test Cases",
-    description: "Quality assurance test procedures",
-    preview: `# Test Suite: Authentication
-| ID | Title | Priority |
-| TC-01 | Login with email | High |
-| TC-02 | Password reset | Medium |`,
-  },
-  api_endpoints_cards: {
-    icon: Globe,
-    label: "API Documentation",
-    description: "REST API endpoint specifications",
-    preview: `## POST /api/v1/login
-**Method:** POST
-**Description:** User authentication endpoint
-**Request:** { "user": "..." }
-**Response:** 200 OK`,
-  },
-  ui_specs_cards: {
+  table: {
     icon: Table2,
-    label: "UI Design Spec",
-    description: "Interface component requirements",
-    preview: `## Screen: User Profile
-| Component | Type | Required |
-| Avatar | Image | No |
-| Display Name | Input | Yes |`,
-  },
-  requirements_cards: {
-    icon: Sparkles,
-    label: "User Requirements",
-    description: "Business and functional requirements",
-    preview: `## REQ-001: Mobile Login
-**Description:** Users must be able to login via mobile
-**Acceptance Criteria:**
-- Works on iOS and Android
-- Supports biometrics`,
+    label: "Simple Table",
+    description: "Clean markdown table format",
+    preview: `| ID | Title | Status |
+|---|---|---|
+| REQ-001 | User Login | Done |
+| REQ-002 | Profile | In Progress |`,
   },
 };
 
-export function TemplateCards({ templates, selected, onSelect, compact = false }: TemplateCardProps) {
+const FORMATS: OutputFormat[] = ["spec", "table"];
+
+export const TemplateCards = memo(function TemplateCards({ selected, onSelect, compact = false }: TemplateCardProps) {
   if (compact) {
     return (
       <div className="flex flex-nowrap gap-3 overflow-x-auto custom-scrollbar pb-1 -mx-1 px-1">
-        {templates.map((template, idx) => {
-          const templateName = typeof template === "string" ? template : (template.name || template.id || `template-${idx}`);
-          const templateId = typeof template === "string" ? template : (template.id || template.name || `template-${idx}`);
-          const meta = TEMPLATE_META[templateName] || {
-            icon: FileText,
-            label: templateName,
-            description: "",
-            preview: "",
-          };
+        {FORMATS.map((format) => {
+          const meta = FORMAT_META[format];
           const Icon = meta.icon;
-          const isSelected = selected === templateName;
+          const isSelected = selected === format;
 
           return (
             <motion.button
-              key={templateId}
+              key={format}
               type="button"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => onSelect(templateName)}
+              onClick={() => onSelect(format)}
               className={`
                 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer shrink-0 whitespace-nowrap
                 ${isSelected
@@ -120,26 +80,19 @@ export function TemplateCards({ templates, selected, onSelect, compact = false }
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-      {templates.map((template, idx) => {
-        const templateName = typeof template === "string" ? template : (template.name || template.id || `template-${idx}`);
-        const templateId = typeof template === "string" ? template : (template.id || template.name || `template-${idx}`);
-        const meta = TEMPLATE_META[templateName] || {
-          icon: FileText,
-          label: templateName,
-          description: "",
-          preview: "",
-        };
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {FORMATS.map((format) => {
+        const meta = FORMAT_META[format];
         const Icon = meta.icon;
-        const isSelected = selected === templateName;
+        const isSelected = selected === format;
 
         return (
           <motion.button
-            key={templateId}
+            key={format}
             type="button"
             whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => onSelect(templateName)}
+            onClick={() => onSelect(format)}
             className={`
               relative group text-left p-4 rounded-xl border transition-all cursor-pointer overflow-hidden
               ${isSelected
@@ -196,4 +149,4 @@ export function TemplateCards({ templates, selected, onSelect, compact = false }
       })}
     </div>
   );
-}
+});

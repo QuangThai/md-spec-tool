@@ -1,16 +1,57 @@
-import { useMDFlowTemplatesQuery } from "@/lib/mdflowQueries";
+'use client';
+
+import { useState, useEffect } from 'react';
+
+interface TemplateInfo {
+  name: string;
+  formats: string[];
+  description?: string;
+}
 
 /**
- * Custom hook for managing MDFlow templates
- * Fetches templates from API and ensures "default" is always first
+ * Hook for managing output formats
+ * Fetches supported formats from /api/mdflow/templates
  */
 export function useMDFlowTemplates() {
-  const { data: templates = ["default"], isLoading, error } =
-    useMDFlowTemplatesQuery();
+  const [formats, setFormats] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/mdflow/templates');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch templates: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Extract unique formats from all templates
+        const uniqueFormats = Array.from(
+          new Set((data.templates?.flatMap((t: TemplateInfo) => t.formats) || []) as string[])
+        ) as string[];
+        
+        setTemplates(data.templates || []);
+        setFormats(uniqueFormats);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        setFormats([]); // fallback to empty
+        setTemplates([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTemplates();
+  }, []);
 
   return {
+    formats,
     templates,
-    loading: isLoading,
-    error: error ? error.message : null,
+    loading,
+    error,
   };
 }

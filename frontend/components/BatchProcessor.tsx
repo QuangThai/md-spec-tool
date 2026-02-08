@@ -24,7 +24,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { Select } from "@/components/ui/Select";
 
 interface BatchFile {
@@ -39,10 +39,10 @@ interface BatchFile {
 }
 
 interface BatchProcessorProps {
-  template: string;
+  format: string;
 }
 
-export function BatchProcessor({ template }: BatchProcessorProps) {
+export function BatchProcessor({ format }: BatchProcessorProps) {
   const [files, setFiles] = useState<BatchFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -131,7 +131,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
             const sheetResult = await convertXLSXMutation.mutateAsync({
               file: batchFile.file,
               sheetName: sheet,
-              template,
+              template: format,
             });
             allResults.push(
               `\n\n<!-- Sheet: ${sheet} -->\n\n${sheetResult.mdflow}`
@@ -148,12 +148,12 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
           result = await convertXLSXMutation.mutateAsync({
             file: batchFile.file,
             sheetName: batchFile.selectedSheet,
-            template,
+            template: format,
           });
         } else {
           result = await convertTSVMutation.mutateAsync({
             file: batchFile.file,
-            template,
+            template: format,
           });
         }
 
@@ -181,7 +181,7 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
   }, [
     files,
     isProcessing,
-    template,
+    format,
     processAllSheets,
     convertXLSXMutation,
     convertTSVMutation,
@@ -380,9 +380,9 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
           <div className="flex items-center justify-between gap-4 pt-4 border-t border-white/10">
             <div className="text-[10px] text-white/40">
               {pendingCount > 0 && `${pendingCount} pending • `}
-              Template:{" "}
+              Format:{" "}
               <span className="text-accent-orange uppercase">
-                {template?.replace(/-/g, " ")}
+                {format?.replace(/-/g, " ")}
               </span>
             </div>
 
@@ -440,8 +440,8 @@ export function BatchProcessor({ template }: BatchProcessorProps) {
   );
 }
 
-/* Individual file item */
-function BatchFileItem({
+/* Individual file item - memoized to prevent re-renders */
+const BatchFileItem = memo(function BatchFileItem({
   batchFile,
   onRemove,
   onDownload,
@@ -596,4 +596,4 @@ function BatchFileItem({
       </AnimatePresence>
     </motion.div>
   );
-}
+});

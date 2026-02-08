@@ -29,7 +29,7 @@ Run 'mdflow <command> --help' for more information on a command.
 
 Examples:
   mdflow convert --input spec.tsv --output spec.mdflow.md
-  mdflow convert --input data.xlsx --sheet "Sheet1" --template test-plan
+  mdflow convert --input data.xlsx --sheet "Sheet1" --template table
   mdflow diff before.md after.md
   mdflow templates
 `
@@ -63,10 +63,10 @@ func runConvert(args []string) {
 	fs := flag.NewFlagSet("convert", flag.ExitOnError)
 	input := fs.String("input", "", "Input file path (required)")
 	output := fs.String("output", "", "Output file path (default: stdout)")
-	template := fs.String("template", "default", "Template name")
+	template := fs.String("template", "spec", "Template name (spec|table)")
 	sheet := fs.String("sheet", "", "Sheet name (for XLSX files)")
 	jsonOutput := fs.Bool("json", false, "Output as JSON with metadata")
-	
+
 	fs.Usage = func() {
 		fmt.Println(`Convert a file to MDFlow markdown
 
@@ -76,17 +76,17 @@ Usage:
 Options:
   --input     Input file path (TSV, CSV, or XLSX) (required)
   --output    Output file path (default: stdout)
-  --template  Template name (default: "default")
+	  --template  Template name (default: "spec", options: spec|table)
   --sheet     Sheet name for XLSX files
   --json      Output as JSON with metadata
 
 Examples:
   mdflow convert --input spec.tsv
   mdflow convert --input spec.tsv --output spec.mdflow.md
-  mdflow convert --input data.xlsx --sheet "Requirements" --template feature-spec
+	  mdflow convert --input data.xlsx --sheet "Requirements" --template table
   mdflow convert --input test.csv --json`)
 	}
-	
+
 	if err := fs.Parse(args); err != nil {
 		os.Exit(1)
 	}
@@ -149,7 +149,7 @@ Examples:
 			os.Exit(1)
 		}
 		fmt.Fprintf(os.Stderr, "Written to %s\n", *output)
-		
+
 		// Print warnings to stderr
 		for _, w := range result.Warnings {
 			fmt.Fprintf(os.Stderr, "[%s] %s\n", w.Severity, w.Message)
@@ -161,7 +161,7 @@ func runDiff(args []string) {
 	fs := flag.NewFlagSet("diff", flag.ExitOnError)
 	output := fs.String("output", "", "Output file path (default: stdout)")
 	jsonOutput := fs.Bool("json", false, "Output as JSON")
-	
+
 	fs.Usage = func() {
 		fmt.Println(`Compare two MDFlow files
 
@@ -176,7 +176,7 @@ Examples:
   mdflow diff old.md new.md
   mdflow diff spec-v1.mdflow.md spec-v2.mdflow.md --json`)
 	}
-	
+
 	if err := fs.Parse(args); err != nil {
 		os.Exit(1)
 	}
@@ -233,11 +233,8 @@ Examples:
 }
 
 func runTemplates() {
-	renderer := converter.NewMDFlowRenderer()
-	templates := renderer.GetTemplateNames()
-
 	fmt.Println("Available templates:")
-	for _, t := range templates {
+	for _, t := range []string{"spec", "table"} {
 		desc := getTemplateDescription(t)
 		fmt.Printf("  %-15s %s\n", t, desc)
 	}
@@ -245,11 +242,8 @@ func runTemplates() {
 
 func getTemplateDescription(name string) string {
 	descriptions := map[string]string{
-		"default":      "Standard test case format",
-		"feature-spec": "User story and acceptance criteria format",
-		"test-plan":    "QA test plan format with test cases",
-		"api-endpoint": "API documentation format",
-		"spec-table":   "UI specification table format",
+		"spec":  "Structured specification output",
+		"table": "Simple markdown table output",
 	}
 	if desc, ok := descriptions[name]; ok {
 		return desc

@@ -16,59 +16,23 @@ import {
   previewTSV,
   previewXLSX,
   validatePaste,
-} from "@/lib/mdflowApi";
-import { ApiResult, ValidationRules } from "@/lib/types";
-import { useMutation, useQuery } from "@tanstack/react-query";
+} from '@/lib/mdflowApi';
+import { fileKey, hashString, queryKeys, unwrap } from '@/lib/queryUtils';
+import { ValidationRules } from '@/lib/types';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
-const queryKeys = {
-  templates: ["mdflow", "templates"] as const,
-  templateInfo: ["mdflow", "template-info"] as const,
-  templateContent: (name: string) => ["mdflow", "template", name] as const,
-  previewPaste: (hash: string, template?: string) =>
-    ["mdflow", "preview", "paste", hash, template ?? ""] as const,
-  previewTSV: (fileKey: string, template?: string) =>
-    ["mdflow", "preview", "tsv", fileKey, template ?? ""] as const,
-  previewXLSX: (fileKey: string, sheet: string, template?: string) =>
-    ["mdflow", "preview", "xlsx", fileKey, sheet, template ?? ""] as const,
-  previewGoogleSheet: (url: string, gid: string, template?: string) =>
-    ["mdflow", "preview", "gsheet", url, gid, template ?? ""] as const,
-};
-
-/**
- * Unwrap ApiResult - throw on error, return data on success
- */
-function unwrap<T>(result: ApiResult<T>): T {
-  if (result.error) {
-    throw new Error(result.error);
-  }
-  if (!result.data) {
-    throw new Error("No data returned");
-  }
-  return result.data;
-}
-
-function fileKey(file: File | null | undefined): string {
-  if (!file) return "no-file";
-  return `${file.name}:${file.size}:${file.lastModified}`;
-}
-
-function hashString(input: string): string {
-  let hash = 5381;
-  for (let i = 0; i < input.length; i += 1) {
-    hash = (hash * 33) ^ input.charCodeAt(i);
-  }
-  return Math.abs(hash).toString(36);
-}
+// Default template to sort first if available
+const DEFAULT_TEMPLATE_NAME = 'spec';
 
 export function useMDFlowTemplatesQuery() {
   return useQuery({
-    queryKey: queryKeys.templates,
+    queryKey: queryKeys.mdflow.templates,
     queryFn: async () => unwrap(await getMDFlowTemplates()),
     staleTime: 5 * 60 * 1000,
     select: (data) => {
       const sorted = [...data.templates].sort((a, b) => {
-        if (a.name === "test_spec_v1" || a.name === "default") return -1;
-        if (b.name === "test_spec_v1" || b.name === "default") return 1;
+        if (a.name === DEFAULT_TEMPLATE_NAME) return -1;
+        if (b.name === DEFAULT_TEMPLATE_NAME) return 1;
         return (a.name || "").localeCompare(b.name || "");
       });
       return sorted;
@@ -78,7 +42,7 @@ export function useMDFlowTemplatesQuery() {
 
 export function useTemplateInfoQuery(enabled: boolean) {
   return useQuery({
-    queryKey: queryKeys.templateInfo,
+    queryKey: queryKeys.mdflow.templateInfo,
     queryFn: async () => unwrap(await getTemplateInfo()),
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -87,7 +51,7 @@ export function useTemplateInfoQuery(enabled: boolean) {
 
 export function useTemplateContentQuery(name: string, enabled: boolean) {
   return useQuery({
-    queryKey: queryKeys.templateContent(name),
+    queryKey: queryKeys.mdflow.templateContent(name),
     queryFn: async () => unwrap(await getTemplateContent(name)),
     enabled: enabled && Boolean(name),
   });
@@ -100,7 +64,7 @@ export function usePreviewPasteQuery(
 ) {
   const hash = hashString(pasteText.trim());
   return useQuery({
-    queryKey: queryKeys.previewPaste(hash, template),
+    queryKey: queryKeys.mdflow.previewPaste(hash, template),
     queryFn: async () => unwrap(await previewPaste(pasteText, template)),
     enabled: enabled && pasteText.trim().length > 0,
     gcTime: 2 * 60 * 1000,
@@ -113,7 +77,7 @@ export function usePreviewTSVQuery(
   template?: string
 ) {
   return useQuery({
-    queryKey: queryKeys.previewTSV(fileKey(file), template),
+    queryKey: queryKeys.mdflow.previewTSV(fileKey(file), template),
     queryFn: async () => unwrap(await previewTSV(file!, template)),
     enabled: enabled && Boolean(file),
     gcTime: 2 * 60 * 1000,
@@ -133,7 +97,7 @@ export function usePreviewXLSXQuery(
   template?: string
 ) {
   return useQuery({
-    queryKey: queryKeys.previewXLSX(fileKey(file), sheetName, template),
+    queryKey: queryKeys.mdflow.previewXLSX(fileKey(file), sheetName, template),
     queryFn: async () => unwrap(await previewXLSX(file!, sheetName, template)),
     enabled: enabled && Boolean(file) && Boolean(sheetName),
     gcTime: 2 * 60 * 1000,
@@ -158,7 +122,7 @@ export function usePreviewGoogleSheetQuery(
   template?: string
 ) {
   return useQuery({
-    queryKey: queryKeys.previewGoogleSheet(url, gid, template),
+    queryKey: queryKeys.mdflow.previewGoogleSheet(url, gid, template),
     queryFn: async () => {
       const sheetResult = await fetchGoogleSheet(url, gid);
       const sheetData = unwrap(sheetResult);
@@ -221,7 +185,7 @@ export function usePreviewTemplateMutation() {
 export function useDiffMDFlowMutation() {
   return useMutation({
     mutationFn: async (payload: { before: string; after: string }) =>
-      diffMDFlow(payload.before, payload.after),
+      unwrap(await diffMDFlow(payload.before, payload.after)),
   });
 }
 

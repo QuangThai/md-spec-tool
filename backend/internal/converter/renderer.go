@@ -2,6 +2,7 @@ package converter
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"strings"
 	"text/template"
@@ -25,12 +26,14 @@ func NewMDFlowRenderer() *MDFlowRenderer {
 // Render converts a SpecDoc to MDFlow markdown
 func (r *MDFlowRenderer) Render(doc *SpecDoc, templateName string) (string, error) {
 	if templateName == "" {
-		templateName = "default"
+		templateName = "spec"
 	}
 
 	tmpl, ok := r.templates[templateName]
 	if !ok {
-		tmpl = r.templates["default"]
+		// Return detailed error message with available templates
+		names := r.GetTemplateNames()
+		return "", fmt.Errorf("unknown template: %s (available: %v)", templateName, names)
 	}
 
 	// Group rows by feature
@@ -136,28 +139,13 @@ func (r *MDFlowRenderer) registerDefaultTemplates() {
 		"replace":       strings.ReplaceAll,
 	}
 
-	// Default template - comprehensive test case format
-	r.templates["default"] = template.Must(template.New("default").Funcs(funcMap).Parse(defaultTemplate))
-
-	// Feature spec template - simpler user story format
-	r.templates["feature-spec"] = template.Must(template.New("feature-spec").Funcs(funcMap).Parse(featureSpecTemplate))
-
-	// Test plan template - QA focused
-	r.templates["test-plan"] = template.Must(template.New("test-plan").Funcs(funcMap).Parse(testPlanTemplate))
-
-	// API endpoint template
-	r.templates["api-endpoint"] = template.Must(template.New("api-endpoint").Funcs(funcMap).Parse(apiEndpointTemplate))
-
-	// Spec table template - for UI/UX spec tables with Phase 3 fields
-	r.templates["spec-table"] = template.Must(template.New("spec-table").Funcs(funcMap).Parse(specTableTemplate))
+	r.templates["spec"] = template.Must(template.New("spec").Funcs(funcMap).Parse(defaultTemplate))
+	r.templates["table"] = template.Must(template.New("table").Funcs(funcMap).Parse(specTableTemplate))
 }
 
 // GetTemplateNames returns available template names
 func (r *MDFlowRenderer) GetTemplateNames() []string {
-	var names []string
-	for name := range r.templates {
-		names = append(names, name)
-	}
+	names := []string{"spec", "table"}
 	return names
 }
 
@@ -213,15 +201,9 @@ func (r *MDFlowRenderer) RenderCustom(doc *SpecDoc, templateContent string) (str
 // GetTemplateContent returns the content of a built-in template
 func (r *MDFlowRenderer) GetTemplateContent(name string) string {
 	switch name {
-	case "default":
+	case "spec":
 		return defaultTemplate
-	case "feature-spec":
-		return featureSpecTemplate
-	case "test-plan":
-		return testPlanTemplate
-	case "api-endpoint":
-		return apiEndpointTemplate
-	case "spec-table":
+	case "table":
 		return specTableTemplate
 	default:
 		return ""
@@ -511,182 +493,6 @@ This specification contains {{.TotalCount}} test cases.
 {{end}}
 `
 
-// Feature spec template
-const featureSpecTemplate = `---
-name: "{{.Title}}"
-version: "1.0"
-generated_at: "{{.GeneratedAt}}"
-type: "feature-spec"
----
-
-# {{.Title}}
-{{- range .FeatureGroups}}
-
-## {{.Feature}}
-{{- range .Rows}}
-{{- $title := displayTitle .Feature .Scenario -}}
-{{- if ne (lower $title) (lower .Feature)}}
-
-### {{ $title }}
-{{- end}}
-{{- if notEmpty .Instructions}}
-
-{{.Instructions}}
-{{- end}}
-{{- if notEmpty .Expected}}
-
-**Acceptance Criteria:**
-{{formatBullets .Expected}}
-{{- end}}
-{{- if notEmpty .Notes}}
-
-**Notes:** {{.Notes}}
-{{- end}}
-{{- $meta := metadataPairs .}}
-{{- if $meta}}
-
-**Additional Fields:**
-{{- range $meta}}
-- {{.Key}}: {{.Value}}
-{{- end}}
-{{- end}}
-{{- end}}
-{{- end}}
-`
-
-// Test plan template
-const testPlanTemplate = `---
-name: "{{.Title}} - Test Plan"
-version: "1.0"
-generated_at: "{{.GeneratedAt}}"
----
-
-# {{.Title}} - Test Plan
-
-**Total Test Cases:** {{.TotalCount}}
-
-| ID | Scenario | Priority | Type | Status |
-|---|---|---|---|---|
-{{range .Rows}}| {{.ID}} | {{.Scenario}} | {{.Priority}} | {{.Type}} | {{.Status}} |
-{{end}}
-
----
-
-## Test Case Details
-{{- range .FeatureGroups}}
-
-### {{.Feature}}
-{{- $feature := .Feature -}}
-{{- range .Rows}}
-{{- if or .ID (ne (lower .Scenario) (lower $feature))}}
-
-#### {{if .ID}}{{.ID}}: {{end}}{{.Scenario}}
-{{- end}}
-{{- if or (notEmpty .Priority) (notEmpty .Type) (notEmpty .Status) (notEmpty .Endpoint)}}
-
-| Field | Value |
-|---|---|
-{{if notEmpty .Priority}}| Priority | {{.Priority}} |{{end}}
-{{if notEmpty .Type}}| Type | {{.Type}} |{{end}}
-{{if notEmpty .Status}}| Status | {{.Status}} |{{end}}
-{{if notEmpty .Endpoint}}| Endpoint | ` + "`{{.Endpoint}}`" + ` |{{end}}
-{{- end}}
-{{- if notEmpty .Precondition}}
-
-**Preconditions:**
-{{formatBullets .Precondition}}
-{{- end}}
-{{- if notEmpty .Instructions}}
-
-**Test Steps:**
-{{formatSteps .Instructions}}
-{{- end}}
-{{- if notEmpty .Inputs}}
-
-**Test Data:**
-` + "```" + `
-{{.Inputs}}
-` + "```" + `
-{{- end}}
-{{- if notEmpty .Expected}}
-
-**Expected Result:**
-{{.Expected}}
-{{- end}}
-{{- if notEmpty .Notes}}
-
-**Notes:** {{.Notes}}
-{{- end}}
-{{- $meta := metadataPairs .}}
-{{- if $meta}}
-
-**Additional Fields:**
-{{- range $meta}}
-- {{.Key}}: {{.Value}}
-{{- end}}
-{{- end}}
-
----
-{{- end}}
-{{- end}}
-`
-
-// API endpoint template
-const apiEndpointTemplate = `---
-name: "{{.Title}} - API Specification"
-version: "1.0"
-generated_at: "{{.GeneratedAt}}"
----
-
-# {{.Title}} - API Specification
-{{- range .FeatureGroups}}
-
-## {{.Feature}}
-{{- range .Rows}}
-{{- $title := displayTitle .Feature .Scenario -}}
-
-{{- if or .Endpoint (ne (lower $title) (lower .Feature))}}
-### {{if .Endpoint}}{{.Endpoint}}{{else}}{{ $title }}{{end}}
-{{- end}}
-{{- if and (notEmpty .Scenario) (or .Endpoint (ne (lower $title) (lower .Feature)))}}
-
-**Description:** {{.Scenario}}
-{{- end}}
-{{- if notEmpty .Instructions}}
-
-**Flow:**
-{{formatSteps .Instructions}}
-{{- end}}
-{{- if notEmpty .Inputs}}
-
-**Request Parameters:**
-` + "```" + `
-{{.Inputs}}
-` + "```" + `
-{{- end}}
-{{- if notEmpty .Expected}}
-
-**Response:**
-{{.Expected}}
-{{- end}}
-{{- if notEmpty .Notes}}
-
-**Notes:** {{.Notes}}
-{{- end}}
-{{- $meta := metadataPairs .}}
-{{- if $meta}}
-
-**Additional Fields:**
-{{- range $meta}}
-- {{.Key}}: {{.Value}}
-{{- end}}
-{{- end}}
-
----
-{{- end}}
-{{- end}}
-`
-
 // Markdown template for prose/blockquote content
 const markdownTemplate = `---
 name: "{{.Title}}"
@@ -722,7 +528,7 @@ const specTableTemplate = `---
 name: "{{.Title}}"
 version: "1.0"
 generated_at: "{{.GeneratedAt}}"
-type: "spec-table"
+type: "table"
 ---
 
 # {{.Title}}

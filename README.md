@@ -1,269 +1,199 @@
 # MD-Spec-Tool
 
-Powerful tool to convert Excel/CSV/pasted data to structured Markdown specifications with intelligent header detection and customizable formatting.
+MD-Spec-Tool converts spreadsheet and pasted tabular data into consistent Markdown specifications (MDFlow), with optional AI-assisted mapping, preview, diffing, Google Sheets import, and sharing workflows.
 
-## 🚀 Features
+## Features
 
-- **Multi-format Input**: Parse Excel (.xlsx), CSV, or paste table data directly
-- **Smart Header Detection**: Automatically detect and handle table headers
-- **Intelligent Data Processing**: Handle merged cells, formatting, and complex table structures
-- **Markdown Spec Generation**: Convert to professional Markdown documentation
-- **MDFlow Support**: Generate structured .mdflow format for advanced workflows
-- **Live Preview**: Real-time conversion preview with error handling
-- **Batch Processing**: Convert multiple files and download a ZIP bundle
-- **Template Editor**: Preview and test custom templates in the Studio
-- **Diff & History**: Compare outputs and restore prior conversions
-- **AI Suggestions**: Optional OpenAI-powered improvement tips
-- **Full-Stack Architecture**: Go backend API + Next.js 16 frontend with React 19
+- Multi-input conversion: paste text, `.tsv`, `.xlsx`, and Google Sheets URLs.
+- Canonical output formats: `spec` (structured requirements/spec) and `table` (clean markdown table).
+- Smart parsing pipeline: input detection, header detection, column mapping, and warning metadata.
+- AI support with safe fallback: optional OpenAI mapping/suggestions, plus rule-based degraded mode.
+- BYOK (Bring Your Own Key): send `X-OpenAI-API-Key` per request without server-side key storage.
+- Collaboration features: share links, public listing, and comment threads.
+- Studio UX: live preview, batch conversion, template preview, diff viewer, and history.
 
-## 📋 Tech Stack
+## Tech Stack
 
 ### Backend
-- **Go 1.20+** with Gin framework
-- **Internal Converter**: Smart parsing & Markdown generation
-  - Header detection & column mapping
-  - Matrix transformation & data validation
-  - XLSX, CSV, and paste parser support
-  - Template-based rendering (Go templates)
-- **HTTP API**: RESTful endpoints with error handling
+
+- Go `1.24` + Gin
+- OpenAI integration via `openai-go/v3`
+- Google Sheets integration (service account + OAuth bearer token)
+- Converter pipeline in `backend/internal/converter`
+- API handlers in `backend/internal/http/handlers`
 
 ### Frontend
-- **Next.js 16** with React 19 & TypeScript
-- **Tailwind CSS 4** for styling (PostCSS integration)
-- **Zustand 5** for state management
-- **Framer Motion** for smooth animations
-- **Lucide React** for icons
 
-## 🏗️ Project Structure
+- Next.js `16` + React `19` + TypeScript
+- Tailwind CSS `4`
+- Zustand `5` + TanStack Query `5`
+- Next API routes for Google OAuth/session-aware gsheet proxying
 
-```
+## Project Structure
+
+```text
 md-spec-tool/
-├── backend/                           # Go API server
+├── backend/
 │   ├── cmd/
-│   │   ├── server/                   # Main server entry point
-│   │   ├── cli/                      # MDFlow CLI tool
-│   │   └── usecases/                 # CLI utility commands
-│   ├── internal/
-│   │   ├── config/                   # Configuration loading
-│   │   ├── http/
-│   │   │   ├── handlers/             # Request handlers (health, mdflow)
-│   │   │   ├── middleware/           # CORS & auth middleware
-│   │   │   └── router.go             # Route definitions
-│   │   ├── converter/                # Core conversion logic
-│   │   │   ├── xlsx_parser.go        # Excel file parsing
-│   │   │   ├── paste_parser.go       # Pasted data parsing
-│   │   │   ├── header_detect.go      # Smart header detection
-│   │   │   ├── column_map.go         # Column mapping
-│   │   │   ├── matrix.go             # Data matrix handling
-│   │   │   ├── markdown_spec.go      # Markdown generation
-│   │   │   ├── renderer.go           # Template rendering
-│   │   │   └── model.go              # Data models
-│   │   └── ...
-│   ├── go.mod & go.sum
-│   └── Dockerfile
-│
-├── frontend/                          # Next.js app
-│   ├── app/                          # App router structure
-│   │   ├── layout.tsx                # Root layout
-│   │   ├── page.tsx                  # Home page
-│   │   ├── docs/                     # Documentation pages
-│   │   └── studio/                   # Studio workspace
-│   ├── components/                   # Reusable React components
-│   ├── lib/
-│   │   ├── mdflowApi.ts              # API client
-│   │   ├── mdflowStore.ts            # Zustand state store
-│   │   └── utils.ts                  # Utilities
-│   ├── styles/                       # Global styles
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── next.config.js
-│   └── Dockerfile
-│
-├── docs/                             # Documentation
-│   ├── IMPLEMENTATION_PLAN.md         # Detailed implementation roadmap
-│   ├── TABLE_FORMATS.md               # Supported table formats
-│   └── fixtures/                      # Test examples
-│
-├── use-cases/                        # Usage examples (example-*.md, table.tsv, templates)
-├── docker-compose.yml                # Local dev stack
-├── Makefile                          # Build & dev commands
-└── AGENTS.md                         # Agent configuration
+│   │   ├── server/              # HTTP API server
+│   │   ├── cli/                 # mdflow CLI
+│   │   ├── usecases/            # use-case conversion checker
+│   │   └── usecases_diff/       # use-case diff/coverage checker
+│   └── internal/
+│       ├── ai/                  # AI client/service, mapping, validation
+│       ├── converter/           # parsing, mapping, rendering pipeline
+│       ├── http/                # router, middleware, handlers
+│       ├── share/               # share store + comments
+│       └── suggest/             # AI suggestion logic
+├── frontend/
+│   ├── app/                     # Next.js app router (studio, docs, batch, share)
+│   ├── components/
+│   ├── hooks/
+│   └── lib/
+├── use-cases/                   # sample inputs and generated output checks
+├── Makefile
+├── AGENTS.md
+└── README.md
 ```
 
-## ⚡ Quick Start
+## Quick Start (Local)
 
 ### Prerequisites
-- **Docker & Docker Compose** (for containerized dev)
-- **Node.js 20+** (for frontend)
-- **Go 1.20+** (for backend)
-- **npm or yarn** (for frontend dependencies)
 
-### Using Docker (Recommended)
+- Go `1.24+`
+- Node.js `20+`
+- npm
 
-```bash
-# Build Docker images
-make build
+### 1) Run backend
 
-# Start all services in background
-make up
-
-# View logs
-make logs
-
-# Stop services
-make down
-
-# Clean up (remove containers & volumes)
-make clean
-```
-
-**Available at:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8080
-
-### Local Development (No Docker)
-
-**Terminal 1 - Backend:**
 ```bash
 cd backend
 go mod download
-make dev-backend
-# or: go run ./cmd/server
+go run ./cmd/server
 ```
 
-**Terminal 2 - Frontend:**
+Backend runs at `http://localhost:8080`.
+
+### 2) Run frontend
+
 ```bash
 cd frontend
 npm install
-make dev-frontend
-# or: npm run dev
+npm run dev
 ```
 
-## 📚 API Documentation
+Frontend runs at `http://localhost:3000`.
 
-### Core Endpoints
+## API Overview
 
-**Health**
+Terminology note: requests accept both `template` and `format` as aliases for output mode (`spec` or `table`).
+
+### Health
+
+- `GET /health`
+
+### Conversion & Preview
+
+- `POST /api/mdflow/paste` (JSON: `paste_text`, `template?`, `format?`, `?detect_only=true`)
+- `POST /api/mdflow/preview` (JSON: `paste_text`, `template?`, `format?`, `?skip_ai=false`)
+- `POST /api/mdflow/tsv` (multipart: `file`, `template?`, `format?`)
+- `POST /api/mdflow/tsv/preview` (multipart: `file`, `template?`, `format?`, `?skip_ai=false`)
+- `POST /api/mdflow/xlsx` (multipart: `file`, `sheet_name?`, `template?`, `format?`)
+- `POST /api/mdflow/xlsx/preview` (multipart: `file`, `sheet_name?`, `template?`, `format?`, `?skip_ai=false`)
+- `POST /api/mdflow/xlsx/sheets` (multipart: `file`)
+
+### Templates & Validation
+
+- `GET /api/mdflow/templates`
+- `GET /api/mdflow/templates/info`
+- `GET /api/mdflow/templates/:name`
+- `POST /api/mdflow/templates/preview` (JSON: `template_content`, `sample_data?`)
+- `POST /api/mdflow/validate` (JSON: `paste_text`, `validation_rules?`, `template?`)
+
+### Diff & AI
+
+- `POST /api/mdflow/diff` (JSON: `before`, `after`)
+- `POST /api/mdflow/ai/suggest` (JSON: `paste_text`, `template?`)
+
+### Google Sheets
+
+- `POST /api/mdflow/gsheet` (JSON: `url`, `gid?`)
+- `POST /api/mdflow/gsheet/sheets` (JSON: `url`)
+- `POST /api/mdflow/gsheet/preview` (JSON: `url`, `template?`, `gid?`)
+- `POST /api/mdflow/gsheet/convert` (JSON: `url`, `template?`, `format?`, `gid?`)
+
+### Share API
+
+- `POST /api/share`
+- `GET /api/share/public`
+- `GET /api/share/:key`
+- `PATCH /api/share/:key`
+- `GET /api/share/:key/comments`
+- `POST /api/share/:key/comments`
+- `PATCH /api/share/:key/comments/:commentId`
+
+## CLI
+
+Build CLI:
+
 ```bash
-GET /health
-```
-
-**Conversion & Preview**
-```bash
-POST /api/mdflow/paste          # JSON: { paste_text, template? } (+ detect_only=true)
-POST /api/mdflow/preview        # JSON: { paste_text }
-POST /api/mdflow/tsv            # multipart: file (.tsv), template?
-POST /api/mdflow/tsv/preview    # multipart: file (.tsv)
-POST /api/mdflow/xlsx           # multipart: file (.xlsx), sheet_name?, template?
-POST /api/mdflow/xlsx/preview   # multipart: file (.xlsx), sheet_name?
-POST /api/mdflow/xlsx/sheets    # multipart: file (.xlsx)
-```
-
-**Templates & Validation**
-```bash
-GET  /api/mdflow/templates
-GET  /api/mdflow/templates/info
-GET  /api/mdflow/templates/:name
-POST /api/mdflow/templates/preview  # JSON: { template_content, sample_data }
-POST /api/mdflow/validate           # JSON: { paste_text, validation_rules? }
-```
-
-**Workflow & Integrations**
-```bash
-POST /api/mdflow/diff           # JSON: { before, after }
-POST /api/mdflow/gsheet         # JSON: { url }
-POST /api/mdflow/gsheet/convert # JSON: { url, template? }
-POST /api/mdflow/ai/suggest     # JSON: { paste_text, template? }
-```
-
-**Input Formats Supported:**
-- Excel files (.xlsx) with smart header detection
-- Pasted table data (tab-separated, pipe-separated)
-- Column mapping and merge handling
-
-See [TABLE_FORMATS.md](docs/TABLE_FORMATS.md) for detailed format specifications.
-
-## 🧰 CLI Usage
-
-```bash
-# Build the CLI
 make cli
+```
 
-# Convert a file
-./bin/mdflow convert --input spec.tsv --output spec.mdflow.md
+Examples:
 
-# Compare two outputs
+```bash
+./bin/mdflow convert --input spec.tsv --output spec.mdflow.md --template spec
+./bin/mdflow convert --input data.xlsx --sheet "Sheet1" --template table
 ./bin/mdflow diff before.md after.md --json
+./bin/mdflow templates
 ```
 
-## 🧑‍💻 Available Make Commands
+## Useful Commands
 
 ```bash
-make help          # Show all available commands
-make build         # Build Docker images
-make up            # Start services
-make down          # Stop services
-make logs          # View service logs
-make clean         # Remove containers & volumes
-make test          # Run backend tests (cd backend && go test ./...)
-make dev-backend   # Run Go server in dev mode
-make dev-frontend  # Run Next.js in dev mode
-make cli           # Build MDFlow CLI (bin/mdflow)
-make install-cli   # Install CLI to /usr/local/bin/mdflow
-make dev           # Build & start all services with logs
+make test           # backend tests (go test ./...)
+make dev-backend    # run backend server
+make dev-frontend   # run frontend dev server
+make cli            # build mdflow CLI
+make install-cli    # install CLI to /usr/local/bin/mdflow
 ```
 
-## 🧪 Testing
+## Environment Variables
 
-```bash
-# Run backend tests
-make test
-# or: cd backend && go test ./...
+Copy from `.env.example` and adjust values.
 
-# Frontend tests (configure as needed)
-cd frontend && npm test
-```
+Core:
 
-## 📝 Environment Variables
+- `HOST`, `PORT`, `CORS_ORIGINS`
+- `MAX_UPLOAD_BYTES`, `MAX_PASTE_BYTES`
+- `HTTP_CLIENT_TIMEOUT`
 
-See [`.env.example`](.env.example) for all available options.
+AI:
 
-**Key variables:**
-- `HOST`: Server host (default: 0.0.0.0)
-- `PORT`: Server port (default: 8080)
-- `APP_ENV`: Environment (dev/prod)
-- `OPENAI_API_KEY`: Enables AI suggestions (optional)
-- `OPENAI_MODEL`: OpenAI model name (default: gpt-4o-mini)
-- `NEXT_PUBLIC_API_URL`: Backend API URL for frontend (default: http://localhost:8080)
+- `OPENAI_API_KEY` (optional)
+- `OPENAI_MODEL`
+- `AI_REQUEST_TIMEOUT`, `AI_MAX_RETRIES`, `AI_CACHE_TTL`, `AI_MAX_CACHE_SIZE`, `AI_RETRY_BASE_DELAY`
+- `AI_PREVIEW_TIMEOUT`, `AI_PREVIEW_MAX_RETRIES`
 
-## 📖 Documentation
+Google Sheets / OAuth:
 
-- **[IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** - Complete implementation roadmap & phases
-- **[TABLE_FORMATS.md](docs/TABLE_FORMATS.md)** - Supported table formats and specifications
-- **[AGENTS.md](AGENTS.md)** - Development agent configuration
-- **[use-cases/](use-cases/)** - Example conversions and template samples
+- `GOOGLE_APPLICATION_CREDENTIALS` (backend service account path; optional)
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` (frontend OAuth)
+- `COOKIE_SECRET` (required for encrypted OAuth session cookie)
 
-## 🛣️ Key Components
+Frontend:
 
-### Backend Converter Pipeline
-The core conversion logic in `backend/internal/converter/`:
-1. **Input Parsing**: Support for XLSX files and pasted data
-2. **Header Detection**: Intelligent detection of table headers using scoring algorithm
-3. **Column Mapping**: Map detected columns to spec fields
-4. **Matrix Processing**: Handle merged cells and complex structures
-5. **Markdown Rendering**: Template-based Markdown generation
-6. **MDFlow Export**: Structured output format support
+- `NEXT_PUBLIC_API_URL`
+- `NEXT_PUBLIC_APP_URL`
 
-### Frontend Features
-- Real-time preview of conversions
-- Error handling and validation
-- Studio workspace for advanced workflows
-- Documentation viewer
-- State management via Zustand
+Share store:
 
-## 🤝 Contributing
+- `SHARE_STORE_PATH` (optional persisted storage path)
 
-1. Check [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) for ongoing work
-2. Follow code style guidelines in [AGENTS.md](AGENTS.md)
-3. Test changes locally before pushing
-4. Create feature branches for new functionality
+## Notes
+
+- Supported output modes are strictly `spec` and `table`.
+- Prefer `template` for consistency; `format` is kept as a backward-compatible alias.
+- Preview defaults to rule-based mapping for speed (`skip_ai=true`) and can opt-in AI mapping per request.
+- AI endpoints remain safe when unconfigured; they return structured non-fatal responses.

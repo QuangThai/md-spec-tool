@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Documentation | MDFlow Studio",
   description:
-    "Guides and API reference for MDFlow Studio: inputs, parsing, templates, validation, batch processing, sharing, and integrations.",
+    "Guides and API reference for MDFlow Studio: conversion pipeline, AI/BYOK mapping, Google Sheets OAuth, templates, validation, diff, sharing, and collaboration APIs.",
   alternates: {
     canonical: "/docs",
   },
@@ -14,7 +14,11 @@ export const metadata: Metadata = {
     "API reference",
     "architecture",
     "features",
+    "BYOK",
+    "Google OAuth",
     "batch processing",
+    "share API",
+    "collaboration",
     "AI suggestions",
     "technical specifications",
     "Excel to Markdown",
@@ -24,7 +28,7 @@ export const metadata: Metadata = {
     url: "/docs",
     title: "Documentation | MDFlow Studio",
     description:
-      "Guides and API reference for MDFlow Studio: inputs, parsing, templates, validation, batch processing, sharing, and integrations.",
+      "Guides and API reference for MDFlow Studio: conversion pipeline, AI/BYOK mapping, Google Sheets OAuth, templates, validation, diff, sharing, and collaboration APIs.",
     images: [
       {
         url: "https://md-spec-tool.vercel.app/docs/opengraph-image",
@@ -41,7 +45,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Documentation | MDFlow Studio",
     description:
-      "Guides and API reference for MDFlow Studio: inputs, templates, validation, batch processing, and sharing.",
+      "Guides and API reference for MDFlow Studio: AI/BYOK mapping, Google Sheets OAuth, templates, validation, diff, and sharing.",
     images: ["https://md-spec-tool.vercel.app/docs/opengraph-image"],
     creator: "@mdflow",
   },
@@ -52,13 +56,16 @@ const docsJsonLd = {
   "@type": "TechArticle",
   headline: "MDFlow Studio - Complete Documentation",
   description:
-    "Documentation covering architecture, API endpoints, input formats, parsing, templates, validation, batch processing, sharing, and integrations.",
+    "Documentation covering architecture, API endpoints, conversion/preview flows, AI/BYOK behavior, Google Sheets OAuth integration, templates, validation, diff, and sharing.",
   image: "https://md-spec-tool.vercel.app/docs/opengraph-image",
   keywords: [
     "MDFlow",
     "technical specifications",
     "Excel to Markdown",
     "API documentation",
+    "BYOK",
+    "Google OAuth",
+    "share links",
     "batch processing",
     "AI suggestions",
     "Google Sheets",

@@ -1,4 +1,4 @@
-import type { ValidationPreset, ValidationRules } from "./types";
+import type { TemplateMetadata, ValidationPreset, ValidationRules } from "./types";
 
 const STORAGE_KEY = "mdflow-validation-presets";
 
@@ -31,7 +31,12 @@ export function deletePreset(id: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(presets));
 }
 
+/**
+ * Canonical fields synced with backend validator.go:141-189
+ * These fields map to SpecRow struct fields in the Go backend
+ */
 export const CANONICAL_FIELDS = [
+  // Core fields
   { value: "id", label: "ID" },
   { value: "feature", label: "Feature" },
   { value: "scenario", label: "Scenario" },
@@ -44,60 +49,80 @@ export const CANONICAL_FIELDS = [
   { value: "status", label: "Status" },
   { value: "endpoint", label: "Endpoint" },
   { value: "notes", label: "Notes" },
+  // UI Spec fields
   { value: "no", label: "No" },
   { value: "item_name", label: "Item Name" },
   { value: "item_type", label: "Item Type" },
+  { value: "required_optional", label: "Required/Optional" },
+  { value: "input_restrictions", label: "Input Restrictions" },
+  { value: "display_conditions", label: "Display Conditions" },
   { value: "action", label: "Action" },
   { value: "navigation_destination", label: "Navigation Destination" },
 ] as const;
 
-/** Validation presets aligned with MDFlow templates (default, feature-spec, test-plan, api-endpoint, spec-table) */
-export const DEFAULT_PRESETS: { name: string; rules: ValidationRules }[] = [
-  {
-    name: "Default (Test Case)",
-    rules: {
-      required_fields: ["feature", "scenario", "expected"],
-      format_rules: { id_pattern: "^[A-Z]{2,}-\\d+$" },
-      cross_field: [
-        { if_field: "id", then_field: "feature", message: "When ID is set, Feature is required" },
-        { if_field: "instructions", then_field: "expected", message: "When Steps are set, Expected is required" },
-      ],
-    },
+/**
+ * Default validation rules for known template/format types
+ * These provide sensible defaults based on the template's purpose
+ */
+const TEMPLATE_VALIDATION_RULES: Record<string, ValidationRules> = {
+  // Spec document format - structured specifications
+  spec: {
+    required_fields: ["feature", "scenario", "expected"],
+    format_rules: { id_pattern: "^[A-Z]{2,}-\\d+$" },
+    cross_field: [
+      { if_field: "id", then_field: "feature", message: "When ID is set, Feature is required" },
+      { if_field: "instructions", then_field: "expected", message: "When Steps are set, Expected is required" },
+      { if_field: "precondition", then_field: "expected", message: "When Precondition is set, Expected is required" },
+    ],
   },
-  {
-    name: "Feature Spec (User Story)",
-    rules: {
-      required_fields: ["feature", "scenario", "expected"],
-      format_rules: null,
-      cross_field: [
-        { if_field: "precondition", then_field: "expected", message: "When Given is set, Then (expected) is required" },
-      ],
-    },
+  // Table format - simple markdown tables
+  table: {
+    required_fields: [],
+    format_rules: null,
+    cross_field: [],
   },
-  {
-    name: "Test Plan",
-    rules: {
-      required_fields: ["id", "feature", "scenario", "expected"],
-      format_rules: { id_pattern: "^[A-Z]{2,}-\\d+$" },
-      cross_field: [{ if_field: "id", then_field: "feature", message: "When ID is set, Feature is required" }],
-    },
-  },
-  {
-    name: "API Endpoint",
-    rules: {
-      required_fields: ["endpoint", "type"],
-      format_rules: { url_fields: ["endpoint"] },
-      cross_field: [],
-    },
-  },
-  {
-    name: "Spec Table (UI)",
-    rules: {
-      required_fields: ["item_name", "item_type"],
-      format_rules: null,
-      cross_field: [
-        { if_field: "action", then_field: "navigation_destination", message: "When Action is set, Navigation destination is required for navigation actions" },
-      ],
-    },
-  },
-];
+};
+
+/**
+ * Fallback validation rules for unknown templates
+ */
+const DEFAULT_VALIDATION_RULES: ValidationRules = {
+  required_fields: [],
+  format_rules: null,
+  cross_field: [],
+};
+
+/**
+ * Generate validation presets from templates fetched via API
+ * This ensures presets stay in sync with available templates
+ */
+export function generatePresetsFromTemplates(
+  templates: TemplateMetadata[]
+): { name: string; rules: ValidationRules }[] {
+  if (!templates || templates.length === 0) {
+    // Return minimal fallback if no templates available
+    return [
+      { name: "Default", rules: DEFAULT_VALIDATION_RULES },
+    ];
+  }
+
+  return templates.map((template) => {
+    // Try to find matching rules by template name or format
+    const rules = 
+      TEMPLATE_VALIDATION_RULES[template.name] ||
+      TEMPLATE_VALIDATION_RULES[template.format] ||
+      DEFAULT_VALIDATION_RULES;
+
+    return {
+      name: template.description || template.name,
+      rules,
+    };
+  });
+}
+
+/**
+ * Get validation rules for a specific template/format
+ */
+export function getValidationRulesForTemplate(templateName: string): ValidationRules {
+  return TEMPLATE_VALIDATION_RULES[templateName] || DEFAULT_VALIDATION_RULES;
+}

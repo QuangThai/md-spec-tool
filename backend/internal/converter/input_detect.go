@@ -146,6 +146,7 @@ func calculateTableScore(text string) (int, []string) {
 	score := 0
 	var reasons []string
 	lines := strings.Split(text, "\n")
+	blockquoteRegex := regexp.MustCompile(`^>\s*`)
 
 	// Count lines with tabs and/or commas (CSV from Google Sheets etc.)
 	tabLineCount := 0
@@ -155,6 +156,9 @@ func calculateTableScore(text string) (int, []string) {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
+			continue
+		}
+		if blockquoteRegex.MatchString(line) {
 			continue
 		}
 
