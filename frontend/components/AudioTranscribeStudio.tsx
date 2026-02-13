@@ -368,8 +368,8 @@ export default function AudioTranscribeStudio() {
   }, [duration, transcriptSplits]);
 
   return (
-    <div className="min-h-screen bg-black/40 px-6 pb-16 pt-10">
-      <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen bg-bg-mesh">
+      <div className="mx-auto max-w-7xl">
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <section className="min-w-0 space-y-5">
@@ -385,10 +385,10 @@ export default function AudioTranscribeStudio() {
                     : "MP3, WAV, M4A, MP4 (max 30MB default)"}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="group relative flex cursor-pointer items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/30 hover:bg-white/10">
-                  <Upload className="h-4 w-4" />
-                  <span className="text-xs">New File</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="group relative inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/10">
+                  <Upload className="h-3.5 w-3.5" />
+                  <span>New File</span>
                   <input
                     type="file"
                     accept="audio/*"
@@ -400,8 +400,9 @@ export default function AudioTranscribeStudio() {
                   <button
                     type="button"
                     onClick={handleClearFile}
-                    className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-white/50 transition hover:border-white/30 hover:bg-white/10"
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/10"
                   >
+                    <X className="h-3.5 w-3.5" />
                     Clear
                   </button>
                 )}
