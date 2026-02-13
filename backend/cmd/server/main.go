@@ -23,20 +23,24 @@ func main() {
 	_ = godotenv.Load("../.env")
 
 	cfg := config.LoadConfig()
+	if err := config.ValidateConfig(cfg); err != nil {
+		slog.Error("Invalid configuration", "error", err)
+		os.Exit(1)
+	}
 	slog.Info("Starting server", "host", cfg.Host, "port", cfg.Port, "ai_enabled", cfg.AIEnabled)
 
 	// Setup router
 	router := httphandler.SetupRouter(cfg)
 
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
-	
+
 	// Create HTTP server with proper timeouts
 	server := &http.Server{
 		Addr:           addr,
 		Handler:        router,
-		ReadTimeout:    15 * time.Second,
-		WriteTimeout:   15 * time.Second,
-		IdleTimeout:    60 * time.Second,
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   180 * time.Second,
+		IdleTimeout:    120 * time.Second,
 		MaxHeaderBytes: 1 << 20, // 1MB
 	}
 
@@ -55,7 +59,7 @@ func main() {
 	<-sigChan
 
 	slog.Info("Shutting down server...")
-	
+
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

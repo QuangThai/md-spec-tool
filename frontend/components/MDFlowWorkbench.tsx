@@ -51,7 +51,7 @@ import {
   Zap,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { CommandPalette } from "./CommandPalette";
 import HistoryModal, { KeyboardShortcutsTooltip } from "./HistoryModal";
@@ -193,6 +193,7 @@ export default function MDFlowWorkbench() {
   const [shareSlugError, setShareSlugError] = useState<string | null>(null);
   const shareOptionsRef = useRef<HTMLDivElement>(null);
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
+  const [gsheetRange, setGsheetRange] = useState("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const openaiKey = useOpenAIKeyStore((s) => s.apiKey);
@@ -216,6 +217,15 @@ export default function MDFlowWorkbench() {
 
   const isGsheetUrl = isGoogleSheetsURL(debouncedPasteText.trim());
   const isInputGsheetUrl = isGoogleSheetsURL(pasteText.trim());
+  const gsheetRangeValue = useMemo(() => {
+    const trimmed = gsheetRange.trim();
+    if (!trimmed) return "";
+    if (trimmed.includes("!")) return trimmed;
+    const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
+    const title = selectedTab?.title?.trim();
+    if (!title) return "";
+    return `${title}!${trimmed}`;
+  }, [gsheetRange, gsheetTabs, selectedGid]);
   const previewPasteQuery = usePreviewPasteQuery(
     debouncedPasteText,
     mode === "paste" && debouncedPasteText.trim().length > 0 && !isGsheetUrl,
@@ -232,8 +242,23 @@ export default function MDFlowWorkbench() {
     debouncedPasteText.trim(),
     selectedGid,
     mode === "paste" && isGsheetUrl && gsheetTabs.length > 0 && Boolean(selectedGid),
-    format
+    format,
+    gsheetRangeValue
   );
+
+  useEffect(() => {
+    if (!isGsheetUrl) return;
+    if (gsheetRange.trim()) return;
+    const selectedRange = previewGoogleSheetQuery.data?.selected_block_range;
+    if (selectedRange) {
+      setGsheetRange(selectedRange);
+    }
+  }, [
+    isGsheetUrl,
+    gsheetRange,
+    previewGoogleSheetQuery.data?.selected_block_range,
+    setGsheetRange,
+  ]);
 
   // Reset store when leaving Studio so data is not shown when user comes back
   useEffect(() => {
@@ -258,6 +283,7 @@ export default function MDFlowWorkbench() {
     if (mode !== "paste") {
       setGsheetTabs([]);
       setSelectedGid("");
+      setGsheetRange("");
       return;
     }
 
@@ -265,6 +291,7 @@ export default function MDFlowWorkbench() {
     if (!trimmed || !isGoogleSheetsURL(trimmed)) {
       setGsheetTabs([]);
       setSelectedGid("");
+      setGsheetRange("");
       return;
     }
 
@@ -450,6 +477,8 @@ export default function MDFlowWorkbench() {
              template: format,
              gid: selectedGid,
              format,
+             range: gsheetRangeValue || undefined,
+             columnOverrides,
            });
            const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
            const tabLabel = selectedTab?.title || selectedGid;
@@ -463,6 +492,7 @@ export default function MDFlowWorkbench() {
              pasteText,
              template: format,
              format,
+             columnOverrides,
            });
            inputPreview =
              pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
@@ -477,6 +507,7 @@ export default function MDFlowWorkbench() {
           sheetName: selectedSheet,
           template: format,
           format,
+          columnOverrides,
         });
         inputPreview = `${file.name}${selectedSheet ? ` (${selectedSheet})` : ""
           }`;
@@ -489,6 +520,7 @@ export default function MDFlowWorkbench() {
           file,
           template: format,
           format,
+          columnOverrides,
         });
         inputPreview = file.name;
       }
@@ -523,6 +555,8 @@ export default function MDFlowWorkbench() {
     selectedSheet,
     selectedGid,
     format,
+    columnOverrides,
+    gsheetRangeValue,
     setLoading,
     setError,
     setResult,
@@ -946,6 +980,16 @@ export default function MDFlowWorkbench() {
                             Analyzing...
                           </span>
                         )}
+                        {isGoogleSheetsURL(pasteText.trim()) && gsheetTabs.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => previewGoogleSheetQuery.refetch()}
+                            className="flex items-center gap-1 text-blue-400/70 hover:text-blue-400 transition-colors cursor-pointer bg-blue-400/10 px-2 py-0.5 rounded"
+                          >
+                            <RefreshCcw className="w-3 h-3" />
+                            Refresh
+                          </button>
+                        )}
                         {isGoogleSheetsURL(pasteText.trim()) && gsheetLoading && (
                           <span className="flex items-center gap-1 text-blue-400/70">
                             <RefreshCcw className="w-3 h-3 animate-spin" />
@@ -966,6 +1010,18 @@ export default function MDFlowWorkbench() {
                             placeholder="Choose sheet"
                             size="compact"
                             className="w-auto min-w-40"
+                          />
+                        </div>
+                      )}
+                      {isGoogleSheetsURL(pasteText.trim()) && (
+                        <div className="mb-3 flex flex-wrap items-center gap-2 text-[9px] text-white/60 uppercase font-bold tracking-wider">
+                          <label className="text-white/50">Range</label>
+                          <input
+                            type="text"
+                            value={gsheetRange}
+                            onChange={(e) => setGsheetRange(e.target.value)}
+                            placeholder="A1:F200 or Sheet1!A1:F200"
+                            className="h-7 px-2 rounded-md bg-black/40 border border-white/10 text-[10px] text-white/80 placeholder-white/30 focus:outline-none focus:border-accent-orange/40"
                           />
                         </div>
                       )}
@@ -1023,7 +1079,12 @@ export default function MDFlowWorkbench() {
                                 preview={preview}
                                 columnOverrides={columnOverrides}
                                 onColumnOverride={setColumnOverride}
-                                sourceUrl={undefined}
+                                sourceUrl={isGoogleSheetsURL(pasteText.trim()) ? pasteText.trim() : undefined}
+                                onSelectBlockRange={
+                                  isGoogleSheetsURL(pasteText.trim())
+                                    ? (range) => setGsheetRange(range)
+                                    : undefined
+                                }
                               />
                             </motion.div>
                           )}
@@ -1197,6 +1258,11 @@ export default function MDFlowWorkbench() {
                                     preview={preview}
                                     columnOverrides={columnOverrides}
                                     onColumnOverride={setColumnOverride}
+                                    onSelectBlockRange={
+                                      isGoogleSheetsURL(pasteText.trim())
+                                        ? (range) => setGsheetRange(range)
+                                        : undefined
+                                    }
                                   />
                                 </div>
                               )}

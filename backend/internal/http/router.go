@@ -20,11 +20,14 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 	// to avoid OOM under concurrent load. Use 8MB buffer for safety under concurrent uploads.
 	router.MaxMultipartMemory = 8 * 1024 * 1024 // 8MB
 
-	// Apply middlewares
+	// Apply middlewares (order matters: CORS first, then metrics, then error handler)
 	router.Use(middleware.CORS(cfg))
+	router.Use(middleware.MetricsMiddleware())
+	router.Use(middleware.ErrorHandler())
 
 	// Public routes
 	router.GET("/health", handlers.HealthHandler)
+	router.GET("/metrics", handlers.MetricsHandler)
 
 	// Create shared HTTP client for outbound requests (Google Sheets, etc.)
 	httpClient := &http.Client{
@@ -33,9 +36,6 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 
 	// MDFlow converter routes (public, no auth required)
 	conv := converter.NewConverter()
-	if cfg.UseNewConverterPipeline {
-		conv.WithNewPipeline()
-	}
 
 	// Create shared AI service for all AI operations (auto-enabled when OPENAI_API_KEY is set)
 	var aiService ai.Service
@@ -65,6 +65,8 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		httpClient,
 		cfg,
 	)
+
+	audioHandler := handlers.NewAudioTranscribeHandler(cfg)
 
 	// Create diff handler (always created; supports BYOK even when no server AI key)
 	diffHandler := handlers.NewDiffHandler(aiService, cfg)
@@ -108,6 +110,11 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 		shareRoutes.GET("/:key/comments", shareHandler.ListComments)
 		shareRoutes.POST("/:key/comments", middleware.RateLimit(cfg.ShareCommentRateLimit, cfg.RateLimitWindow), shareHandler.CreateComment)
 		shareRoutes.PATCH("/:key/comments/:commentId", middleware.RateLimit(cfg.ShareCommentRateLimit, cfg.RateLimitWindow), shareHandler.UpdateComment)
+	}
+
+	audio := router.Group("/api/audio")
+	{
+		audio.POST("/transcribe", audioHandler.Transcribe)
 	}
 
 	return router

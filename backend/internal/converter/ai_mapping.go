@@ -61,13 +61,16 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 
 	cleanHeaders := normalizeHeaders(headers)
 	sampleRows := buildSampleRows(dataRows, aiSampleRows)
+	sourceLang := DetectLanguageHint(EstimateEnglishScore(headers, dataRows), headers, dataRows)
+	schemaHint := inferSchemaHint(headers, dataRows)
 
 	result, err := c.aiMapper.MapColumns(ctx, ai.MapColumnsRequest{
 		Headers:    cleanHeaders,
 		SampleRows: sampleRows,
 		Format:     "spec",
 		FileType:   "table",
-		SourceLang: "unknown",
+		SourceLang: sourceLang,
+		SchemaHint: schemaHint,
 	})
 	if err != nil {
 		meta.Degraded = true
@@ -89,6 +92,9 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 
 	colMap, unmapped, mappingWarnings := aiMappingToColumnMap(headers, result)
 
+	// Recalculate mapped count after filtering invalid/unknown fields
+	meta.MappedColumns = len(colMap)
+
 	// Fall back if confidence is too low
 	if !aiMappingMeetsThreshold(meta, len(headers)) || len(colMap) == 0 {
 		meta.Degraded = true
@@ -105,6 +111,45 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 	}
 
 	return colMap, unmapped, mappingWarnings, meta
+}
+
+// inferSchemaHint detects likely schema from headers and sample data.
+// Returns "test_case", "ui_spec", "product_backlog", "issue_tracker", "api_spec", or "auto".
+func inferSchemaHint(headers []string, dataRows [][]string) string {
+	lower := make([]string, len(headers))
+	for i, h := range headers {
+		lower[i] = strings.ToLower(strings.TrimSpace(h))
+	}
+	joined := " " + strings.Join(lower, " ") + " "
+
+	// API spec: endpoint, method, parameters, response, status
+	if strings.Contains(joined, " endpoint") || strings.Contains(joined, " method") ||
+		strings.Contains(joined, " parameters") || strings.Contains(joined, " response") ||
+		strings.Contains(joined, " status_code") {
+		return "api_spec"
+	}
+	// UI spec: item name, item type, display conditions, action
+	if strings.Contains(joined, " item_name") || strings.Contains(joined, " item type") ||
+		strings.Contains(joined, " display_conditions") || strings.Contains(joined, " action") {
+		return "ui_spec"
+	}
+	// Product backlog: story points, sprint, acceptance criteria
+	if strings.Contains(joined, " story") || strings.Contains(joined, " sprint") ||
+		strings.Contains(joined, " acceptance") || strings.Contains(joined, " backlog") {
+		return "product_backlog"
+	}
+	// Issue tracker: assignee, component, priority, status
+	if strings.Contains(joined, " assignee") || strings.Contains(joined, " component") ||
+		strings.Contains(joined, " issue") || strings.Contains(joined, " ticket") {
+		return "issue_tracker"
+	}
+	// Test case: feature, scenario, steps, expected
+	if strings.Contains(joined, " feature") || strings.Contains(joined, " scenario") ||
+		strings.Contains(joined, " steps") || strings.Contains(joined, " expected") ||
+		strings.Contains(joined, " test case") {
+		return "test_case"
+	}
+	return "auto"
 }
 
 func aiMappingMeetsThreshold(meta *AIMappingMeta, totalColumns int) bool {
@@ -171,14 +216,16 @@ func aiMappingToColumnMap(headers []string, result *ai.ColumnMappingResult) (Col
 	for _, mapping := range result.CanonicalFields {
 		field, ok := mapAICanonicalField(mapping.CanonicalName)
 		if !ok {
-			warnings = append(warnings, newWarning(
-				"MAPPING_AI_UNKNOWN_FIELD",
-				SeverityInfo,
-				CatMapping,
-				"AI returned an unknown canonical field; ignoring mapping.",
-				"Update AI schema if this field should be supported.",
-				map[string]any{"canonical_name": mapping.CanonicalName},
-			))
+			if !aiExtraFieldNames[mapping.CanonicalName] {
+				warnings = append(warnings, newWarning(
+					"MAPPING_AI_UNKNOWN_FIELD",
+					SeverityInfo,
+					CatMapping,
+					"AI returned an unknown canonical field; ignoring mapping.",
+					"Update AI schema if this field should be supported.",
+					map[string]any{"canonical_name": mapping.CanonicalName},
+				))
+			}
 			continue
 		}
 		if mapping.ColumnIndex < 0 || mapping.ColumnIndex >= len(headers) {
@@ -225,51 +272,144 @@ func aiMappingToColumnMap(headers []string, result *ai.ColumnMappingResult) (Col
 	return colMap, unmapped, warnings
 }
 
+// aiCanonicalAliases maps AI-returned canonical names (including common
+// variations the model may produce) to the internal CanonicalField values.
+var aiCanonicalAliases = map[string]CanonicalField{
+	// exact canonical names
+	"id":                     FieldID,
+	"title":                  FieldTitle,
+	"description":            FieldDescription,
+	"acceptance_criteria":    FieldAcceptance,
+	"feature":                FieldFeature,
+	"scenario":               FieldScenario,
+	"instructions":           FieldInstructions,
+	"inputs":                 FieldInputs,
+	"expected":               FieldExpected,
+	"precondition":           FieldPrecondition,
+	"priority":               FieldPriority,
+	"type":                   FieldType,
+	"status":                 FieldStatus,
+	"endpoint":               FieldEndpoint,
+	"method":                 FieldMethod,
+	"parameters":             FieldParameters,
+	"response":               FieldResponse,
+	"status_code":            FieldStatusCode,
+	"notes":                  FieldNotes,
+	"component":              FieldComponent,
+	"assignee":               FieldAssignee,
+	"category":               FieldCategory,
+	"no":                     FieldNo,
+	"item_name":              FieldItemName,
+	"item_type":              FieldItemType,
+	"required_optional":      FieldRequiredOptional,
+	"input_restrictions":     FieldInputRestrictions,
+	"display_conditions":     FieldDisplayConditions,
+	"action":                 FieldAction,
+	"navigation_destination": FieldNavigationDest,
+
+	// --- aliases the AI model may return ---
+	// title / feature aliases
+	"name":           FieldTitle,
+	"summary":        FieldTitle,
+	"requirement":    FieldFeature,
+	"test_case":      FieldScenario,
+	"test_case_name": FieldScenario,
+
+	// instructions aliases
+	"steps":      FieldInstructions,
+	"test_steps": FieldInstructions,
+	"procedure":  FieldInstructions,
+
+	// expected aliases
+	"expected_result": FieldExpected,
+	"result":          FieldExpected,
+	"outcome":         FieldExpected,
+	"acceptance":      FieldAcceptance,
+	"criteria":        FieldAcceptance,
+
+	// precondition aliases
+	"pre_condition": FieldPrecondition,
+	"prerequisites": FieldPrecondition,
+
+	// method aliases
+	"http_method": FieldMethod,
+	"verb":        FieldMethod,
+
+	// response aliases
+	"response_body":   FieldResponse,
+	"response_json":   FieldResponse,
+	"response_schema": FieldResponse,
+
+	// parameters aliases
+	"params":       FieldParameters,
+	"request":      FieldParameters,
+	"request_body": FieldParameters,
+
+	// status code aliases
+	"status code": FieldStatusCode,
+	"http_status": FieldStatusCode,
+
+	// no aliases
+	"number": FieldNo,
+	"seq":    FieldNo,
+	"index":  FieldNo,
+
+	// item_name / item_type aliases
+	"field_name":   FieldItemName,
+	"label":        FieldItemName,
+	"control_type": FieldItemType,
+	"widget":       FieldItemType,
+	"field_type":   FieldItemType,
+
+	// notes aliases
+	"remarks": FieldNotes,
+	"comment": FieldNotes,
+	"memo":    FieldNotes,
+
+	// display_conditions aliases
+	"visibility":     FieldDisplayConditions,
+	"show_condition": FieldDisplayConditions,
+
+	// action aliases
+	"trigger":  FieldAction,
+	"event":    FieldAction,
+	"on_click": FieldAction,
+
+	// navigation_destination aliases
+	"target":      FieldNavigationDest,
+	"redirect":    FieldNavigationDest,
+	"next_screen": FieldNavigationDest,
+	"link":        FieldNavigationDest,
+	"destination": FieldNavigationDest,
+
+	// required_optional aliases
+	"mandatory": FieldRequiredOptional,
+	"required":  FieldRequiredOptional,
+	"optional":  FieldRequiredOptional,
+
+	// input_restrictions aliases
+	"constraint": FieldInputRestrictions,
+	"validation": FieldInputRestrictions,
+	"rule":       FieldInputRestrictions,
+}
+
+// aiExtraFieldNames are canonical names the AI may return that are valid
+// metadata but don't map to any CanonicalField. They should not produce
+// warnings.
+var aiExtraFieldNames = map[string]bool{
+	"assignee":  true,
+	"component": true,
+	"category":  true,
+}
+
 func mapAICanonicalField(name string) (CanonicalField, bool) {
-	switch name {
-	case "id":
-		return FieldID, true
-	case "feature":
-		return FieldFeature, true
-	case "scenario":
-		return FieldScenario, true
-	case "instructions":
-		return FieldInstructions, true
-	case "inputs":
-		return FieldInputs, true
-	case "expected":
-		return FieldExpected, true
-	case "precondition":
-		return FieldPrecondition, true
-	case "priority":
-		return FieldPriority, true
-	case "type":
-		return FieldType, true
-	case "status":
-		return FieldStatus, true
-	case "endpoint":
-		return FieldEndpoint, true
-	case "notes":
-		return FieldNotes, true
-	case "no":
-		return FieldNo, true
-	case "item_name":
-		return FieldItemName, true
-	case "item_type":
-		return FieldItemType, true
-	case "required_optional":
-		return FieldRequiredOptional, true
-	case "input_restrictions":
-		return FieldInputRestrictions, true
-	case "display_conditions":
-		return FieldDisplayConditions, true
-	case "action":
-		return FieldAction, true
-	case "navigation_destination":
-		return FieldNavigationDest, true
-	default:
+	if field, ok := aiCanonicalAliases[name]; ok {
+		return field, true
+	}
+	if aiExtraFieldNames[name] {
 		return "", false
 	}
+	return "", false
 }
 
 func applyAIMeta(meta *SpecDocMeta, aiMeta *AIMappingMeta) {

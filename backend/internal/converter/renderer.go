@@ -392,6 +392,12 @@ func valueForField(row SpecRow, field CanonicalField) string {
 	switch field {
 	case FieldID:
 		return normalizeCellValue(row.ID)
+	case FieldTitle:
+		return normalizeCellValue(row.Title)
+	case FieldDescription:
+		return normalizeCellValue(row.Description)
+	case FieldAcceptance:
+		return normalizeCellValue(row.Acceptance)
 	case FieldFeature:
 		return normalizeCellValue(row.Feature)
 	case FieldScenario:
@@ -412,8 +418,22 @@ func valueForField(row SpecRow, field CanonicalField) string {
 		return normalizeCellValue(row.Status)
 	case FieldEndpoint:
 		return normalizeCellValue(row.Endpoint)
+	case FieldMethod:
+		return normalizeCellValue(row.Method)
+	case FieldParameters:
+		return normalizeCellValue(row.Parameters)
+	case FieldResponse:
+		return normalizeCellValue(row.Response)
+	case FieldStatusCode:
+		return normalizeCellValue(row.StatusCode)
 	case FieldNotes:
 		return normalizeCellValue(row.Notes)
+	case FieldComponent:
+		return normalizeCellValue(row.Component)
+	case FieldAssignee:
+		return normalizeCellValue(row.Assignee)
+	case FieldCategory:
+		return normalizeCellValue(row.Category)
 	case FieldNo:
 		return normalizeCellValue(row.No)
 	case FieldItemName:
@@ -458,6 +478,26 @@ This specification contains {{.TotalCount}} test cases.
 ### {{if .ID}}{{.ID}}: {{end}}{{ $title }}
 {{end}}
 {{- if .Priority}}**Priority:** {{.Priority}}{{end}}{{if .Type}} | **Type:** {{.Type}}{{end}}
+{{- if notEmpty .Title}}
+**Title:** {{.Title}}
+{{- end}}
+{{- if notEmpty .Description}}
+**Description:**
+{{formatBullets .Description}}
+{{- end}}
+{{- if notEmpty .Acceptance}}
+**Acceptance Criteria:**
+{{formatBullets .Acceptance}}
+{{- end}}
+{{- if notEmpty .Assignee}}
+**Assignee:** {{.Assignee}}
+{{- end}}
+{{- if notEmpty .Component}}
+**Component:** {{.Component}}
+{{- end}}
+{{- if notEmpty .Category}}
+**Category:** {{.Category}}
+{{- end}}
 {{- if notEmpty .Precondition}}
 **Preconditions:**
 {{formatBullets .Precondition}}
@@ -476,6 +516,20 @@ This specification contains {{.TotalCount}} test cases.
 {{- end}}
 {{- if notEmpty .Endpoint}}
 **API/Endpoint:** ` + "`{{.Endpoint}}`" + `
+{{- end}}
+{{- if notEmpty .Method}}
+**Method:** {{.Method}}
+{{- end}}
+{{- if notEmpty .StatusCode}}
+**Status Code:** {{.StatusCode}}
+{{- end}}
+{{- if notEmpty .Parameters}}
+**Parameters:**
+{{formatBullets .Parameters}}
+{{- end}}
+{{- if notEmpty .Response}}
+**Response:**
+{{formatBullets .Response}}
 {{- end}}
 {{- if notEmpty .Notes}}
 **Notes:** {{.Notes}}

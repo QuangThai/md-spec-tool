@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -15,11 +16,13 @@ const (
 	DefaultOpenAIModel = "gpt-4o-mini"
 
 	// Upload/Paste limits
-	DefaultMaxUploadBytes = 10 << 20 // 10MB
-	DefaultMaxPasteBytes  = 1 << 20  // 1MB
+	DefaultMaxUploadBytes      = 10 << 20 // 10MB
+	DefaultMaxPasteBytes       = 1 << 20  // 1MB
+	DefaultMaxAudioUploadBytes = 30 << 20 // 30MB
 
 	// HTTP client timeout for external calls (Google Sheets, etc.)
 	DefaultHTTPClientTimeout = 30 * time.Second
+	DefaultGSheetMaxRetries  = 2
 
 	// Rate limiting defaults
 	DefaultShareCreateRateLimit  = 10
@@ -46,11 +49,16 @@ type Config struct {
 	CORSOrigins []string
 
 	// Upload/Paste limits
-	MaxUploadBytes int64
-	MaxPasteBytes  int64
+	MaxUploadBytes      int64
+	MaxPasteBytes       int64
+	MaxAudioUploadBytes int64
 
 	// HTTP client
 	HTTPClientTimeout time.Duration
+
+	// Google Sheets (optional; defaults to HTTPClientTimeout if not set)
+	GSheetHTTPTimeout time.Duration
+	GSheetMaxRetries  int
 
 	// Rate limiting
 	ShareCreateRateLimit  int
@@ -71,9 +79,6 @@ type Config struct {
 	// AI preview configuration (reduced timeout/retries for when skip_ai=false on preview)
 	AIPreviewTimeout    time.Duration
 	AIPreviewMaxRetries int
-
-	// Feature flags
-	UseNewConverterPipeline bool
 
 	// Storage
 	ShareStorePath string
@@ -102,11 +107,16 @@ func LoadConfig() *Config {
 		CORSOrigins: parsedCORSOrigins,
 
 		// Upload/Paste limits
-		MaxUploadBytes: getEnvInt64("MAX_UPLOAD_BYTES", DefaultMaxUploadBytes),
-		MaxPasteBytes:  getEnvInt64("MAX_PASTE_BYTES", DefaultMaxPasteBytes),
+		MaxUploadBytes:      getEnvInt64("MAX_UPLOAD_BYTES", DefaultMaxUploadBytes),
+		MaxPasteBytes:       getEnvInt64("MAX_PASTE_BYTES", DefaultMaxPasteBytes),
+		MaxAudioUploadBytes: getEnvInt64("MAX_AUDIO_UPLOAD_BYTES", DefaultMaxAudioUploadBytes),
 
 		// HTTP client
 		HTTPClientTimeout: getEnvDuration("HTTP_CLIENT_TIMEOUT", DefaultHTTPClientTimeout),
+
+		// Google Sheets
+		GSheetHTTPTimeout: getEnvDuration("GSHEET_HTTP_TIMEOUT", DefaultHTTPClientTimeout+15*time.Second),
+		GSheetMaxRetries:  getEnvInt("GSHEET_MAX_RETRIES", DefaultGSheetMaxRetries),
 
 		// Rate limiting
 		ShareCreateRateLimit:  getEnvInt("SHARE_CREATE_RATE_LIMIT", DefaultShareCreateRateLimit),
@@ -128,12 +138,40 @@ func LoadConfig() *Config {
 		AIPreviewTimeout:    getEnvDuration("AI_PREVIEW_TIMEOUT", DefaultAIPreviewTimeout),
 		AIPreviewMaxRetries: getEnvInt("AI_PREVIEW_MAX_RETRIES", DefaultAIPreviewMaxRetries),
 
-		// Feature flags
-		UseNewConverterPipeline: getEnvBool("USE_NEW_CONVERTER_PIPELINE", false),
-
 		// Storage
 		ShareStorePath: getEnv("SHARE_STORE_PATH", ""),
 	}
+}
+
+// ValidateConfig checks config values and returns an error on failure.
+// Call after LoadConfig to fail fast on invalid configuration.
+func ValidateConfig(cfg *Config) error {
+	if cfg.MaxPasteBytes > cfg.MaxUploadBytes {
+		return fmt.Errorf("MAX_PASTE_BYTES (%d) must not exceed MAX_UPLOAD_BYTES (%d)", cfg.MaxPasteBytes, cfg.MaxUploadBytes)
+	}
+	if cfg.MaxUploadBytes <= 0 || cfg.MaxPasteBytes <= 0 {
+		return fmt.Errorf("MAX_UPLOAD_BYTES and MAX_PASTE_BYTES must be positive")
+	}
+	if cfg.MaxAudioUploadBytes <= 0 {
+		return fmt.Errorf("MAX_AUDIO_UPLOAD_BYTES must be positive")
+	}
+	if cfg.Port != "" {
+		if _, err := strconv.Atoi(cfg.Port); err != nil {
+			return fmt.Errorf("PORT must be numeric, got %q", cfg.Port)
+		}
+	}
+	if len(cfg.CORSOrigins) == 0 {
+		return fmt.Errorf("CORS_ORIGINS must have at least one origin")
+	}
+	for _, origin := range cfg.CORSOrigins {
+		if origin == "" || !strings.HasPrefix(origin, "http://") && !strings.HasPrefix(origin, "https://") {
+			return fmt.Errorf("CORS_ORIGINS entry %q must be a valid http(s) URL", origin)
+		}
+	}
+	if cfg.ShareCreateRateLimit <= 0 || cfg.ShareUpdateRateLimit <= 0 || cfg.ShareCommentRateLimit <= 0 {
+		return fmt.Errorf("share rate limits must be positive")
+	}
+	return nil
 }
 
 func getEnv(key, fallback string) string {

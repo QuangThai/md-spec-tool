@@ -79,12 +79,14 @@ export function useConversionFlow({
               url: trimmedPaste,
               template,
               gid: selectedGid,
+              columnOverrides,
             });
           } else {
             // Paste TSV/CSV
             result = await convertPasteMutation.mutateAsync({
               pasteText,
               template,
+              columnOverrides,
             });
           }
         } else if (mode === "xlsx" && file) {
@@ -92,11 +94,13 @@ export function useConversionFlow({
             file,
             sheetName: selectedSheet,
             template,
+            columnOverrides,
           });
         } else if (mode === "tsv" && file) {
           result = await convertTSVMutation.mutateAsync({
             file,
             template,
+            columnOverrides,
           });
         } else {
           setError("No input provided");

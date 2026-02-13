@@ -18,11 +18,14 @@ func NewColumnMapperService(aiService Service) *ColumnMapperService {
 
 // MapColumnsRequest represents the input for column mapping
 type MapColumnsRequest struct {
-	Headers    []string   `json:"headers"`      // Column headers from spreadsheet
-	SampleRows [][]string `json:"sample_rows"` // 3-5 rows for context
-	Format     string     `json:"format"`      // "spec" | "table"
-	FileType   string     `json:"file_type"`   // "csv", "xlsx", etc.
-	SourceLang string     `json:"source_lang"` // Language code: "en", "ja", "vi", etc.
+	Headers              []string   `json:"headers"`               // Column headers from spreadsheet
+	SampleRows           [][]string `json:"sample_rows"`           // 3-5 rows for context
+	Format               string     `json:"format"`                // "spec" | "table"
+	FileType             string     `json:"file_type"`             // "csv", "xlsx", etc.
+	SourceLang           string     `json:"source_lang"`           // Language code: "en", "ja", "vi", etc.
+	SchemaHint           string     `json:"schema_hint"`           // Optional hint: "test_case", "product_backlog", "issue_tracker", "api_spec", "ui_spec", "auto"
+	Language             string     `json:"language"`              // Alternative to SourceLang for consistency
+	RefinementContext    string     `json:"refinement_context"`    // Context for refinement prompts (internal use)
 }
 
 // MapColumns maps source headers to canonical fields using LLM
@@ -43,6 +46,7 @@ func (s *ColumnMapperService) MapColumns(ctx context.Context, req MapColumnsRequ
 		Format:     req.Format,
 		FileType:   req.FileType,
 		SourceLang: req.SourceLang,
+		SchemaHint: req.SchemaHint,
 	})
 }
 

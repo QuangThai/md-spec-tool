@@ -26,10 +26,12 @@ import (
 
 // GoogleSheetRequest represents the request for Google Sheet import
 type GoogleSheetRequest struct {
-	URL      string `json:"url" binding:"required"`
-	Template string `json:"template"`
-	Format   string `json:"format"` // "spec" | "table"
-	GID      string `json:"gid,omitempty"`
+	URL             string            `json:"url" binding:"required"`
+	Template        string            `json:"template"`
+	Format          string            `json:"format"` // "spec" | "table"
+	GID             string            `json:"gid,omitempty"`
+	Range           string            `json:"range,omitempty"`
+	ColumnOverrides map[string]string `json:"column_overrides,omitempty"`
 }
 
 // GoogleSheetSheetsRequest represents the request for sheet list
@@ -70,8 +72,9 @@ func parseGoogleSheetURL(urlStr string) (sheetID string, gid string, ok bool) {
 		return "", "", false
 	}
 
-	// Verify host is docs.google.com
-	if u.Host != "docs.google.com" {
+	// Verify host is a supported Google Sheets domain
+	host := strings.ToLower(u.Host)
+	if host != "docs.google.com" && host != "spreadsheets.google.com" {
 		slog.Warn("Not a Google Docs URL", "host", u.Host)
 		return "", "", false
 	}
@@ -178,9 +181,14 @@ func validateGID(gid string) error {
 }
 
 func getGoogleSheetTabsWithService(service *sheets.Service, spreadsheetID string) ([]GoogleSheetTab, error) {
-	resp, err := service.Spreadsheets.Get(spreadsheetID).
-		Fields("sheets.properties.sheetId,sheets.properties.title").
-		Do()
+	var resp *sheets.Spreadsheet
+	err := retryGSheetAPI(func() error {
+		var e error
+		resp, e = service.Spreadsheets.Get(spreadsheetID).
+			Fields("sheets.properties.sheetId,sheets.properties.title").
+			Do()
+		return e
+	}, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +223,30 @@ func (h *MDFlowHandler) getGoogleSheetTabs(spreadsheetID string) ([]GoogleSheetT
 	}
 
 	return getGoogleSheetTabsWithService(service, spreadsheetID)
+}
+
+// retryGSheetAPI retries fn on 429/503 with exponential backoff
+func retryGSheetAPI(fn func() error, maxRetries int) error {
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+			if backoff > 8*time.Second {
+				backoff = 8 * time.Second
+			}
+			time.Sleep(backoff)
+		}
+		lastErr = fn()
+		if lastErr == nil {
+			return nil
+		}
+		if gerr, ok := lastErr.(*googleapi.Error); ok && (gerr.Code == 429 || gerr.Code == 503) {
+			slog.Warn("GSheet API retry", "code", gerr.Code, "attempt", attempt+1)
+			continue
+		}
+		return lastErr
+	}
+	return lastErr
 }
 
 func findActiveGID(tabs []GoogleSheetTab, requestedGID string) string {
@@ -255,6 +287,26 @@ func sheetRange(sheetTitle string) string {
 	return sheetTitle
 }
 
+func matrixBlockA1(startCol, endCol, startRow, endRow int) string {
+	start := fmt.Sprintf("%s%d", columnToLetters(startCol), startRow+1)
+	end := fmt.Sprintf("%s%d", columnToLetters(endCol), endRow+1)
+	return start + ":" + end
+}
+
+func columnToLetters(index int) string {
+	if index < 0 {
+		return "A"
+	}
+	n := index + 1
+	letters := ""
+	for n > 0 {
+		rem := (n - 1) % 26
+		letters = string(rune('A'+rem)) + letters
+		n = (n - 1) / 26
+	}
+	return letters
+}
+
 func convertValuesToRows(values [][]interface{}) [][]string {
 	if len(values) == 0 {
 		return nil
@@ -281,7 +333,7 @@ func convertValuesToRows(values [][]interface{}) [][]string {
 }
 
 // fetchGoogleSheetWithService fetches sheet data via Sheets API (uses user OAuth token, works for private sheets).
-func (h *MDFlowHandler) fetchGoogleSheetWithService(service *sheets.Service, sheetID string, gid string) ([]byte, error) {
+func (h *MDFlowHandler) fetchGoogleSheetWithService(service *sheets.Service, sheetID string, gid string, rangeOverride string) ([]byte, error) {
 	tabs, err := getGoogleSheetTabsWithService(service, sheetID)
 	if err != nil {
 		return nil, err
@@ -295,7 +347,15 @@ func (h *MDFlowHandler) fetchGoogleSheetWithService(service *sheets.Service, she
 		return nil, fmt.Errorf("sheet gid not found")
 	}
 	rangeStr := sheetRange(sheetTitle)
-	resp, err := service.Spreadsheets.Values.Get(sheetID, rangeStr).Do()
+	if strings.TrimSpace(rangeOverride) != "" {
+		rangeStr = rangeOverride
+	}
+	var resp *sheets.ValueRange
+	err = retryGSheetAPI(func() error {
+		var e error
+		resp, e = service.Spreadsheets.Values.Get(sheetID, rangeStr).Do()
+		return e
+	}, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -312,31 +372,84 @@ func (h *MDFlowHandler) fetchGoogleSheetWithService(service *sheets.Service, she
 	return buf.Bytes(), nil
 }
 
-func (h *MDFlowHandler) fetchGoogleSheetCSV(sheetID string, gid string) ([]byte, int, error) {
+// getGSheetHTTPClient returns a client with GSheetHTTPTimeout for Sheets export fetches
+func (h *MDFlowHandler) getGSheetHTTPClient() *http.Client {
+	h.gsheetClientOnce.Do(func() {
+		timeout := 45 * time.Second
+		if h.cfg != nil {
+			timeout = h.cfg.HTTPClientTimeout + 15*time.Second
+			if h.cfg.GSheetHTTPTimeout > 0 {
+				timeout = h.cfg.GSheetHTTPTimeout
+			}
+		}
+		h.gsheetHTTPClient = &http.Client{Timeout: timeout}
+	})
+	if h.gsheetHTTPClient != nil {
+		return h.gsheetHTTPClient
+	}
+	return h.httpClient
+}
+
+func (h *MDFlowHandler) fetchGoogleSheetCSV(sheetID string, gid string, rangeOverride string) ([]byte, int, error) {
 	exportURL := fmt.Sprintf(googleSheetsExportURLFmt, sheetID)
 	if gid != "" {
 		exportURL += "&gid=" + url.QueryEscape(gid)
 	}
-
-	resp, err := h.httpClient.Get(exportURL)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, resp.StatusCode, fmt.Errorf("google sheets export returned status %d", resp.StatusCode)
+	if strings.TrimSpace(rangeOverride) != "" {
+		exportURL += "&range=" + url.QueryEscape(rangeOverride)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, h.cfg.MaxUploadBytes))
-	if err != nil {
-		return nil, http.StatusInternalServerError, err
+	client := h.getGSheetHTTPClient()
+	maxRetries := h.cfg.GSheetMaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 2
 	}
 
-	return body, resp.StatusCode, nil
+	var lastErr error
+	var lastStatus int
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+			if backoff > 8*time.Second {
+				backoff = 8 * time.Second
+			}
+			time.Sleep(backoff)
+		}
+
+		resp, err := client.Get(exportURL)
+		if err != nil {
+			lastErr = err
+			lastStatus = 0
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			body, err := io.ReadAll(io.LimitReader(resp.Body, h.cfg.MaxUploadBytes))
+			resp.Body.Close()
+			if err != nil {
+				return nil, http.StatusInternalServerError, err
+			}
+			return body, resp.StatusCode, nil
+		}
+
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+		lastStatus = resp.StatusCode
+		lastErr = fmt.Errorf("google sheets export returned status %d", resp.StatusCode)
+
+		if resp.StatusCode != 429 && resp.StatusCode != 503 {
+			return nil, resp.StatusCode, lastErr
+		}
+		slog.Warn("GSheet CSV fetch retry", "status", resp.StatusCode, "attempt", attempt+1)
+	}
+
+	if lastStatus != 0 {
+		return nil, lastStatus, lastErr
+	}
+	return nil, 0, lastErr
 }
 
-func (h *MDFlowHandler) convertGoogleSheetWithService(ctx context.Context, conv *converter.Converter, service *sheets.Service, sheetID string, gid string, templateName string, outputFormat string) (*converter.ConvertResponse, error) {
+func (h *MDFlowHandler) convertGoogleSheetWithService(ctx context.Context, conv *converter.Converter, service *sheets.Service, sheetID string, gid string, templateName string, outputFormat string, rangeOverride string, columnOverrides map[string]string) (*converter.ConvertResponse, error) {
 	tabs, err := getGoogleSheetTabsWithService(service, sheetID)
 	if err != nil {
 		return nil, err
@@ -352,22 +465,30 @@ func (h *MDFlowHandler) convertGoogleSheetWithService(ctx context.Context, conv 
 		return nil, fmt.Errorf("sheet gid not found")
 	}
 	rangeStr := sheetRange(sheetTitle)
-	resp, err := service.Spreadsheets.Values.Get(sheetID, rangeStr).Do()
+	if strings.TrimSpace(rangeOverride) != "" {
+		rangeStr = rangeOverride
+	}
+	var resp *sheets.ValueRange
+	err = retryGSheetAPI(func() error {
+		var e error
+		resp, e = service.Spreadsheets.Values.Get(sheetID, rangeStr).Do()
+		return e
+	}, 2)
 	if err != nil {
 		return nil, err
 	}
 	rows := convertValuesToRows(resp.Values)
 	matrix := converter.NewCellMatrix(rows).Normalize()
-	return conv.ConvertMatrixWithFormatContext(ctx, matrix, sheetTitle, templateName, outputFormat)
+	return conv.ConvertMatrixWithOverrides(ctx, matrix, sheetTitle, templateName, outputFormat, columnOverrides)
 }
 
-func (h *MDFlowHandler) convertGoogleSheetWithAPI(ctx context.Context, conv *converter.Converter, sheetID string, gid string, templateName string, outputFormat string) (*converter.ConvertResponse, error) {
+func (h *MDFlowHandler) convertGoogleSheetWithAPI(ctx context.Context, conv *converter.Converter, sheetID string, gid string, templateName string, outputFormat string, rangeOverride string, columnOverrides map[string]string) (*converter.ConvertResponse, error) {
 	service, err := h.getSheetsService()
 	if err != nil {
 		return nil, err
 	}
 
-	return h.convertGoogleSheetWithService(ctx, conv, service, sheetID, gid, templateName, outputFormat)
+	return h.convertGoogleSheetWithService(ctx, conv, service, sheetID, gid, templateName, outputFormat, rangeOverride, columnOverrides)
 }
 
 func getBearerToken(c *gin.Context) string {
@@ -470,7 +591,7 @@ func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 	if accessToken := getBearerToken(c); accessToken != "" {
 		service, err := h.getSheetsServiceWithToken(accessToken)
 		if err == nil {
-			body, err := h.fetchGoogleSheetWithService(service, sheetID, gid)
+			body, err := h.fetchGoogleSheetWithService(service, sheetID, gid, req.Range)
 			if err == nil {
 				c.JSON(http.StatusOK, GoogleSheetResponse{
 					SheetID:   sheetID,
@@ -486,7 +607,7 @@ func (h *MDFlowHandler) FetchGoogleSheet(c *gin.Context) {
 	}
 
 	// Fallback: public export URL (fails with 401 for private sheets)
-	body, statusCode, err := h.fetchGoogleSheetCSV(sheetID, gid)
+	body, statusCode, err := h.fetchGoogleSheetCSV(sheetID, gid, req.Range)
 	if err != nil && statusCode == 0 {
 		slog.Error("mdflow.FetchGoogleSheet fetch error", "error", err)
 		c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet"})
@@ -521,6 +642,10 @@ func (h *MDFlowHandler) PreviewGoogleSheet(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "url is required"})
 		return
 	}
+	if strings.TrimSpace(req.Range) != "" && !strings.Contains(req.Range, "!") {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "range must include a sheet name, e.g. Sheet1!A1:F200"})
+		return
+	}
 
 	normalizedTemplate, err := normalizeTemplate(req.Template)
 	if err != nil {
@@ -549,7 +674,7 @@ func (h *MDFlowHandler) PreviewGoogleSheet(c *gin.Context) {
 	if accessToken := getBearerToken(c); accessToken != "" {
 		service, err := h.getSheetsServiceWithToken(accessToken)
 		if err == nil {
-			if fetchedBody, err := h.fetchGoogleSheetWithService(service, sheetID, gid); err == nil {
+			if fetchedBody, err := h.fetchGoogleSheetWithService(service, sheetID, gid, req.Range); err == nil {
 				body = fetchedBody
 			} else if isAuthError(err) {
 				slog.Warn("mdflow.PreviewGoogleSheet auth error", "error", err)
@@ -559,7 +684,7 @@ func (h *MDFlowHandler) PreviewGoogleSheet(c *gin.Context) {
 
 	// Fallback: public export URL
 	if body == nil {
-		fetchedBody, statusCode, err := h.fetchGoogleSheetCSV(sheetID, gid)
+		fetchedBody, statusCode, err := h.fetchGoogleSheetCSV(sheetID, gid, req.Range)
 		if err != nil && statusCode == 0 {
 			slog.Error("mdflow.PreviewGoogleSheet fetch error", "error", err)
 			c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet"})
@@ -604,44 +729,115 @@ func (h *MDFlowHandler) PreviewGoogleSheet(c *gin.Context) {
 		return
 	}
 
-	// Detect header row
-	headerDetector := converter.NewHeaderDetector()
-	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
-	headers := matrix.GetRow(headerRow)
-
-	// Map columns via template-driven HeaderResolver with AI (Phase 3)
 	templateName := req.Template
-	dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
-
-	// AI-enabled preview: use shorter timeout (15s) to maintain responsiveness
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 
 	conv := h.getConverterForRequest(c)
-	columnMapping, unmapped := conv.GetPreviewColumnMappingWithContext(ctx, headers, dataRows, templateName, "")
-
-	// Get preview rows (after header)
-	totalDataRows := matrix.RowCount() - headerRow - 1
-	previewCount := totalDataRows
-	if previewCount > maxPreviewRows {
-		previewCount = maxPreviewRows
+	blocks := converter.DetectTableBlocks(matrix)
+	type blockPreview struct {
+		block         converter.MatrixBlock
+		headers       []string
+		rows          [][]string
+		totalRows     int
+		headerRow     int
+		confidence    int
+		columnMapping map[string]string
+		unmapped      []string
+		quality       converter.PreviewMappingQuality
+		englishScore  float64
+		languageHint  string
+		rangeA1       string
 	}
 
-	rows := make([][]string, 0, previewCount)
-	for i := headerRow + 1; i < headerRow+1+previewCount && i < matrix.RowCount(); i++ {
-		rows = append(rows, matrix.GetRow(i))
+	previews := make([]blockPreview, 0, len(blocks))
+	for _, block := range blocks {
+		headerDetector := converter.NewHeaderDetector()
+		headerRow, confidence := headerDetector.DetectHeaderRow(block.Matrix)
+		headers := block.Matrix.GetRow(headerRow)
+		dataRows := block.Matrix.SliceRows(headerRow+1, block.Matrix.RowCount())
+		columnMapping, unmapped := conv.GetPreviewColumnMappingWithContext(ctx, headers, dataRows, templateName, "")
+		quality := converter.BuildPreviewMappingQuality(confidence, headers, dataRows, columnMapping, unmapped)
+		englishScore := converter.EstimateEnglishScore(headers, dataRows)
+		languageHint := converter.DetectLanguageHint(englishScore, headers, dataRows)
+
+		previewRows := dataRows
+		if len(previewRows) > maxPreviewRows {
+			previewRows = previewRows[:maxPreviewRows]
+		}
+
+		previews = append(previews, blockPreview{
+			block:         block,
+			headers:       headers,
+			rows:          previewRows,
+			totalRows:     len(dataRows),
+			headerRow:     headerRow,
+			confidence:    confidence,
+			columnMapping: columnMapping,
+			unmapped:      unmapped,
+			quality:       quality,
+			englishScore:  englishScore,
+			languageHint:  languageHint,
+			rangeA1:       matrixBlockA1(block.StartCol, block.EndCol, block.StartRow, block.EndRow),
+		})
 	}
 
+	if len(previews) == 0 {
+		c.JSON(http.StatusOK, PreviewResponse{
+			Headers:       []string{},
+			Rows:          [][]string{},
+			TotalRows:     0,
+			PreviewRows:   0,
+			HeaderRow:     -1,
+			Confidence:    0,
+			ColumnMapping: map[string]string{},
+			UnmappedCols:  []string{},
+			InputType:     "table",
+		})
+		return
+	}
+
+	candidates := make([]converter.BlockSelectionCandidate, 0, len(previews))
+	for _, candidate := range previews {
+		candidates = append(candidates, converter.BlockSelectionCandidate{
+			EnglishScore: candidate.englishScore,
+			QualityScore: candidate.quality.Score,
+		})
+	}
+	selectedIdx := converter.SelectPreferredBlock(candidates)
+	selected := previews[selectedIdx]
+
+	responseBlocks := make([]PreviewBlock, 0, len(previews))
+	for _, candidate := range previews {
+		quality := candidate.quality
+		responseBlocks = append(responseBlocks, PreviewBlock{
+			ID:             candidate.block.ID,
+			Range:          candidate.rangeA1,
+			TotalRows:      candidate.totalRows,
+			TotalColumns:   len(candidate.headers),
+			LanguageHint:   candidate.languageHint,
+			EnglishScore:   candidate.englishScore,
+			HeaderRow:      candidate.headerRow,
+			Confidence:     candidate.confidence,
+			MappingQuality: &quality,
+		})
+	}
+
+	quality := selected.quality
 	c.JSON(http.StatusOK, PreviewResponse{
-		Headers:       headers,
-		Rows:          rows,
-		TotalRows:     totalDataRows,
-		PreviewRows:   previewCount,
-		HeaderRow:     headerRow,
-		Confidence:    confidence,
-		ColumnMapping: columnMapping,
-		UnmappedCols:  unmapped,
-		InputType:     "table",
+		Headers:            selected.headers,
+		Rows:               selected.rows,
+		TotalRows:          selected.totalRows,
+		PreviewRows:        len(selected.rows),
+		HeaderRow:          selected.headerRow,
+		Confidence:         selected.confidence,
+		ColumnMapping:      selected.columnMapping,
+		UnmappedCols:       selected.unmapped,
+		MappingQuality:     &quality,
+		Blocks:             responseBlocks,
+		SelectedBlockID:    selected.block.ID,
+		SelectedBlockRange: selected.rangeA1,
+		InputType:          "table",
 	})
 }
 
@@ -653,6 +849,11 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "url is required"})
 		return
 	}
+	if strings.TrimSpace(req.Range) != "" && !strings.Contains(req.Range, "!") {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "range must include a sheet name, e.g. Sheet1!A1:F200"})
+		return
+	}
+	columnOverrides := req.ColumnOverrides
 
 	normalizedTemplate, normalizedFormat, err := normalizeTemplateAndFormat(req.Template, req.Format)
 	if err != nil {
@@ -681,7 +882,7 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	if accessToken := getBearerToken(c); accessToken != "" {
 		service, err := h.getSheetsServiceWithToken(accessToken)
 		if err == nil {
-			if result, err := h.convertGoogleSheetWithService(c.Request.Context(), conv, service, sheetID, gid, req.Template, req.Format); err == nil {
+			if result, err := h.convertGoogleSheetWithService(c.Request.Context(), conv, service, sheetID, gid, req.Template, req.Format, req.Range, columnOverrides); err == nil {
 				result.Meta.SourceURL = req.URL
 				slog.Info("mdflow.ConvertGoogleSheet ai", "ai_mode", result.Meta.AIMode, "ai_used", result.Meta.AIUsed, "ai_confidence", result.Meta.AIAvgConfidence)
 				c.JSON(http.StatusOK, MDFlowConvertResponse{
@@ -698,7 +899,7 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 		}
 	}
 
-	result, err := h.convertGoogleSheetWithAPI(c.Request.Context(), conv, sheetID, gid, req.Template, req.Format)
+	result, err := h.convertGoogleSheetWithAPI(c.Request.Context(), conv, sheetID, gid, req.Template, req.Format, req.Range, columnOverrides)
 	if err == nil {
 		result.Meta.SourceURL = req.URL
 		slog.Info("mdflow.ConvertGoogleSheet ai", "ai_mode", result.Meta.AIMode, "ai_used", result.Meta.AIUsed, "ai_confidence", result.Meta.AIAvgConfidence)
@@ -713,7 +914,7 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	}
 
 	slog.Warn("mdflow.ConvertGoogleSheet API fallback", "error", err)
-	body, statusCode, fetchErr := h.fetchGoogleSheetCSV(sheetID, gid)
+	body, statusCode, fetchErr := h.fetchGoogleSheetCSV(sheetID, gid, req.Range)
 	if fetchErr != nil && statusCode == 0 {
 		slog.Error("mdflow.ConvertGoogleSheet fetch error", "error", fetchErr)
 		c.JSON(http.StatusBadGateway, ErrorResponse{Error: "failed to fetch Google Sheet"})
@@ -737,7 +938,7 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 130*time.Second)
 	defer cancel()
 
-	result, err = conv.ConvertPasteWithFormatContext(ctx, string(body), req.Template, req.Format)
+	result, err = conv.ConvertPasteWithOverrides(ctx, string(body), req.Template, req.Format, columnOverrides)
 	if err != nil {
 		slog.Error("mdflow.ConvertGoogleSheet conversion error", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert data"})

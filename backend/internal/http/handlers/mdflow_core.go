@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,16 +19,31 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
+const (
+	byokServiceCacheTTL    = 5 * time.Minute
+	byokCacheCleanupTicker = 1 * time.Minute
+)
+
+type byokCacheEntry struct {
+	service ai.Service
+	expires time.Time
+}
+
 type MDFlowHandler struct {
-	converter      *converter.Converter
-	renderer       *converter.MDFlowRenderer
-	aiSuggester    *suggest.Suggester
-	aiService      ai.Service
-	httpClient     *http.Client
-	cfg            *config.Config
-	sheetsService  *sheets.Service
-	sheetsInitOnce sync.Once
-	sheetsInitErr  error
+	converter          *converter.Converter
+	renderer           *converter.MDFlowRenderer
+	aiSuggester        *suggest.Suggester
+	aiService          ai.Service
+	httpClient         *http.Client
+	gsheetHTTPClient   *http.Client
+	gsheetClientOnce   sync.Once
+	cfg                *config.Config
+	sheetsService      *sheets.Service
+	sheetsInitOnce     sync.Once
+	sheetsInitErr      error
+	byokServiceCache   map[string]*byokCacheEntry
+	byokServiceCacheMu sync.RWMutex
+	cacheCleanupDone   chan struct{}
 }
 
 // NewMDFlowHandler creates a new MDFlowHandler with injected dependencies
@@ -48,13 +64,19 @@ func NewMDFlowHandler(conv *converter.Converter, rend *converter.MDFlowRenderer,
 		cfg = config.LoadConfig()
 	}
 
-	return &MDFlowHandler{
+	h := &MDFlowHandler{
 		converter:   conv,
 		renderer:    rend,
 		aiSuggester: nil,
 		httpClient:  httpClient,
 		cfg:         cfg,
+		cacheCleanupDone: make(chan struct{}),
 	}
+	
+	// Start background cleanup goroutine for BYOK cache
+	go h.cleanupExpiredCacheEntries()
+	
+	return h
 }
 
 // SetAISuggester sets the AI suggester instance
@@ -180,8 +202,14 @@ func getUserAPIKey(c *gin.Context) string {
 	return strings.TrimSpace(c.GetHeader(BYOKHeader))
 }
 
+// hashAPIKey returns a short hash for cache key (never store raw key)
+func hashAPIKey(key string) string {
+	h := sha256.Sum256([]byte(key))
+	return fmt.Sprintf("%x", h[:8])
+}
+
 // getAIServiceForRequest returns an AI service for the current request.
-// If X-OpenAI-API-Key header is present, creates a per-request service with the user's key.
+// If X-OpenAI-API-Key header is present, uses/caches per-key service (TTL 5min).
 // Otherwise falls back to the server-configured service (may be nil).
 func (h *MDFlowHandler) getAIServiceForRequest(c *gin.Context) ai.Service {
 	userKey := getUserAPIKey(c)
@@ -189,8 +217,20 @@ func (h *MDFlowHandler) getAIServiceForRequest(c *gin.Context) ai.Service {
 		return h.aiService
 	}
 
+	cacheKey := hashAPIKey(userKey)
+	h.byokServiceCacheMu.RLock()
+	if h.byokServiceCache != nil {
+		if ent := h.byokServiceCache[cacheKey]; ent != nil && time.Now().Before(ent.expires) {
+			s := ent.service
+			h.byokServiceCacheMu.RUnlock()
+			return s
+		}
+	}
+	h.byokServiceCacheMu.RUnlock()
+
 	aiCfg := ai.DefaultConfig()
 	aiCfg.APIKey = userKey
+	aiCfg.DisableCache = true // BYOK: isolate per-user; avoid cross-user cache pollution
 	if h.cfg != nil {
 		aiCfg.Model = h.cfg.OpenAIModel
 		aiCfg.RequestTimeout = h.cfg.AIRequestTimeout
@@ -203,9 +243,39 @@ func (h *MDFlowHandler) getAIServiceForRequest(c *gin.Context) ai.Service {
 	service, err := ai.NewService(aiCfg)
 	if err != nil {
 		slog.Warn("BYOK: failed to create AI service with user key", "error", err)
-		return h.aiService
+		return nil
 	}
+
+	h.byokServiceCacheMu.Lock()
+	if h.byokServiceCache == nil {
+		h.byokServiceCache = make(map[string]*byokCacheEntry)
+	}
+	h.byokServiceCache[cacheKey] = &byokCacheEntry{service: service, expires: time.Now().Add(byokServiceCacheTTL)}
+	h.byokServiceCacheMu.Unlock()
+
 	return service
+}
+
+// cleanupExpiredCacheEntries periodically removes expired entries from byokServiceCache
+func (h *MDFlowHandler) cleanupExpiredCacheEntries() {
+	ticker := time.NewTicker(byokCacheCleanupTicker)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			h.byokServiceCacheMu.Lock()
+			now := time.Now()
+			for key, entry := range h.byokServiceCache {
+				if now.After(entry.expires) {
+					delete(h.byokServiceCache, key)
+				}
+			}
+			h.byokServiceCacheMu.Unlock()
+		case <-h.cacheCleanupDone:
+			return
+		}
+	}
 }
 
 // getConverterForRequest returns a converter with the appropriate AI service.
@@ -219,13 +289,10 @@ func (h *MDFlowHandler) getConverterForRequest(c *gin.Context) *converter.Conver
 
 	aiService := h.getAIServiceForRequest(c)
 	if aiService == nil {
-		return h.converter
+		return converter.NewConverter()
 	}
 
 	conv := converter.NewConverter()
-	if h.cfg != nil && h.cfg.UseNewConverterPipeline {
-		conv.WithNewPipeline()
-	}
 	conv.WithAIService(aiService)
 	return conv
 }
@@ -241,7 +308,7 @@ func (h *MDFlowHandler) getSuggesterForRequest(c *gin.Context) *suggest.Suggeste
 
 	aiService := h.getAIServiceForRequest(c)
 	if aiService == nil {
-		return h.aiSuggester
+		return nil
 	}
 
 	return suggest.NewSuggester(aiService)

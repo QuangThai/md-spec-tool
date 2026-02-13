@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"os"
 	"time"
@@ -15,14 +16,17 @@ import (
 
 const (
 	// Truncation limits for prompts
-	MaxSuggestionsContentBytes    = 8000
-	MaxSemanticValidationBytes    = 8000
-	MaxDiffBeforeBytes            = 4000
-	MaxDiffAfterBytes             = 4000
-	MaxDiffTextBytes              = 2000
+	MaxSuggestionsContentBytes = 8000
+	MaxSemanticValidationBytes = 8000
+	MaxDiffBeforeBytes         = 4000
+	MaxDiffAfterBytes          = 4000
+	MaxDiffTextBytes           = 2000
 
 	// Default retry after for rate limiting
 	DefaultRetryAfterSeconds = 60
+
+	// Max retries for JSON parse errors (with feedback in prompt)
+	maxParseRetries = 2
 )
 
 // Client wraps the OpenAI API with structured output support
@@ -92,6 +96,31 @@ func (c *Client) MapColumns(ctx context.Context, req MapColumnsRequest) (*Column
 	return result, nil
 }
 
+// RefineMapping performs a refinement pass on column mappings using additional context
+func (c *Client) RefineMapping(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, error) {
+	// Build refinement prompt that emphasizes the refinement context
+	userContent := formatRefineMappingPrompt(req)
+	result := &ColumnMappingResult{}
+
+	// Build JSON schema for structured output
+	schema := c.buildColumnMappingSchema()
+
+	// Use a refinement-specific system prompt that emphasizes reconsideration
+	systemPrompt := SystemPromptColumnMapping + "\n\nREFINEMENT CONTEXT:\nThis is a refinement pass on a previous mapping. Be extra critical of low-confidence mappings. If a mapping is truly ambiguous, move it to extra_columns rather than force an incorrect mapping."
+
+	err := c.callStructured(ctx, systemPrompt, userContent, schema, result)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure schema version is set
+	if result.SchemaVersion == "" {
+		result.SchemaVersion = SchemaVersionColumnMapping
+	}
+
+	return result, nil
+}
+
 // AnalyzePaste analyzes pasted content with structured output
 func (c *Client) AnalyzePaste(ctx context.Context, req AnalyzePasteRequest) (*PasteAnalysis, error) {
 	userContent := formatAnalyzePastePrompt(req)
@@ -113,13 +142,12 @@ func (c *Client) AnalyzePaste(ctx context.Context, req AnalyzePasteRequest) (*Pa
 	return result, nil
 }
 
-// callStructured makes a structured output call with retry logic
+// callStructured makes a structured output call with retry logic.
+// Retries on rate limit/server errors. On JSON parse failure, retries up to maxParseRetries
+// with parse error feedback in the prompt.
 func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent string, schema interface{}, out interface{}) error {
 	var lastErr error
 
-	// Calculate max attempts: 1 initial + maxRetries attempts
-	// If maxRetries is 0, we get 1 total attempt
-	// If maxRetries is 3, we get 4 total attempts (1 initial + 3 retries)
 	maxAttempts := 1 + c.maxRetries
 	if maxAttempts <= 0 {
 		maxAttempts = 1
@@ -135,64 +163,98 @@ func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent s
 			}
 		}
 
-		// Create context with timeout if configured
-		reqCtx := ctx
-		var cancel context.CancelFunc
-		if c.config.RequestTimeout > 0 {
-			reqCtx, cancel = context.WithTimeout(ctx, c.config.RequestTimeout)
+		// Inner loop: retry with parse-error feedback (max maxParseRetries times)
+		var parseErr error
+		baseMessages := []openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(systemPrompt),
+			openai.UserMessage(userContent),
 		}
 
-		// Make the API call
-		resp, err := c.client.Chat.Completions.New(reqCtx, openai.ChatCompletionNewParams{
-			Model: openai.ChatModel(c.model),
-			Messages: []openai.ChatCompletionMessageParamUnion{
-				openai.SystemMessage(systemPrompt),
-				openai.UserMessage(userContent),
-			},
-			ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
-				OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
-					JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
-						Name:   "response",
-						Schema: schema,
-						Strict: openai.Bool(true),
+		for parseAttempt := 0; parseAttempt <= maxParseRetries; parseAttempt++ {
+			messages := baseMessages
+			if parseAttempt > 0 && parseErr != nil {
+				feedback := fmt.Sprintf("Your previous response had invalid JSON: %v. Please return valid JSON matching the schema.", parseErr.Error())
+				messages = append(messages, openai.UserMessage(feedback))
+			}
+
+			reqCtx := ctx
+			var cancel context.CancelFunc
+			if c.config.RequestTimeout > 0 {
+				reqCtx, cancel = context.WithTimeout(ctx, c.config.RequestTimeout)
+			}
+
+			resp, err := c.client.Chat.Completions.New(reqCtx, openai.ChatCompletionNewParams{
+				Model:    openai.ChatModel(c.model),
+				Messages: messages,
+				ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
+					OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
+						JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
+							Name:   "response",
+							Schema: schema,
+							Strict: openai.Bool(true),
+						},
 					},
 				},
-			},
-		})
-		if cancel != nil {
-			cancel()
-		}
+			})
+			if cancel != nil {
+				cancel()
+			}
 
-		if err != nil {
-			lastErr = c.translateError(err)
-			if !c.isRetryable(lastErr) {
+			if err != nil {
+				lastErr = c.translateError(err)
+				if !c.isRetryable(lastErr) {
+					return lastErr
+				}
+				break // exit inner loop, retry outer (rate limit backoff)
+			}
+
+			if len(resp.Choices) == 0 {
+				lastErr = ErrAIInvalidOutput
+				slog.Warn("ai.callStructured", "error", "no choices", "attempt", parseAttempt+1)
+				break
+			}
+
+			choice := resp.Choices[0]
+			msg := choice.Message
+
+			// Check refusal (model declined for safety/content policy)
+			if msg.Refusal != "" {
+				lastErr = fmt.Errorf("%w: %s", ErrAIRefused, msg.Refusal)
+				slog.Warn("ai.callStructured", "error", "model refused", "refusal", msg.Refusal)
 				return lastErr
 			}
-			continue
-		}
 
-		// Parse response
-		if len(resp.Choices) == 0 {
-			lastErr = ErrAIInvalidOutput
-			continue
-		}
-
-		content := resp.Choices[0].Message.Content
-		if content == "" {
-			lastErr = ErrAIInvalidOutput
-			continue
-		}
-
-		// Unmarshal JSON into output
-		if err := json.Unmarshal([]byte(content), out); err != nil {
-			lastErr = fmt.Errorf("%w: %v", ErrAIInvalidOutput, err)
-			if !c.isRetryable(lastErr) {
+			// Check finish_reason for truncation or content filter
+			switch choice.FinishReason {
+			case "length":
+				lastErr = fmt.Errorf("%w: response truncated (max tokens reached)", ErrAITruncated)
+				slog.Warn("ai.callStructured", "error", "response truncated", "finish_reason", choice.FinishReason)
+				return lastErr
+			case "content_filter":
+				lastErr = fmt.Errorf("%w: content filtered", ErrAIInvalidOutput)
+				slog.Warn("ai.callStructured", "error", "content filtered", "finish_reason", choice.FinishReason)
 				return lastErr
 			}
-			continue
-		}
 
-		return nil
+			content := msg.Content
+			if content == "" {
+				lastErr = ErrAIInvalidOutput
+				slog.Warn("ai.callStructured", "error", "empty content", "finish_reason", choice.FinishReason)
+				break
+			}
+
+			if err := json.Unmarshal([]byte(content), out); err != nil {
+				parseErr = err
+				lastErr = fmt.Errorf("%w: %v", ErrAIInvalidOutput, err)
+				slog.Warn("ai.callStructured", "error", "json parse failed", "parse_err", err.Error(), "attempt", parseAttempt+1)
+				if parseAttempt < maxParseRetries {
+					continue // retry inner with feedback
+				}
+				return lastErr
+			}
+
+			return nil
+		}
 	}
 
 	return lastErr
@@ -308,11 +370,31 @@ func (c *Client) buildColumnMappingSchema() interface{} {
 				"items": map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
-						"canonical_name": map[string]interface{}{"type": "string", "enum": canonicalEnum},
-						"source_header":  map[string]interface{}{"type": "string"},
-						"column_index":   map[string]interface{}{"type": "integer", "minimum": 0},
-						"confidence":     map[string]interface{}{"type": "number", "minimum": 0, "maximum": 1},
-						"reasoning":      map[string]interface{}{"type": "string", "maxLength": 256},
+						"canonical_name": map[string]interface{}{
+							"type":        "string",
+							"enum":        canonicalEnum,
+							"description": "Target field name; use item_name/display_conditions/action for UI spec tables",
+						},
+						"source_header": map[string]interface{}{
+							"type":        "string",
+							"description": "Original header text from spreadsheet",
+						},
+						"column_index": map[string]interface{}{
+							"type":        "integer",
+							"minimum":     0,
+							"description": "0-based index into headers array; must be < total columns",
+						},
+						"confidence": map[string]interface{}{
+							"type":        "number",
+							"minimum":     0,
+							"maximum":     1,
+							"description": "1.0=exact match, 0.7-0.9=strong inference, 0.5-0.7=reasonable guess",
+						},
+						"reasoning": map[string]interface{}{
+							"type":        "string",
+							"maxLength":   256,
+							"description": "Brief explanation of mapping choice",
+						},
 						"alternatives": map[string]interface{}{
 							"type": "array",
 							"items": map[string]interface{}{
@@ -327,7 +409,7 @@ func (c *Client) buildColumnMappingSchema() interface{} {
 							},
 						},
 					},
-					"required":             []string{"canonical_name", "source_header", "column_index", "confidence"},
+					"required":             []string{"canonical_name", "source_header", "column_index", "confidence", "reasoning", "alternatives"},
 					"additionalProperties": false,
 				},
 			},
@@ -359,7 +441,7 @@ func (c *Client) buildColumnMappingSchema() interface{} {
 				"additionalProperties": false,
 			},
 		},
-		"required":             []string{"schema_version", "canonical_fields", "meta"},
+		"required":             []string{"schema_version", "canonical_fields", "extra_columns", "meta"},
 		"additionalProperties": false,
 	}
 }
@@ -375,11 +457,15 @@ func (c *Client) buildPasteAnalysisSchema() interface{} {
 			},
 			"input_type": map[string]interface{}{
 				"type": "string",
-				"enum": []string{"table", "backlog_list", "test_cases", "prose", "mixed", "unknown"},
+				"enum": []string{"table", "test_cases", "product_backlog", "issue_tracker", "api_spec", "ui_spec", "prose", "mixed", "unknown"},
 			},
 			"detected_format": map[string]interface{}{
 				"type": "string",
 				"enum": []string{"csv", "tsv", "markdown_table", "free_text", "mixed"},
+			},
+			"detected_schema": map[string]interface{}{
+				"type": "string",
+				"enum": []string{"test_case", "product_backlog", "issue_tracker", "api_spec", "ui_spec", "generic"},
 			},
 			"normalized_table": map[string]interface{}{
 				"type": "array",
@@ -403,14 +489,14 @@ func (c *Client) buildPasteAnalysisSchema() interface{} {
 
 // formatMapColumnsPrompt formats the user prompt for column mapping
 func formatMapColumnsPrompt(req MapColumnsRequest) string {
-	prompt := fmt.Sprintf(`Analyze the following spreadsheet headers and map them to canonical fields.
+	prompt := fmt.Sprintf(`Analyze the following spreadsheet headers and map them to canonical fields for software specifications.
 
 Headers: %v
 
 `, req.Headers)
 
 	if len(req.SampleRows) > 0 {
-		prompt += "Sample data rows:\n"
+		prompt += "Sample data rows (showing data types and patterns):\n"
 		for i, row := range req.SampleRows {
 			prompt += fmt.Sprintf("Row %d: %v\n", i+1, row)
 		}
@@ -421,11 +507,79 @@ Headers: %v
 		prompt += fmt.Sprintf("Source file type: %s\n", req.FileType)
 	}
 
-	if req.SourceLang != "" {
-		prompt += fmt.Sprintf("Source language: %s\n", req.SourceLang)
+	sourceLang := req.SourceLang
+	if sourceLang == "" {
+		sourceLang = req.Language
+	}
+	if sourceLang != "" {
+		prompt += fmt.Sprintf("Source language/locale: %s (apply multi-language interpretation rules)\n", sourceLang)
 	}
 
-	prompt += "\nReturn the mapping as JSON following the ColumnMappingResult schema."
+	// Add schema hint if provided
+	if req.SchemaHint != "" && req.SchemaHint != "auto" {
+		prompt += fmt.Sprintf("Schema hint: This appears to be a %s specification format. Use this to guide your mapping.\n", req.SchemaHint)
+	} else {
+		prompt += "\nDetect the schema style from headers and sample data:\n"
+		prompt += "- Test-case: Headers like 'TC ID', 'Test Case', 'Steps', 'Expected'\n"
+		prompt += "- Product backlog: Headers like 'Story ID', 'Title', 'Acceptance Criteria', 'Story Points'\n"
+		prompt += "- Issue tracker: Headers like 'Issue #', '概要', 'Priority', '担当者'\n"
+		prompt += "- API spec: Headers like 'Endpoint', 'Method', 'Parameters', 'Response'\n"
+		prompt += "- UI spec: Headers like 'Item Name', 'Item Type', 'Display Conditions', 'Action'\n"
+		prompt += "- Generic/Mixed: Apply context clues from sample data to disambiguate\n"
+	}
+
+	prompt += "\nIMPORTANT RULES:\n"
+	prompt += "1. Analyze BOTH header names and sample data to determine the correct mapping\n"
+	prompt += "2. Use language-aware matching (recognize Japanese, Vietnamese, Korean, Chinese translations)\n"
+	prompt += "3. Prefer putting ambiguous columns in extra_columns rather than incorrect canonical mappings\n"
+	prompt += "4. Confidence <0.4 should go to extra_columns with semantic_role description\n"
+	prompt += "5. Return only valid JSON matching the ColumnMappingResult schema\n"
+
+	return prompt
+}
+
+// formatRefineMappingPrompt formats the user prompt for refinement pass
+func formatRefineMappingPrompt(req MapColumnsRequest) string {
+	prompt := fmt.Sprintf(`This is a REFINEMENT PASS on a previous column mapping.
+
+Headers: %v
+
+`, req.Headers)
+
+	if len(req.SampleRows) > 0 {
+		prompt += "Sample data rows (showing data types and patterns):\n"
+		for i, row := range req.SampleRows {
+			prompt += fmt.Sprintf("Row %d: %v\n", i+1, row)
+		}
+		prompt += "\n"
+	}
+
+	// Add context from refinement (this should contain info about previous low-confidence mappings)
+	if req.RefinementContext != "" {
+		prompt += "REFINEMENT CONTEXT:\n"
+		prompt += req.RefinementContext + "\n\n"
+	}
+
+	sourceLang := req.SourceLang
+	if sourceLang == "" {
+		sourceLang = req.Language
+	}
+	if sourceLang != "" {
+		prompt += fmt.Sprintf("Source language/locale: %s\n", sourceLang)
+	}
+
+	// Add schema hint if provided
+	if req.SchemaHint != "" && req.SchemaHint != "auto" {
+		prompt += fmt.Sprintf("Likely schema: %s\n", req.SchemaHint)
+	}
+
+	prompt += "\nREFINEMENT INSTRUCTIONS:\n"
+	prompt += "1. Be MORE CRITICAL in this pass - re-evaluate all mappings\n"
+	prompt += "2. If confidence is low, prefer moving to extra_columns over forcing wrong mappings\n"
+	prompt += "3. Use sample data patterns heavily to disambiguate\n"
+	prompt += "4. Check for language-specific interpretations\n"
+	prompt += "5. Confidence <0.4 MUST go to extra_columns with semantic_role hint\n"
+	prompt += "6. Return only valid JSON matching the ColumnMappingResult schema\n"
 
 	return prompt
 }

@@ -42,9 +42,8 @@ type Converter struct {
 	aiMapper       *ai.ColumnMapperService
 
 	// Phase 1: New schema-agnostic components
-	tableParser    *TableParser
-	tableAdapter   *TableToSpecDocAdapter
-	useNewPipeline bool // Feature flag for gradual migration
+	tableParser  *TableParser
+	tableAdapter *TableToSpecDocAdapter
 
 	// Phase 2: Generic renderer
 	genericRenderer *GenericTableRenderer
@@ -67,9 +66,8 @@ func NewConverter() *Converter {
 		renderer:       NewMDFlowRenderer(),
 
 		// Phase 1: Initialize new components
-		tableParser:    NewTableParser(),
-		tableAdapter:   NewTableToSpecDocAdapter(),
-		useNewPipeline: false, // Default to old pipeline for safety
+		tableParser:  NewTableParser(),
+		tableAdapter: NewTableToSpecDocAdapter(),
 
 		// Phase 2: Generic renderer
 		genericRenderer: NewGenericTableRenderer(),
@@ -88,12 +86,6 @@ func (c *Converter) WithAIService(service ai.Service) *Converter {
 	if service != nil {
 		c.aiMapper = ai.NewColumnMapperService(service)
 	}
-	return c
-}
-
-// WithNewPipeline enables the new Table-based pipeline
-func (c *Converter) WithNewPipeline() *Converter {
-	c.useNewPipeline = true
 	return c
 }
 
@@ -152,9 +144,28 @@ func (c *Converter) ConvertPasteWithFormatContext(ctx context.Context, text stri
 	return c.convertMatrixWithFormat(ctx, matrix, "", templateName, outputFormat)
 }
 
-// ConvertMatrix converts a CellMatrix to MDFlow
+// ConvertPasteWithOverrides applies column overrides before conversion.
+func (c *Converter) ConvertPasteWithOverrides(ctx context.Context, text string, templateName string, outputFormat string, overrides map[string]string) (*ConvertResponse, error) {
+	analysis := DetectInputType(text)
+	if analysis.Type == InputTypeMarkdown {
+		return c.convertMarkdown(text, templateName)
+	}
+
+	matrix, err := c.pasteParser.Parse(text)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(overrides) > 0 {
+		matrix = applyColumnOverrides(matrix, overrides)
+	}
+
+	return c.convertMatrixWithFormat(ctx, matrix, "", templateName, outputFormat)
+}
+
+// ConvertMatrix converts a CellMatrix to MDFlow (uses template-driven pipeline)
 func (c *Converter) ConvertMatrix(matrix CellMatrix, sheetName string, templateName string) (*ConvertResponse, error) {
-	return c.convertMatrix(context.Background(), matrix, sheetName, templateName, "")
+	return c.convertMatrixWithFormat(context.Background(), matrix, sheetName, templateName, "")
 }
 
 // ConvertMatrixWithFormat converts a CellMatrix with output format option
@@ -168,6 +179,14 @@ func (c *Converter) ConvertMatrixWithFormat(matrix CellMatrix, sheetName string,
 // outputFormat: "spec" | "table" (output rendering format)
 // templateName: template identifier for rendering
 func (c *Converter) ConvertMatrixWithFormatContext(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, outputFormat string) (*ConvertResponse, error) {
+	return c.convertMatrixWithFormat(ctx, matrix, sheetName, templateName, outputFormat)
+}
+
+// ConvertMatrixWithOverrides applies column overrides before conversion.
+func (c *Converter) ConvertMatrixWithOverrides(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, outputFormat string, overrides map[string]string) (*ConvertResponse, error) {
+	if len(overrides) > 0 {
+		matrix = applyColumnOverrides(matrix, overrides)
+	}
 	return c.convertMatrixWithFormat(ctx, matrix, sheetName, templateName, outputFormat)
 }
 
@@ -206,7 +225,7 @@ func (c *Converter) ConvertXLSX(filePath string, sheetName string, template stri
 		}
 	}
 
-	return c.convertMatrix(context.Background(), matrix, sheetName, template, "")
+	return c.convertMatrixWithFormat(context.Background(), matrix, sheetName, template, "")
 }
 
 // GetXLSXSheets returns list of sheets in an XLSX file
@@ -229,85 +248,6 @@ func (c *Converter) ParseXLSX(filePath string, sheetName string) (CellMatrix, er
 		return result.GetMatrix(sheetName), nil
 	}
 	return c.xlsxParser.ParseSheet(filePath, sheetName)
-}
-
-// convertMatrix converts a CellMatrix to MDFlow
-// outputFormat: "spec" | "table" (output rendering format)
-// templateName: template identifier for rendering
-func (c *Converter) convertMatrix(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, outputFormat string) (*ConvertResponse, error) {
-	// NEW: Check if we should use the new Table pipeline
-	if c.useNewPipeline {
-		return c.convertMatrixViaTable(ctx, matrix, sheetName, templateName, outputFormat)
-	}
-
-	// OLD: Keep existing logic for backward compatibility
-	if len(matrix) == 0 {
-		return &ConvertResponse{
-			MDFlow:   "",
-			Warnings: []Warning{newWarning("INPUT_EMPTY", SeverityWarn, CatInput, "Empty input.", "Paste a table or upload a file to convert.", nil)},
-			Meta:     SpecDocMeta{},
-		}, nil
-	}
-
-	// Detect header row
-	headerRow, confidence := c.headerDetector.DetectHeaderRow(matrix)
-
-	var warnings []Warning
-	if confidence < 50 {
-		warnings = append(warnings, newWarning(
-			"HEADER_LOW_CONFIDENCE",
-			SeverityWarn,
-			CatHeader,
-			"Low confidence in header detection; results may be inaccurate.",
-			"Verify the header row and ensure column names are present.",
-			map[string]any{"confidence": confidence, "header_row": headerRow},
-		))
-	}
-
-	// Get headers
-	headers := matrix.GetRow(headerRow)
-
-	// Map columns
-	dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
-	templateCfg := c.templateRegistry.LoadTemplateOrDefault(templateName)
-	resolver := NewHeaderResolver(templateCfg)
-	colMap, unmapped, mappingWarnings, aiMeta := c.resolveColumnMappingWithFallback(ctx, headers, dataRows, outputFormat, false, func(h []string) (ColumnMap, []string) {
-		resolved, unresolved, _ := resolver.ResolveHeaders(h)
-		return resolved, unresolved
-	})
-	warnings = append(warnings, mappingWarnings...)
-
-	if confidence < 50 && headerRow > 0 && c.aiService != nil && c.aiService.GetMode() == "on" {
-		colMap, unmapped, warnings, aiMeta = c.attemptShadowAIMapping(ctx, matrix, headers, dataRows, outputFormat, resolver, colMap, aiMeta, warnings, headerRow)
-	}
-
-	if len(unmapped) > 0 {
-		warnings = append(warnings, newWarning(
-			"MAPPING_UNMAPPED_COLUMNS",
-			SeverityWarn,
-			CatMapping,
-			"Some columns could not be mapped to known fields.",
-			"Rename columns to match expected headers or choose a different template.",
-			map[string]any{"unmapped_columns": unmapped},
-		))
-	}
-
-	// Build SpecDoc
-	specDoc := c.buildSpecDoc(matrix, headerRow, headers, colMap, unmapped, sheetName)
-	specDoc.Warnings = warnings
-	applyAIMeta(&specDoc.Meta, aiMeta)
-
-	// Render to MDFlow
-	mdflow, err := c.renderer.Render(specDoc, templateName)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ConvertResponse{
-		MDFlow:   mdflow,
-		Warnings: warnings,
-		Meta:     specDoc.Meta,
-	}, nil
 }
 
 // convertMatrixWithFormat converts a CellMatrix to markdown with output format option
@@ -359,6 +299,25 @@ func (c *Converter) convertWithTemplate(ctx context.Context, matrix CellMatrix, 
 	dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
 	colMap, unmapped, mappingWarnings, aiMeta := c.resolveColumnMapping(ctx, headers, dataRows, format)
 	warnings = append(warnings, mappingWarnings...)
+	colMap, unmapped, inferredWarnings := enhanceColumnMapping(headers, dataRows, colMap)
+	warnings = append(warnings, inferredWarnings...)
+
+	quality := evaluateMappingQuality(confidence, headers, colMap)
+	if shouldFallbackToTable(format, quality) {
+		warnings = append(warnings, newWarning(
+			"MAPPING_LOW_CONFIDENCE_TABLE_FALLBACK",
+			SeverityWarn,
+			CatMapping,
+			"Mapping confidence is low for non-standard schema; switching output to table format.",
+			"Use preview column overrides if you want spec format for this input.",
+			map[string]any{
+				"quality_score":    quality.Score,
+				"mapped_ratio":     quality.MappedRatio,
+				"core_field_count": quality.CoreMapped,
+			},
+		))
+		format = string(OutputFormatTable)
+	}
 
 	table := c.tableParser.MatrixToTable(headers, dataRows, sheetName)
 	table.Meta.HeaderRowIndex = headerRow
@@ -409,6 +368,7 @@ func (c *Converter) convertWithTemplate(ctx context.Context, matrix CellMatrix, 
 		ColumnMap:       colMap,
 		UnmappedColumns: unmapped,
 		TotalRows:       table.RowCount(),
+		OutputFormat:    format,
 	}
 	applyAIMeta(&meta, aiMeta)
 
@@ -501,6 +461,9 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 	for _, row := range dataRows {
 		specRow := SpecRow{
 			ID:           normalizeCell(GetFieldValue(row, colMap, FieldID)),
+			Title:        normalizeCell(GetFieldValue(row, colMap, FieldTitle)),
+			Description:  normalizeCell(GetFieldValue(row, colMap, FieldDescription)),
+			Acceptance:   normalizeCell(GetFieldValue(row, colMap, FieldAcceptance)),
 			Feature:      normalizeCell(GetFieldValue(row, colMap, FieldFeature)),
 			Scenario:     normalizeCell(GetFieldValue(row, colMap, FieldScenario)),
 			Instructions: normalizeCell(GetFieldValue(row, colMap, FieldInstructions)),
@@ -511,7 +474,14 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			Type:         normalizeCell(GetFieldValue(row, colMap, FieldType)),
 			Status:       normalizeCell(GetFieldValue(row, colMap, FieldStatus)),
 			Endpoint:     normalizeCell(GetFieldValue(row, colMap, FieldEndpoint)),
+			Method:       normalizeCell(GetFieldValue(row, colMap, FieldMethod)),
+			Parameters:   normalizeCell(GetFieldValue(row, colMap, FieldParameters)),
+			Response:     normalizeCell(GetFieldValue(row, colMap, FieldResponse)),
+			StatusCode:   normalizeCell(GetFieldValue(row, colMap, FieldStatusCode)),
 			Notes:        normalizeCell(GetFieldValue(row, colMap, FieldNotes)),
+			Component:    normalizeCell(GetFieldValue(row, colMap, FieldComponent)),
+			Assignee:     normalizeCell(GetFieldValue(row, colMap, FieldAssignee)),
+			Category:     normalizeCell(GetFieldValue(row, colMap, FieldCategory)),
 
 			// Phase 3 fields
 			No:                normalizeCell(GetFieldValue(row, colMap, FieldNo)),
@@ -547,9 +517,11 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			continue
 		}
 
-		// Skip completely empty rows (check both test case and spec table fields)
-		if specRow.Feature == "" && specRow.Scenario == "" && specRow.Instructions == "" &&
-			specRow.ItemName == "" && specRow.No == "" && specRow.Notes == "" {
+		// Skip completely empty rows (check test case, backlog, API, and spec table fields)
+		if specRow.Feature == "" && specRow.Title == "" && specRow.Description == "" && specRow.Acceptance == "" &&
+			specRow.Scenario == "" && specRow.Instructions == "" &&
+			specRow.Endpoint == "" && specRow.Method == "" && specRow.Parameters == "" && specRow.Response == "" && specRow.StatusCode == "" &&
+			specRow.ItemName == "" && specRow.No == "" && specRow.Notes == "" && len(specRow.Metadata) == 0 {
 			continue
 		}
 
@@ -558,6 +530,14 @@ func (c *Converter) buildSpecDoc(matrix CellMatrix, headerRow int, headers []str
 			specRow.Feature = specRow.ItemName
 			if specRow.Scenario == "" {
 				specRow.Scenario = specRow.ItemName
+			}
+		}
+
+		// If this is a backlog row, map Title into Feature/Scenario when missing
+		if specRow.Feature == "" && specRow.Title != "" {
+			specRow.Feature = specRow.Title
+			if specRow.Scenario == "" {
+				specRow.Scenario = specRow.Title
 			}
 		}
 
@@ -666,8 +646,47 @@ func shouldAppendContinuation(rows []SpecRow, row SpecRow) bool {
 	if len(rows) == 0 {
 		return false
 	}
+	// Only treat as continuation if No looks like wrapped text (not a section header or row number)
+	if looksLikeRowNumber(row.No) {
+		return false
+	}
+	if looksLikeSectionHeader(row.No) {
+		return false
+	}
 	appendContinuation(&rows[len(rows)-1], row.No)
 	return true
+}
+
+func looksLikeRowNumber(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	for _, ch := range s {
+		if ch < '0' || ch > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func looksLikeSectionHeader(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	for _, ch := range s {
+		if (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') {
+			return true
+		}
+		if ch >= 0x3000 && ch <= 0x9FFF {
+			return true
+		}
+		if ch >= 0xF900 && ch <= 0xFAFF {
+			return true
+		}
+	}
+	return false
 }
 
 func appendContinuation(target *SpecRow, text string) {
@@ -692,51 +711,6 @@ func appendContinuation(target *SpecRow, text string) {
 		return
 	}
 	target.Notes = text
-}
-
-// convertMatrixViaTable converts a CellMatrix to MDFlow using the new Table pipeline
-// outputFormat: "spec" | "table" (output rendering format)
-// This is the Phase 1 implementation that maintains backward compatibility
-func (c *Converter) convertMatrixViaTable(ctx context.Context, matrix CellMatrix, sheetName string, template string, outputFormat string) (*ConvertResponse, error) {
-	if len(matrix) == 0 {
-		return &ConvertResponse{
-			MDFlow:   "",
-			Warnings: []Warning{newWarning("INPUT_EMPTY", SeverityWarn, CatInput, "Empty input.", "Paste a table or upload a file to convert.", nil)},
-			Meta:     SpecDocMeta{},
-		}, nil
-	}
-
-	// Handle table format separately (skip spec doc conversion)
-	if outputFormat == "table" {
-		return c.convertToGenericTable(matrix, sheetName)
-	}
-
-	// Parse matrix to Table (schema-agnostic)
-	table, err := c.tableParser.ParseMatrix(matrix, sheetName)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert Table to SpecDoc (using existing column mapping)
-	specDoc := c.tableAdapter.Convert(table)
-
-	// Add header confidence warning if needed
-	if table.Meta.HeaderRowIndex > 0 {
-		// Header was not in first row - might indicate detection issue
-		// But this is actually normal, so we'll skip this warning for now
-	}
-
-	// Render to MDFlow (default spec format)
-	mdflow, err := c.renderer.Render(specDoc, template)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ConvertResponse{
-		MDFlow:   mdflow,
-		Warnings: specDoc.Warnings,
-		Meta:     specDoc.Meta,
-	}, nil
 }
 
 // ListTemplates returns all available templates as TemplateConfig objects
@@ -782,6 +756,7 @@ func (c *Converter) GetPreviewColumnMappingWithContext(ctx context.Context, head
 		resolved, unresolved, _ := resolver.ResolveHeaders(h)
 		return resolved, unresolved
 	})
+	colMap, unmapped, _ = enhanceColumnMapping(headers, dataRows, colMap)
 	columnMapping = make(map[string]string)
 	for field, idx := range colMap {
 		if idx >= 0 && idx < len(headers) {
@@ -800,6 +775,7 @@ func (c *Converter) GetPreviewColumnMappingRuleBased(headers []string, templateN
 	template := c.templateRegistry.LoadTemplateOrDefault(templateName)
 	resolver := NewHeaderResolver(template)
 	colMap, unmapped, _ := resolver.ResolveHeaders(headers)
+	colMap, unmapped, _ = enhanceColumnMapping(headers, nil, colMap)
 	columnMapping = make(map[string]string)
 	for field, idx := range colMap {
 		if idx >= 0 && idx < len(headers) {
@@ -815,44 +791,3 @@ func (c *Converter) HasAIService() bool {
 	return c.aiService != nil && c.aiMapper != nil
 }
 
-// attemptShadowAIMapping tries to resolve column mapping using the first row as header
-// when confidence is low and AI is enabled. Returns updated colMap, unmapped, warnings, and aiMeta.
-// This isolates the heuristic logic from the main conversion flow for better maintainability.
-func (c *Converter) attemptShadowAIMapping(
-	ctx context.Context,
-	matrix CellMatrix,
-	headers []string,
-	dataRows [][]string,
-	outputFormat string,
-	resolver *HeaderResolver,
-	colMap ColumnMap,
-	aiMeta *AIMappingMeta,
-	warnings []Warning,
-	headerRow int,
-) (ColumnMap, []string, []Warning, *AIMappingMeta) {
-	// Try alternative header (first row instead of detected row)
-	altHeaders := matrix.GetRow(0)
-	altDataRows := matrix.SliceRows(1, matrix.RowCount())
-	altColMap, altUnmapped, altWarnings, altMeta := c.resolveColumnMappingWithFallback(ctx, altHeaders, altDataRows, outputFormat, false, func(h []string) (ColumnMap, []string) {
-		resolved, unresolved, _ := resolver.ResolveHeaders(h)
-		return resolved, unresolved
-	})
-
-	// Use alternative mapping if it's better
-	if preferAIMapping(altMeta, aiMeta) {
-		warnings = filterWarningsByCategory(warnings, CatMapping)
-		warnings = append(warnings, altWarnings...)
-		warnings = append(warnings, newWarning(
-			"HEADER_AI_OVERRIDE",
-			SeverityWarn,
-			CatHeader,
-			"AI mapping suggests a different header row; using first row as header.",
-			"Verify the header row and adjust the input if needed.",
-			map[string]any{"header_row": 0},
-		))
-		return altColMap, altUnmapped, warnings, altMeta
-	}
-
-	// Keep original mapping
-	return colMap, nil, warnings, aiMeta
-}

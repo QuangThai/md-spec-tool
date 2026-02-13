@@ -16,8 +16,15 @@ func NewValidator() *Validator {
 	return &Validator{canonicalFields: fields}
 }
 
-// ValidateColumnMapping ensures output is semantically correct
+// ValidateColumnMapping ensures output is semantically correct.
+// Use ValidateColumnMappingWithHeaders when header count is available for range validation.
 func (v *Validator) ValidateColumnMapping(result *ColumnMappingResult) error {
+	return v.ValidateColumnMappingWithHeaders(result, -1)
+}
+
+// ValidateColumnMappingWithHeaders ensures output is semantically correct and column_index is in [0, headerCount).
+// If headerCount < 0, skips column index range validation.
+func (v *Validator) ValidateColumnMappingWithHeaders(result *ColumnMappingResult, headerCount int) error {
 	if result == nil {
 		return ErrAIValidationFailed
 	}
@@ -25,6 +32,39 @@ func (v *Validator) ValidateColumnMapping(result *ColumnMappingResult) error {
 	// Validate schema version
 	if result.SchemaVersion != SchemaVersionColumnMapping {
 		return fmt.Errorf("%w: unknown schema version: %s", ErrAIValidationFailed, result.SchemaVersion)
+	}
+
+	// Dedupe by canonical_name: keep first occurrence
+	seen := make(map[string]bool)
+	var validMappings []CanonicalFieldMapping
+	for _, m := range result.CanonicalFields {
+		if seen[m.CanonicalName] {
+			continue
+		}
+		seen[m.CanonicalName] = true
+		validMappings = append(validMappings, m)
+	}
+	result.CanonicalFields = validMappings
+
+	// Recalculate metadata after dedupe
+	result.Meta.MappedColumns = len(result.CanonicalFields)
+	if result.Meta.TotalColumns > 0 {
+		unmapped := result.Meta.TotalColumns - result.Meta.MappedColumns
+		if unmapped < 0 {
+			unmapped = 0
+		}
+		result.Meta.UnmappedColumns = unmapped
+	} else if len(result.ExtraColumns) > 0 {
+		result.Meta.UnmappedColumns = len(result.ExtraColumns)
+	}
+	if len(result.CanonicalFields) > 0 {
+		sum := 0.0
+		for _, m := range result.CanonicalFields {
+			sum += m.Confidence
+		}
+		result.Meta.AvgConfidence = sum / float64(len(result.CanonicalFields))
+	} else {
+		result.Meta.AvgConfidence = 0
 	}
 
 	// Validate canonical field mappings
@@ -42,6 +82,9 @@ func (v *Validator) ValidateColumnMapping(result *ColumnMappingResult) error {
 		// Validate column index
 		if m.ColumnIndex < 0 {
 			return fmt.Errorf("%w: negative column index", ErrAIValidationFailed)
+		}
+		if headerCount >= 0 && m.ColumnIndex >= headerCount {
+			return fmt.Errorf("%w: column_index %d out of range [0, %d)", ErrAIValidationFailed, m.ColumnIndex, headerCount)
 		}
 
 		// Cap reasoning length
@@ -67,6 +110,9 @@ func (v *Validator) ValidateColumnMapping(result *ColumnMappingResult) error {
 		}
 		if extra.ColumnIndex < 0 {
 			return fmt.Errorf("%w: negative column index in extra", ErrAIValidationFailed)
+		}
+		if headerCount >= 0 && extra.ColumnIndex >= headerCount {
+			return fmt.Errorf("%w: extra column_index %d out of range [0, %d)", ErrAIValidationFailed, extra.ColumnIndex, headerCount)
 		}
 	}
 
@@ -95,12 +141,16 @@ func (v *Validator) ValidatePasteAnalysis(result *PasteAnalysis) error {
 
 	// Validate input type
 	validInputTypes := map[string]bool{
-		"table":       true,
-		"backlog_list": true,
-		"test_cases":  true,
-		"prose":       true,
-		"mixed":       true,
-		"unknown":     true,
+		"table":           true,
+		"backlog_list":    true,
+		"test_cases":      true,
+		"product_backlog": true,
+		"issue_tracker":   true,
+		"api_spec":        true,
+		"ui_spec":         true,
+		"prose":           true,
+		"mixed":           true,
+		"unknown":         true,
 	}
 	if !validInputTypes[result.InputType] {
 		return fmt.Errorf("%w: invalid input type: %s", ErrAIValidationFailed, result.InputType)
@@ -143,6 +193,126 @@ func (v *Validator) ValidatePasteAnalysis(result *PasteAnalysis) error {
 	}
 
 	return nil
+}
+
+// ValidateMappingSemantics performs semantic validation on column mappings
+// to detect conflicting mappings, suspicious confidence scores, and missing required fields
+func (v *Validator) ValidateMappingSemantics(result *ColumnMappingResult, detectedSchema string) *SemanticValidationResult {
+	issues := []SemanticIssue{}
+	avgConfidence := result.Meta.AvgConfidence
+
+	// Check for suspicious low average confidence
+	if avgConfidence < 0.5 {
+		issues = append(issues, SemanticIssue{
+			Type:       "ambiguous",
+			Severity:   "warn",
+			Message:    "Low average mapping confidence suggests ambiguous headers",
+			Suggestion: "Review mappings and consider refinement or interactive disambiguation",
+		})
+	}
+
+	// Check for conflicting column indices
+	usedIndices := make(map[int]string)
+	for _, m := range result.CanonicalFields {
+		if existing, exists := usedIndices[m.ColumnIndex]; exists && existing != m.CanonicalName {
+			issues = append(issues, SemanticIssue{
+				Type:       "inconsistent",
+				Severity:   "error",
+				Message:    fmt.Sprintf("Column index %d mapped to multiple fields: %s and %s", m.ColumnIndex, existing, m.CanonicalName),
+				Suggestion: "Resolve duplicate column mappings",
+			})
+		}
+		usedIndices[m.ColumnIndex] = m.CanonicalName
+	}
+
+	// Check for suspicious low confidence mappings
+	for i, m := range result.CanonicalFields {
+		if m.Confidence < 0.4 && m.Confidence > 0 {
+			issues = append(issues, SemanticIssue{
+				Type:       "ambiguous",
+				Severity:   "warn",
+				Message:    fmt.Sprintf("Low confidence mapping (%.1f%%) for '%s' -> '%s'", m.Confidence*100, m.SourceHeader, m.CanonicalName),
+				Suggestion: fmt.Sprintf("Consider moving '%s' to extra_columns or refining with more context", m.SourceHeader),
+			})
+		}
+
+		// Check for alternatives with higher confidence than selected mapping
+		if len(m.Alternatives) > 0 {
+			for _, alt := range m.Alternatives {
+				if alt.Confidence > m.Confidence {
+					issues = append(issues, SemanticIssue{
+						Type:       "inconsistent",
+						Severity:   "warn",
+						Message:    fmt.Sprintf("Alternative mapping has higher confidence (%.1f%% vs %.1f%%) for column %d", alt.Confidence*100, m.Confidence*100, i),
+						Suggestion: "Review and consider swapping selected mapping with higher-confidence alternative",
+					})
+					break // Only report once per field
+				}
+			}
+		}
+	}
+
+	// Check for schema-specific required fields
+	requiredBySchema := getRequiredFieldsBySchema(detectedSchema)
+	mappedFields := make(map[string]bool)
+	for _, m := range result.CanonicalFields {
+		mappedFields[m.CanonicalName] = true
+	}
+
+	for _, required := range requiredBySchema {
+		if !mappedFields[required] {
+			issues = append(issues, SemanticIssue{
+				Type:       "incomplete",
+				Severity:   "warn",
+				Message:    fmt.Sprintf("Missing required field '%s' for detected schema '%s'", required, detectedSchema),
+				Suggestion: fmt.Sprintf("Add mapping for '%s' or reconsider schema detection", required),
+			})
+		}
+	}
+
+	// Determine overall status
+	overall := "good"
+	if len(issues) > 0 {
+		overall = "needs_improvement"
+		for _, issue := range issues {
+			if issue.Severity == "error" {
+				overall = "poor"
+				break
+			}
+		}
+	}
+
+	// Calculate confidence as inverse of issues
+	confidence := 1.0 - (float64(len(issues)) * 0.1) // Each issue reduces by 0.1
+	if confidence < 0 {
+		confidence = 0
+	}
+	if confidence > 1 {
+		confidence = 1
+	}
+
+	return &SemanticValidationResult{
+		Issues:     issues,
+		Overall:    overall,
+		Score:      avgConfidence,
+		Confidence: confidence,
+	}
+}
+
+// getRequiredFieldsBySchema returns required canonical fields for a detected schema type
+func getRequiredFieldsBySchema(schema string) []string {
+	requirements := map[string][]string{
+		"test_case":       {"id", "scenario", "instructions", "expected"},
+		"product_backlog": {"id", "title", "description", "acceptance_criteria"},
+		"issue_tracker":   {"id", "feature", "priority", "status"},
+		"api_spec":        {"endpoint", "method", "parameters", "response"},
+		"ui_spec":         {"item_name", "item_type", "action"},
+		"generic":         {"id", "feature"},
+	}
+	if reqs, ok := requirements[schema]; ok {
+		return reqs
+	}
+	return []string{"id", "feature"} // minimal default
 }
 
 // clamp constrains a value between min and max

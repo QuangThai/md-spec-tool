@@ -19,18 +19,101 @@ import (
 
 const maxPreviewRows = 20
 
+// buildPreviewFromMatrix builds a PreviewResponse from a parsed CellMatrix.
+// Shared logic for PreviewPaste, PreviewTSV, PreviewXLSX to avoid duplication.
+func (h *MDFlowHandler) buildPreviewFromMatrix(c *gin.Context, matrix converter.CellMatrix, templateName string) PreviewResponse {
+	headerDetector := converter.NewHeaderDetector()
+	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
+	headers := matrix.GetRow(headerRow)
+
+	skipAI := c.Query("skip_ai") != "false"
+
+	var columnMapping map[string]string
+	var unmapped []string
+	if skipAI {
+		columnMapping, unmapped = h.converter.GetPreviewColumnMappingRuleBased(headers, templateName)
+	} else {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
+		defer cancel()
+		conv := h.getConverterForRequest(c)
+		dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
+		columnMapping, unmapped = conv.GetPreviewColumnMappingWithContext(ctx, headers, dataRows, templateName, "")
+	}
+
+	dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
+	quality := converter.BuildPreviewMappingQuality(confidence, headers, dataRows, columnMapping, unmapped)
+
+	totalDataRows := matrix.RowCount() - headerRow - 1
+	previewCount := totalDataRows
+	if previewCount > maxPreviewRows {
+		previewCount = maxPreviewRows
+	}
+
+	rows := make([][]string, 0, previewCount)
+	for i := headerRow + 1; i < headerRow+1+previewCount && i < matrix.RowCount(); i++ {
+		rows = append(rows, matrix.GetRow(i))
+	}
+
+	return PreviewResponse{
+		Headers:        headers,
+		Rows:           rows,
+		TotalRows:      totalDataRows,
+		PreviewRows:    previewCount,
+		HeaderRow:      headerRow,
+		Confidence:     confidence,
+		ColumnMapping:  columnMapping,
+		UnmappedCols:   unmapped,
+		MappingQuality: &quality,
+		InputType:      "table",
+		AIAvailable:    h.hasAIForRequest(c),
+	}
+}
+
+// emptyTablePreview returns an empty PreviewResponse for table/markdown edge cases.
+func (h *MDFlowHandler) emptyTablePreview(c *gin.Context, confidence int, inputType string) PreviewResponse {
+	resp := PreviewResponse{
+		Headers:       []string{},
+		Rows:          [][]string{},
+		TotalRows:     0,
+		PreviewRows:   0,
+		HeaderRow:     -1,
+		Confidence:    confidence,
+		ColumnMapping: map[string]string{},
+		UnmappedCols:  []string{},
+		InputType:     inputType,
+		AIAvailable:   h.hasAIForRequest(c),
+	}
+	return resp
+}
+
 // PreviewResponse represents the table preview before conversion
 type PreviewResponse struct {
-	Headers       []string          `json:"headers"`
-	Rows          [][]string        `json:"rows"`
-	TotalRows     int               `json:"total_rows"`
-	PreviewRows   int               `json:"preview_rows"`
-	HeaderRow     int               `json:"header_row"`
-	Confidence    int               `json:"confidence"`
-	ColumnMapping map[string]string `json:"column_mapping"`
-	UnmappedCols  []string          `json:"unmapped_columns"`
-	InputType     string            `json:"input_type"`
-	AIAvailable   bool              `json:"ai_available"`
+	Headers            []string                         `json:"headers"`
+	Rows               [][]string                       `json:"rows"`
+	TotalRows          int                              `json:"total_rows"`
+	PreviewRows        int                              `json:"preview_rows"`
+	HeaderRow          int                              `json:"header_row"`
+	Confidence         int                              `json:"confidence"`
+	ColumnMapping      map[string]string                `json:"column_mapping"`
+	UnmappedCols       []string                         `json:"unmapped_columns"`
+	MappingQuality     *converter.PreviewMappingQuality `json:"mapping_quality,omitempty"`
+	Blocks             []PreviewBlock                   `json:"blocks,omitempty"`
+	SelectedBlockID    string                           `json:"selected_block_id,omitempty"`
+	SelectedBlockRange string                           `json:"selected_block_range,omitempty"`
+	InputType          string                           `json:"input_type"`
+	AIAvailable        bool                             `json:"ai_available"`
+}
+
+type PreviewBlock struct {
+	ID             string                           `json:"id"`
+	Range          string                           `json:"range"`
+	TotalRows      int                              `json:"total_rows"`
+	TotalColumns   int                              `json:"total_columns"`
+	LanguageHint   string                           `json:"language_hint"`
+	EnglishScore   float64                          `json:"english_score"`
+	HeaderRow      int                              `json:"header_row"`
+	Confidence     int                              `json:"confidence"`
+	MappingQuality *converter.PreviewMappingQuality `json:"mapping_quality,omitempty"`
 }
 
 // PreviewPaste handles POST /api/mdflow/preview
@@ -64,17 +147,7 @@ func (h *MDFlowHandler) PreviewPaste(c *gin.Context) {
 		// Empty, parse failed, or single-column: use DetectInputType (e.g. real markdown)
 		analysis := converter.DetectInputType(req.PasteText)
 		if analysis.Type == converter.InputTypeMarkdown {
-			c.JSON(http.StatusOK, PreviewResponse{
-				Headers:       []string{},
-				Rows:          [][]string{},
-				TotalRows:     0,
-				PreviewRows:   0,
-				HeaderRow:     -1,
-				Confidence:    analysis.Confidence,
-				ColumnMapping: map[string]string{},
-				UnmappedCols:  []string{},
-				InputType:     "markdown",
-			})
+			c.JSON(http.StatusOK, h.emptyTablePreview(c, analysis.Confidence, "markdown"))
 			return
 		}
 		if parseErr != nil {
@@ -82,75 +155,13 @@ func (h *MDFlowHandler) PreviewPaste(c *gin.Context) {
 			return
 		}
 		if matrix.RowCount() == 0 {
-			c.JSON(http.StatusOK, PreviewResponse{
-				Headers:       []string{},
-				Rows:          [][]string{},
-				TotalRows:     0,
-				PreviewRows:   0,
-				HeaderRow:     -1,
-				Confidence:    0,
-				ColumnMapping: map[string]string{},
-				UnmappedCols:  []string{},
-				InputType:     "table",
-			})
+			c.JSON(http.StatusOK, h.emptyTablePreview(c, 0, "table"))
 			return
 		}
 	}
 
-	// Detect header row
-	headerDetector := converter.NewHeaderDetector()
-	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
-	headers := matrix.GetRow(headerRow)
-
-	// Map columns via template-driven HeaderResolver (Phase 3; plan refactor-plan-dynamic-converter)
 	templateName := strings.TrimSpace(req.Template)
-
-	// Check skip_ai query parameter: defaults to "true" for preview (fast path)
-	skipAI := true
-	if skipAIParam := c.Query("skip_ai"); skipAIParam == "false" {
-		skipAI = false
-	}
-
-	var columnMapping map[string]string
-	var unmapped []string
-	if skipAI {
-		// Rule-based only: guaranteed fast (<10ms), no OpenAI calls
-		columnMapping, unmapped = h.converter.GetPreviewColumnMappingRuleBased(headers, templateName)
-	} else {
-		// AI-enabled: may be slow depending on OpenAI response time (BYOK-aware)
-		// Use shorter timeout (15s) for preview endpoint to maintain responsiveness
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
-		defer cancel()
-		
-		conv := h.getConverterForRequest(c)
-		dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
-		columnMapping, unmapped = conv.GetPreviewColumnMappingWithContext(ctx, headers, dataRows, templateName, "")
-	}
-
-	// Get preview rows (after header)
-	totalDataRows := matrix.RowCount() - headerRow - 1
-	previewCount := totalDataRows
-	if previewCount > maxPreviewRows {
-		previewCount = maxPreviewRows
-	}
-
-	rows := make([][]string, 0, previewCount)
-	for i := headerRow + 1; i < headerRow+1+previewCount && i < matrix.RowCount(); i++ {
-		rows = append(rows, matrix.GetRow(i))
-	}
-
-	c.JSON(http.StatusOK, PreviewResponse{
-		Headers:       headers,
-		Rows:          rows,
-		TotalRows:     totalDataRows,
-		PreviewRows:   previewCount,
-		HeaderRow:     headerRow,
-		Confidence:    confidence,
-		ColumnMapping: columnMapping,
-		UnmappedCols:  unmapped,
-		InputType:     "table",
-		AIAvailable:   h.hasAIForRequest(c),
-	})
+	c.JSON(http.StatusOK, h.buildPreviewFromMatrix(c, matrix, templateName))
 }
 
 // PreviewTSV handles POST /api/mdflow/tsv/preview
@@ -209,72 +220,12 @@ func (h *MDFlowHandler) PreviewTSV(c *gin.Context) {
 	}
 
 	if len(matrix) == 0 {
-		c.JSON(http.StatusOK, PreviewResponse{
-			Headers:       []string{},
-			Rows:          [][]string{},
-			TotalRows:     0,
-			PreviewRows:   0,
-			HeaderRow:     -1,
-			Confidence:    0,
-			ColumnMapping: map[string]string{},
-			UnmappedCols:  []string{},
-			InputType:     "table",
-		})
+		c.JSON(http.StatusOK, h.emptyTablePreview(c, 0, "table"))
 		return
 	}
 
-	// Detect header row
-	headerDetector := converter.NewHeaderDetector()
-	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
-	headers := matrix.GetRow(headerRow)
-
-	// Map columns via template-driven HeaderResolver (Phase 3)
 	templateName := strings.TrimSpace(c.PostForm("template"))
-
-	// Check skip_ai query parameter: defaults to "true" for preview (fast path)
-	skipAI := true
-	if skipAIParam := c.Query("skip_ai"); skipAIParam == "false" {
-		skipAI = false
-	}
-
-	var columnMapping map[string]string
-	var unmapped []string
-	if skipAI {
-		columnMapping, unmapped = h.converter.GetPreviewColumnMappingRuleBased(headers, templateName)
-	} else {
-		// AI-enabled: use shorter timeout (15s) for preview endpoint
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
-		defer cancel()
-		
-		conv := h.getConverterForRequest(c)
-		dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
-		columnMapping, unmapped = conv.GetPreviewColumnMappingWithContext(ctx, headers, dataRows, templateName, "")
-	}
-
-	// Get preview rows (after header)
-	totalDataRows := matrix.RowCount() - headerRow - 1
-	previewCount := totalDataRows
-	if previewCount > maxPreviewRows {
-		previewCount = maxPreviewRows
-	}
-
-	rows := make([][]string, 0, previewCount)
-	for i := headerRow + 1; i < headerRow+1+previewCount && i < matrix.RowCount(); i++ {
-		rows = append(rows, matrix.GetRow(i))
-	}
-
-	c.JSON(http.StatusOK, PreviewResponse{
-		Headers:       headers,
-		Rows:          rows,
-		TotalRows:     totalDataRows,
-		PreviewRows:   previewCount,
-		HeaderRow:     headerRow,
-		Confidence:    confidence,
-		ColumnMapping: columnMapping,
-		UnmappedCols:  unmapped,
-		InputType:     "table",
-		AIAvailable:   h.hasAIForRequest(c),
-	})
+	c.JSON(http.StatusOK, h.buildPreviewFromMatrix(c, matrix, templateName))
 }
 
 // PreviewXLSX handles POST /api/mdflow/xlsx/preview
@@ -358,70 +309,10 @@ func (h *MDFlowHandler) PreviewXLSX(c *gin.Context) {
 	}
 
 	if len(matrix) == 0 {
-		c.JSON(http.StatusOK, PreviewResponse{
-			Headers:       []string{},
-			Rows:          [][]string{},
-			TotalRows:     0,
-			PreviewRows:   0,
-			HeaderRow:     -1,
-			Confidence:    0,
-			ColumnMapping: map[string]string{},
-			UnmappedCols:  []string{},
-			InputType:     "table",
-		})
+		c.JSON(http.StatusOK, h.emptyTablePreview(c, 0, "table"))
 		return
 	}
 
-	// Detect header row
-	headerDetector := converter.NewHeaderDetector()
-	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
-	headers := matrix.GetRow(headerRow)
-
-	// Map columns via template-driven HeaderResolver (Phase 3)
 	templateName := strings.TrimSpace(c.PostForm("template"))
-
-	// Check skip_ai query parameter: defaults to "true" for preview (fast path)
-	skipAI := true
-	if skipAIParam := c.Query("skip_ai"); skipAIParam == "false" {
-		skipAI = false
-	}
-
-	var columnMapping map[string]string
-	var unmapped []string
-	if skipAI {
-		columnMapping, unmapped = h.converter.GetPreviewColumnMappingRuleBased(headers, templateName)
-	} else {
-		// AI-enabled: use shorter timeout (15s) for preview endpoint
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
-		defer cancel()
-		
-		conv := h.getConverterForRequest(c)
-		dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
-		columnMapping, unmapped = conv.GetPreviewColumnMappingWithContext(ctx, headers, dataRows, templateName, "")
-	}
-
-	// Get preview rows (after header)
-	totalDataRows := matrix.RowCount() - headerRow - 1
-	previewCount := totalDataRows
-	if previewCount > maxPreviewRows {
-		previewCount = maxPreviewRows
-	}
-
-	rows := make([][]string, 0, previewCount)
-	for i := headerRow + 1; i < headerRow+1+previewCount && i < matrix.RowCount(); i++ {
-		rows = append(rows, matrix.GetRow(i))
-	}
-
-	c.JSON(http.StatusOK, PreviewResponse{
-		Headers:       headers,
-		Rows:          rows,
-		TotalRows:     totalDataRows,
-		PreviewRows:   previewCount,
-		HeaderRow:     headerRow,
-		Confidence:    confidence,
-		ColumnMapping: columnMapping,
-		UnmappedCols:  unmapped,
-		InputType:     "table",
-		AIAvailable:   h.hasAIForRequest(c),
-	})
+	c.JSON(http.StatusOK, h.buildPreviewFromMatrix(c, matrix, templateName))
 }

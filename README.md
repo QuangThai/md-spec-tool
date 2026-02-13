@@ -88,9 +88,10 @@ Frontend runs at `http://localhost:3000`.
 
 Terminology note: requests accept both `template` and `format` as aliases for output mode (`spec` or `table`).
 
-### Health
+### Health & Metrics
 
 - `GET /health`
+- `GET /metrics` (request count, avg latency)
 
 ### Conversion & Preview
 
@@ -168,6 +169,7 @@ Core:
 - `HOST`, `PORT`, `CORS_ORIGINS`
 - `MAX_UPLOAD_BYTES`, `MAX_PASTE_BYTES`
 - `HTTP_CLIENT_TIMEOUT`
+- `GSHEET_HTTP_TIMEOUT`, `GSHEET_MAX_RETRIES` (Google Sheets fetch timeout and retry)
 
 AI:
 

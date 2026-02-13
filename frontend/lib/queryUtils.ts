@@ -34,8 +34,8 @@ export const queryKeys = {
       ['mdflow', 'preview', 'tsv', fileKey, template ?? ''] as const,
     previewXLSX: (fileKey: string, sheet: string, template?: string) =>
       ['mdflow', 'preview', 'xlsx', fileKey, sheet, template ?? ''] as const,
-    previewGoogleSheet: (url: string, gid: string, template?: string) =>
-      ['mdflow', 'preview', 'gsheet', url, gid, template ?? ''] as const,
+    previewGoogleSheet: (url: string, gid: string, template?: string, range?: string) =>
+      ['mdflow', 'preview', 'gsheet', url, gid, template ?? '', range ?? ''] as const,
   },
   share: {
     all: ['share'] as const,

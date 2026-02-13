@@ -66,22 +66,70 @@ func (p *PasteParser) parseCSV(text string) (CellMatrix, error) {
 func (p *PasteParser) parseSimple(text string) (CellMatrix, error) {
 	lines := strings.Split(text, "\n")
 	var matrix CellMatrix
+	delimiter := detectLikelyDelimiter(lines)
 
 	for _, line := range lines {
 		line = strings.TrimSuffix(line, "\r")
-		// Try comma first, then semicolon
-		var cells []string
-		if strings.Contains(line, ",") {
-			cells = strings.Split(line, ",")
-		} else if strings.Contains(line, ";") {
-			cells = strings.Split(line, ";")
-		} else {
-			cells = []string{line}
-		}
+		cells := splitSimpleLine(line, delimiter)
 		matrix = append(matrix, cells)
 	}
 
 	return matrix.Normalize(), nil
+}
+
+func detectLikelyDelimiter(lines []string) rune {
+	candidates := []rune{'\t', ',', ';', '|'}
+	type score struct {
+		delimiter   rune
+		multiCol    int
+		consistency int
+	}
+	best := score{delimiter: ','}
+
+	for _, delimiter := range candidates {
+		counts := make(map[int]int)
+		multiCol := 0
+		for _, line := range lines {
+			line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
+			if line == "" {
+				continue
+			}
+			cols := len(strings.Split(line, string(delimiter)))
+			if cols > 1 {
+				multiCol++
+				counts[cols]++
+			}
+		}
+
+		consistency := 0
+		for _, count := range counts {
+			if count > consistency {
+				consistency = count
+			}
+		}
+
+		if multiCol > best.multiCol || (multiCol == best.multiCol && consistency > best.consistency) {
+			best = score{delimiter: delimiter, multiCol: multiCol, consistency: consistency}
+		}
+	}
+
+	if best.multiCol == 0 {
+		return ','
+	}
+	return best.delimiter
+}
+
+func splitSimpleLine(line string, delimiter rune) []string {
+	if strings.ContainsRune(line, delimiter) {
+		return strings.Split(line, string(delimiter))
+	}
+	if delimiter != ',' && strings.Contains(line, ",") {
+		return strings.Split(line, ",")
+	}
+	if delimiter != ';' && strings.Contains(line, ";") {
+		return strings.Split(line, ";")
+	}
+	return []string{line}
 }
 
 // processTSVRecords handles non-RFC compliant TSV files where multiline cell

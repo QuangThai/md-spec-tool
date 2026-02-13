@@ -121,6 +121,12 @@ func (r *SpecRenderer) tableToSpecRows(table *Table) []SpecRow {
 				switch field {
 				case FieldID:
 					row.ID = cell
+				case FieldTitle:
+					row.Title = cell
+				case FieldDescription:
+					row.Description = cell
+				case FieldAcceptance:
+					row.Acceptance = cell
 				case FieldFeature:
 					row.Feature = cell
 				case FieldScenario:
@@ -141,8 +147,22 @@ func (r *SpecRenderer) tableToSpecRows(table *Table) []SpecRow {
 					row.Status = cell
 				case FieldEndpoint:
 					row.Endpoint = cell
+				case FieldMethod:
+					row.Method = cell
+				case FieldParameters:
+					row.Parameters = cell
+				case FieldResponse:
+					row.Response = cell
+				case FieldStatusCode:
+					row.StatusCode = cell
 				case FieldNotes:
 					row.Notes = cell
+				case FieldComponent:
+					row.Component = cell
+				case FieldAssignee:
+					row.Assignee = cell
+				case FieldCategory:
+					row.Category = cell
 				case FieldNo:
 					row.No = cell
 				case FieldItemName:
@@ -188,6 +208,12 @@ func (r *SpecRenderer) tableToSpecRows(table *Table) []SpecRow {
 					switch field {
 					case FieldID:
 						row.ID = cell
+					case FieldTitle:
+						row.Title = cell
+					case FieldDescription:
+						row.Description = cell
+					case FieldAcceptance:
+						row.Acceptance = cell
 					case FieldFeature:
 						row.Feature = cell
 					case FieldScenario:
@@ -208,8 +234,22 @@ func (r *SpecRenderer) tableToSpecRows(table *Table) []SpecRow {
 						row.Status = cell
 					case FieldEndpoint:
 						row.Endpoint = cell
+					case FieldMethod:
+						row.Method = cell
+					case FieldParameters:
+						row.Parameters = cell
+					case FieldResponse:
+						row.Response = cell
+					case FieldStatusCode:
+						row.StatusCode = cell
 					case FieldNotes:
 						row.Notes = cell
+					case FieldComponent:
+						row.Component = cell
+					case FieldAssignee:
+						row.Assignee = cell
+					case FieldCategory:
+						row.Category = cell
 					case FieldNo:
 						row.No = cell
 					case FieldItemName:
@@ -231,6 +271,13 @@ func (r *SpecRenderer) tableToSpecRows(table *Table) []SpecRow {
 					// Unmapped columns go to metadata
 					row.Metadata[header] = cell
 				}
+			}
+		}
+
+		if row.Feature == "" && row.Title != "" {
+			row.Feature = row.Title
+			if row.Scenario == "" {
+				row.Scenario = row.Title
 			}
 		}
 
@@ -334,6 +381,9 @@ func (r *SpecRenderer) renderSpecItem(row SpecRow) string {
 	// Item header - try multiple sources
 	title := row.Scenario
 	if title == "" {
+		title = row.Title
+	}
+	if title == "" {
 		title = row.Feature
 	}
 	if title == "" {
@@ -365,6 +415,15 @@ func (r *SpecRenderer) renderSpecItem(row SpecRow) string {
 	if row.Status != "" {
 		metaRows = append(metaRows, []string{"status", row.Status})
 	}
+	if row.Assignee != "" {
+		metaRows = append(metaRows, []string{"assignee", row.Assignee})
+	}
+	if row.Component != "" {
+		metaRows = append(metaRows, []string{"component", row.Component})
+	}
+	if row.Category != "" {
+		metaRows = append(metaRows, []string{"category", row.Category})
+	}
 
 	if len(metaRows) > 0 {
 		buf.WriteString("| Field | Value |\n")
@@ -376,7 +435,10 @@ func (r *SpecRenderer) renderSpecItem(row SpecRow) string {
 	}
 
 	// Description
-	if row.Scenario != "" && row.Scenario != row.Feature {
+	if row.Description != "" {
+		buf.WriteString("**Description:**\n")
+		buf.WriteString(fmt.Sprintf("%s\n\n", formatAsMultiLine(row.Description)))
+	} else if row.Scenario != "" && row.Scenario != row.Feature {
 		buf.WriteString("**Description:**\n")
 		buf.WriteString(fmt.Sprintf("%s\n\n", row.Scenario))
 	}
@@ -400,16 +462,41 @@ func (r *SpecRenderer) renderSpecItem(row SpecRow) string {
 		buf.WriteString(fmt.Sprintf("%s\n\n", formatAsMultiLine(row.Expected)))
 	}
 
+	// Acceptance Criteria
+	if row.Acceptance != "" {
+		buf.WriteString("**Acceptance Criteria:**\n")
+		buf.WriteString(fmt.Sprintf("%s\n\n", formatAsMultiLine(row.Acceptance)))
+	}
+
 	// Inputs/Test Data
 	if row.Inputs != "" {
 		buf.WriteString("**Test Data:**\n")
 		buf.WriteString(fmt.Sprintf("```\n%s\n```\n\n", row.Inputs))
 	}
 
-	// Endpoint
-	if row.Endpoint != "" {
-		buf.WriteString("**API/Endpoint:**\n")
-		buf.WriteString(fmt.Sprintf("`%s`\n\n", row.Endpoint))
+	// API Details
+	if row.Endpoint != "" || row.Method != "" || row.Parameters != "" || row.Response != "" || row.StatusCode != "" {
+		buf.WriteString("**API Details:**\n")
+		if row.Endpoint != "" {
+			buf.WriteString(fmt.Sprintf("- **Endpoint**: `%s`\n", row.Endpoint))
+		}
+		if row.Method != "" {
+			buf.WriteString(fmt.Sprintf("- **Method**: %s\n", row.Method))
+		}
+		if row.StatusCode != "" {
+			buf.WriteString(fmt.Sprintf("- **Status Code**: %s\n", row.StatusCode))
+		}
+		if row.Parameters != "" {
+			buf.WriteString("- **Parameters:**\n")
+			buf.WriteString(formatAsMultiLine(row.Parameters))
+			buf.WriteString("\n")
+		}
+		if row.Response != "" {
+			buf.WriteString("- **Response:**\n")
+			buf.WriteString(formatAsMultiLine(row.Response))
+			buf.WriteString("\n")
+		}
+		buf.WriteString("\n")
 	}
 
 	// Extra spec table fields

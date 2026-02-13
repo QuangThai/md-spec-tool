@@ -40,12 +40,16 @@ export interface GoogleSheetSheetsResponse {
 export async function convertPaste(
   pasteText: string,
   template?: string,
-  format?: string
+  format?: string,
+  columnOverrides?: Record<string, string>
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/paste', {
     paste_text: pasteText,
     template: template || '',
     format: format || '',
+    column_overrides: columnOverrides && Object.keys(columnOverrides).length > 0
+      ? columnOverrides
+      : undefined,
   });
 }
 
@@ -53,13 +57,17 @@ export async function convertXLSX(
   file: File,
   sheetName?: string,
   template?: string,
-  format?: string
+  format?: string,
+  columnOverrides?: Record<string, string>
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const formData = new FormData();
   formData.append('file', file);
   if (sheetName) formData.append('sheet_name', sheetName);
   if (template) formData.append('template', template);
   if (format) formData.append('format', format);
+  if (columnOverrides && Object.keys(columnOverrides).length > 0) {
+    formData.append('column_overrides', JSON.stringify(columnOverrides));
+  }
 
   return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/xlsx', formData);
 }
@@ -67,12 +75,16 @@ export async function convertXLSX(
 export async function convertTSV(
   file: File,
   template?: string,
-  format?: string
+  format?: string,
+  columnOverrides?: Record<string, string>
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const formData = new FormData();
   formData.append('file', file);
   if (template) formData.append('template', template);
   if (format) formData.append('format', format);
+  if (columnOverrides && Object.keys(columnOverrides).length > 0) {
+    formData.append('column_overrides', JSON.stringify(columnOverrides));
+  }
 
   return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/tsv', formData);
 }
@@ -155,9 +167,14 @@ export async function previewXLSX(
 export function isGoogleSheetsURL(text: string): boolean {
   try {
     const url = new URL(text.trim());
+    const hostname = url.hostname.toLowerCase();
+    const allowedHosts = new Set([
+      'docs.google.com',
+      'spreadsheets.google.com',
+    ]);
     return (
-      url.protocol === 'https:' &&
-      url.hostname === 'docs.google.com' &&
+      (url.protocol === 'https:' || url.protocol === 'http:') &&
+      allowedHosts.has(hostname) &&
       url.pathname.startsWith('/spreadsheets/')
     );
   } catch {
@@ -167,11 +184,26 @@ export function isGoogleSheetsURL(text: string): boolean {
 
 export async function fetchGoogleSheet(
   url: string,
-  gid?: string
+  gid?: string,
+  range?: string
 ): Promise<ApiResult<GoogleSheetResponse>> {
-  const body: { url: string; gid?: string } = { url };
+  const body: { url: string; gid?: string; range?: string } = { url };
   if (gid) body.gid = gid;
+  if (range) body.range = range;
   return nextApiClient.safePost<GoogleSheetResponse>('/api/gsheet/fetch', body);
+}
+
+export async function previewGoogleSheet(
+  url: string,
+  gid?: string,
+  template?: string,
+  range?: string
+): Promise<ApiResult<PreviewResponse>> {
+  const body: { url: string; gid?: string; template?: string; range?: string } = { url };
+  if (gid) body.gid = gid;
+  if (template) body.template = template;
+  if (range) body.range = range;
+  return nextApiClient.safePost<PreviewResponse>('/api/gsheet/preview', body);
 }
 
 export async function getGoogleSheetSheets(
@@ -184,14 +216,27 @@ export async function convertGoogleSheet(
   url: string,
   template?: string,
   gid?: string,
-  format?: string
+  format?: string,
+  range?: string,
+  columnOverrides?: Record<string, string>
 ): Promise<ApiResult<MDFlowConvertResponse>> {
-  const payload: { url: string; template: string; gid?: string; format?: string } = {
+  const payload: {
+    url: string;
+    template: string;
+    gid?: string;
+    format?: string;
+    range?: string;
+    column_overrides?: Record<string, string>;
+  } = {
     url,
     template: template || '',
   };
   if (gid) payload.gid = gid;
   if (format) payload.format = format;
+  if (range) payload.range = range;
+  if (columnOverrides && Object.keys(columnOverrides).length > 0) {
+    payload.column_overrides = columnOverrides;
+  }
 
   return nextApiClient.safePost<MDFlowConvertResponse>('/api/gsheet/convert', payload);
 }

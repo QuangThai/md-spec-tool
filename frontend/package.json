@@ -28,6 +28,7 @@
     "react-dom": "^19.2.0",
     "remotion": "^4.0.0",
     "tailwind-merge": "^3.4.0",
+    "wavesurfer.js": "^7.9.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

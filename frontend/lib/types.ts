@@ -94,6 +94,40 @@ export interface PreviewResponse {
   confidence: number;
   column_mapping: Record<string, string>;
   unmapped_columns: string[];
+  mapping_quality?: {
+    score: number;
+    header_score: number;
+    mapped_ratio: number;
+    core_coverage: number;
+    core_mapped: number;
+    recommended_format: OutputFormat;
+    low_confidence_columns: string[];
+    column_confidence: Record<string, number>;
+    column_reasons?: Record<string, string[]>;
+  };
+  blocks?: Array<{
+    id: string;
+    range: string;
+    total_rows: number;
+    total_columns: number;
+    language_hint: 'english' | 'japanese' | 'mixed' | 'unknown';
+    english_score: number;
+    header_row: number;
+    confidence: number;
+    mapping_quality?: {
+      score: number;
+      header_score: number;
+      mapped_ratio: number;
+      core_coverage: number;
+      core_mapped: number;
+      recommended_format: OutputFormat;
+      low_confidence_columns: string[];
+      column_confidence: Record<string, number>;
+      column_reasons?: Record<string, string[]>;
+    };
+  }>;
+  selected_block_id?: string;
+  selected_block_range?: string;
   input_type: 'table' | 'markdown';
   ai_available: boolean;
 }

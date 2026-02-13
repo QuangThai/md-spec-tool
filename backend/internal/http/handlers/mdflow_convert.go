@@ -20,9 +20,10 @@ import (
 
 // PasteConvertRequest represents the request for paste conversion
 type PasteConvertRequest struct {
-	PasteText string `json:"paste_text" binding:"required"`
-	Template  string `json:"template"`
-	Format    string `json:"format"`
+	PasteText       string            `json:"paste_text" binding:"required"`
+	Template        string            `json:"template"`
+	Format          string            `json:"format"`
+	ColumnOverrides map[string]string `json:"column_overrides,omitempty"`
 }
 
 // XLSXConvertRequest represents the request for XLSX sheet conversion
@@ -117,11 +118,15 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 	// Create context with timeout to prevent hanging on slow AI calls
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 150*time.Second)
 	defer cancel()
-	
+
 	slog.Info("mdflow.ConvertPaste starting", "has_ai", h.aiService != nil)
-	
+
 	conv := h.getConverterForRequest(c)
-	result, err := conv.ConvertPasteWithFormatContext(ctx, req.PasteText, req.Template, req.Format)
+	columnOverrides := req.ColumnOverrides
+	if len(columnOverrides) == 0 {
+		columnOverrides = nil
+	}
+	result, err := conv.ConvertPasteWithOverrides(ctx, req.PasteText, req.Template, req.Format, columnOverrides)
 	if err != nil {
 		slog.Error("mdflow.ConvertPaste failed", "error", err, "ai_enabled", h.aiService != nil)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert input"})
@@ -173,6 +178,11 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 	// Get optional parameters
 	sheetName := strings.TrimSpace(c.PostForm("sheet_name"))
 	template, format, err := normalizeTemplateAndFormat(c.PostForm("template"), c.PostForm("format"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	columnOverrides, err := parseColumnOverrides(c.PostForm("column_overrides"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
@@ -237,7 +247,7 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 130*time.Second)
 	defer cancel()
 
-	result, err := conv.ConvertMatrixWithFormatContext(ctx, matrix, sheetName, template, format)
+	result, err := conv.ConvertMatrixWithOverrides(ctx, matrix, sheetName, template, format, columnOverrides)
 	if err != nil {
 		slog.Error("mdflow.ConvertXLSX failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
@@ -288,6 +298,11 @@ func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
+	columnOverrides, err := parseColumnOverrides(c.PostForm("column_overrides"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
 
 	content, err := io.ReadAll(io.LimitReader(file, h.cfg.MaxUploadBytes+1))
 	if err != nil {
@@ -308,12 +323,12 @@ func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
 	}
 
 	conv := h.getConverterForRequest(c)
-	
+
 	// Create context with timeout to prevent hanging on slow AI calls
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 130*time.Second)
 	defer cancel()
-	
-	result, err := conv.ConvertPasteWithFormatContext(ctx, string(content), template, format)
+
+	result, err := conv.ConvertPasteWithOverrides(ctx, string(content), template, format, columnOverrides)
 	if err != nil {
 		slog.Error("mdflow.ConvertTSV failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})

@@ -30,7 +30,7 @@ func NewTemplateRegistry() *TemplateRegistry {
 func (r *TemplateRegistry) LoadTemplate(name string) (*TemplateConfig, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	if template, exists := r.templates[name]; exists {
 		return template, nil
 	}
@@ -139,6 +139,12 @@ func fieldToName(field CanonicalField) string {
 	switch field {
 	case FieldID:
 		return "id"
+	case FieldTitle:
+		return "title"
+	case FieldDescription:
+		return "description"
+	case FieldAcceptance:
+		return "acceptance_criteria"
 	case FieldFeature:
 		return "feature"
 	case FieldScenario:
@@ -159,8 +165,22 @@ func fieldToName(field CanonicalField) string {
 		return "status"
 	case FieldEndpoint:
 		return "endpoint"
+	case FieldMethod:
+		return "method"
+	case FieldParameters:
+		return "parameters"
+	case FieldResponse:
+		return "response"
+	case FieldStatusCode:
+		return "status_code"
 	case FieldNotes:
 		return "notes"
+	case FieldComponent:
+		return "component"
+	case FieldAssignee:
+		return "assignee"
+	case FieldCategory:
+		return "category"
 	case FieldNo:
 		return "no"
 	case FieldItemName:

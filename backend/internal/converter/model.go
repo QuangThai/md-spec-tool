@@ -36,6 +36,9 @@ type CanonicalField string
 
 const (
 	FieldID           CanonicalField = "id"
+	FieldTitle        CanonicalField = "title"
+	FieldDescription  CanonicalField = "description"
+	FieldAcceptance   CanonicalField = "acceptance_criteria"
 	FieldFeature      CanonicalField = "feature"
 	FieldScenario     CanonicalField = "scenario"
 	FieldInstructions CanonicalField = "instructions"
@@ -46,7 +49,14 @@ const (
 	FieldType         CanonicalField = "type"
 	FieldStatus       CanonicalField = "status"
 	FieldEndpoint     CanonicalField = "endpoint"
+	FieldMethod       CanonicalField = "method"
+	FieldParameters   CanonicalField = "parameters"
+	FieldResponse     CanonicalField = "response"
+	FieldStatusCode   CanonicalField = "status_code"
 	FieldNotes        CanonicalField = "notes"
+	FieldComponent    CanonicalField = "component"
+	FieldAssignee     CanonicalField = "assignee"
+	FieldCategory     CanonicalField = "category"
 
 	// Spec table fields (Phase 3)
 	FieldNo                CanonicalField = "no"
@@ -68,6 +78,9 @@ type ColumnMap map[CanonicalField]int
 // SpecRow represents a single spec requirement
 type SpecRow struct {
 	ID           string `json:"id,omitempty"`
+	Title        string `json:"title,omitempty"`
+	Description  string `json:"description,omitempty"`
+	Acceptance   string `json:"acceptance_criteria,omitempty"`
 	Feature      string `json:"feature"`
 	Scenario     string `json:"scenario,omitempty"`
 	Instructions string `json:"instructions,omitempty"`
@@ -78,7 +91,14 @@ type SpecRow struct {
 	Type         string `json:"type,omitempty"`
 	Status       string `json:"status,omitempty"`
 	Endpoint     string `json:"endpoint,omitempty"`
+	Method       string `json:"method,omitempty"`
+	Parameters   string `json:"parameters,omitempty"`
+	Response     string `json:"response,omitempty"`
+	StatusCode   string `json:"status_code,omitempty"`
 	Notes        string `json:"notes,omitempty"`
+	Component    string `json:"component,omitempty"`
+	Assignee     string `json:"assignee,omitempty"`
+	Category     string `json:"category,omitempty"`
 
 	// Spec table fields (Phase 3)
 	No                string `json:"no,omitempty"`
@@ -118,6 +138,7 @@ type SpecDocMeta struct {
 	AIAvgConfidence   float64        `json:"ai_avg_confidence,omitempty"`
 	AIMappedColumns   int            `json:"ai_mapped_columns,omitempty"`
 	AIUnmappedColumns int            `json:"ai_unmapped_columns,omitempty"`
+	OutputFormat      string         `json:"output_format,omitempty"`
 }
 
 // ConvertRequest represents the API request for conversion

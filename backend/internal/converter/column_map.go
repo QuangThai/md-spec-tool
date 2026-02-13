@@ -24,9 +24,12 @@ var HeaderSynonyms = map[string]CanonicalField{
 	"story":       FieldFeature,
 	"user story":  FieldFeature,
 	"task":        FieldFeature,
-	"title":       FieldFeature,
-	"name":        FieldFeature,
 	"module":      FieldFeature,
+
+	// Title
+	"title":   FieldTitle,
+	"name":    FieldTitle,
+	"summary": FieldTitle,
 
 	// Scenario
 	"scenario":  FieldScenario,
@@ -41,33 +44,43 @@ var HeaderSynonyms = map[string]CanonicalField{
 
 	// Instructions
 	"instructions": FieldInstructions,
-	"description":  FieldInstructions,
 	"steps":        FieldInstructions,
 	"test steps":   FieldInstructions,
 	"test_steps":   FieldInstructions,
 	"procedure":    FieldInstructions,
 
+	// Description
+	"description": FieldDescription,
+
 	// Inputs
-	"inputs":     FieldInputs,
-	"input":      FieldInputs,
-	"test data":  FieldInputs,
-	"test_data":  FieldInputs,
-	"testdata":   FieldInputs,
-	"data":       FieldInputs,
-	"parameters": FieldInputs,
-	"params":     FieldInputs,
+	"inputs":    FieldInputs,
+	"input":     FieldInputs,
+	"test data": FieldInputs,
+	"test_data": FieldInputs,
+	"testdata":  FieldInputs,
+	"data":      FieldInputs,
+
+	// Parameters
+	"parameters": FieldParameters,
+	"params":     FieldParameters,
+	"request":    FieldParameters,
 
 	// Expected
-	"expected":            FieldExpected,
-	"expected output":     FieldExpected,
-	"expected_output":     FieldExpected,
-	"expected result":     FieldExpected,
-	"expected_result":     FieldExpected,
-	"acceptance":          FieldExpected,
-	"acceptance criteria": FieldExpected,
-	"acceptance_criteria": FieldExpected,
-	"result":              FieldExpected,
-	"outcome":             FieldExpected,
+	"expected":        FieldExpected,
+	"expected output": FieldExpected,
+	"expected_output": FieldExpected,
+	"expected result": FieldExpected,
+	"expected_result": FieldExpected,
+	"result":          FieldExpected,
+	"outcome":         FieldExpected,
+
+	// Acceptance Criteria
+	"acceptance":          FieldAcceptance,
+	"acceptance criteria": FieldAcceptance,
+	"acceptance_criteria": FieldAcceptance,
+
+	// Response
+	"response": FieldResponse,
 
 	// Precondition
 	"precondition":  FieldPrecondition,
@@ -87,7 +100,6 @@ var HeaderSynonyms = map[string]CanonicalField{
 
 	// Type
 	"type":      FieldType,
-	"category":  FieldType,
 	"test type": FieldType,
 	"test_type": FieldType,
 	"kind":      FieldType,
@@ -95,6 +107,11 @@ var HeaderSynonyms = map[string]CanonicalField{
 	// Status
 	"status": FieldStatus,
 	"state":  FieldStatus,
+
+	// Status Code
+	"status code": FieldStatusCode,
+	"status_code": FieldStatusCode,
+	"http status": FieldStatusCode,
 
 	// Endpoint
 	"endpoint":     FieldEndpoint,
@@ -104,6 +121,11 @@ var HeaderSynonyms = map[string]CanonicalField{
 	"route":        FieldEndpoint,
 	"path":         FieldEndpoint,
 
+	// Method
+	"method":      FieldMethod,
+	"http method": FieldMethod,
+	"verb":        FieldMethod,
+
 	// Notes
 	"notes":    FieldNotes,
 	"note":     FieldNotes,
@@ -111,6 +133,13 @@ var HeaderSynonyms = map[string]CanonicalField{
 	"comment":  FieldNotes,
 	"remarks":  FieldNotes,
 	"remark":   FieldNotes,
+
+	// Ownership
+	"assignee":  FieldAssignee,
+	"owner":     FieldAssignee,
+	"assigned":  FieldAssignee,
+	"component": FieldComponent,
+	"category":  FieldCategory,
 
 	// === No / Number (Phase 3) ===
 	"no":  FieldNo,
@@ -161,12 +190,12 @@ var HeaderSynonyms = map[string]CanonicalField{
 	"条件":                 FieldDisplayConditions,
 
 	// === Action (Phase 3) ===
-	"action":       FieldAction,
-	"actions":      FieldAction,
-	"操作":         FieldAction,
+	"action":   FieldAction,
+	"actions":  FieldAction,
+	"操作":       FieldAction,
 	"アクション":    FieldAction,
 	"イベント":     FieldAction,
-	"on click":     FieldAction,
+	"on click": FieldAction,
 
 	// === Navigation Destination (Phase 3) ===
 	"navigation destination": FieldNavigationDest,

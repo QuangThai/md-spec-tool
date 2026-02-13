@@ -10,6 +10,8 @@ var (
 	ErrAIRateLimited      = errors.New("ai_rate_limited")      // 429
 	ErrAIInvalidOutput    = errors.New("ai_invalid_output")    // JSON parse error
 	ErrAIValidationFailed = errors.New("ai_validation_failed") // Output validation failed
+	ErrAIRefused          = errors.New("ai_refused")          // Model refused (safety/content policy)
+	ErrAITruncated        = errors.New("ai_truncated")        // Response truncated (max tokens)
 )
 
 // AIError wraps domain errors with additional context

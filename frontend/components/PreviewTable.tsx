@@ -9,6 +9,7 @@ interface PreviewTableProps {
   columnOverrides: Record<string, string>;
   onColumnOverride: (column: string, field: string) => void;
   sourceUrl?: string;
+  onSelectBlockRange?: (range: string) => void;
 }
 
 /**
@@ -20,6 +21,7 @@ export function PreviewTable({
   columnOverrides,
   onColumnOverride,
   sourceUrl,
+  onSelectBlockRange,
 }: PreviewTableProps) {
   const [expanded, setExpanded] = useState(false);
   const maxCollapsedRows = 4;
@@ -27,6 +29,13 @@ export function PreviewTable({
   const displayRows = expanded
     ? preview.rows
     : preview.rows.slice(0, maxCollapsedRows);
+  const lowConfidenceColumns = new Set(
+    preview.mapping_quality?.low_confidence_columns ?? []
+  );
+  const blockOptions = (preview.blocks ?? []).map((block) => ({
+    label: `${block.language_hint} • ${block.range} • ${Math.round(block.english_score * 100)}% EN`,
+    value: block.range,
+  }));
 
   return (
     <div className="rounded-xl border border-white/10 bg-black/30 overflow-hidden">
@@ -44,6 +53,11 @@ export function PreviewTable({
               (low confidence: {preview.confidence}%)
             </span>
           )}
+          {preview.mapping_quality?.recommended_format === "table" && (
+            <span className="text-[9px] text-accent-gold/80 font-medium">
+              (recommended output: table)
+            </span>
+          )}
           {sourceUrl && (
             <a
               href={sourceUrl}
@@ -55,6 +69,15 @@ export function PreviewTable({
               <ExternalLink className="w-3 h-3" />
               <span className="truncate max-w-[150px]">Google Sheet</span>
             </a>
+          )}
+          {blockOptions.length > 1 && onSelectBlockRange && (
+            <Select
+              value={preview.selected_block_range || blockOptions[0].value}
+              onValueChange={onSelectBlockRange}
+              options={blockOptions}
+              size="compact"
+              className="h-6 text-[9px] min-w-[220px]"
+            />
           )}
         </div>
         {hasMoreRows && (
@@ -79,6 +102,11 @@ export function PreviewTable({
                   "";
                 const isUnmapped =
                   !mappedField && preview.unmapped_columns.includes(header);
+                const isLowConfidence = lowConfidenceColumns.has(header);
+                const confidence =
+                  preview.mapping_quality?.column_confidence?.[header];
+                const reasons =
+                  preview.mapping_quality?.column_reasons?.[header] ?? [];
                 const displayHeader = header?.trim() || "Unmapped";
 
                 const selectOptions = [
@@ -98,6 +126,19 @@ export function PreviewTable({
                       >
                         {displayHeader}
                       </span>
+                      {isLowConfidence && reasons.length > 0 && (
+                        <span
+                          className="text-[9px] text-accent-gold/85 block"
+                          title={reasons.join("; ")}
+                        >
+                          ! needs review
+                        </span>
+                      )}
+                      {typeof confidence === "number" && mappedField && (
+                        <span className="text-[9px] text-white/45 font-mono block">
+                          {Math.round(confidence * 100)}%
+                        </span>
+                      )}
                       <Select
                         value={mappedField || "__unmapped__"}
                         onValueChange={(value) =>
@@ -108,7 +149,7 @@ export function PreviewTable({
                         className={`
                           text-[9px] h-6 min-w-[100px] whitespace-nowrap
                           ${
-                            isUnmapped
+                            isUnmapped || isLowConfidence
                               ? "border-accent-gold/40 text-accent-gold/80"
                               : "border-white/10 text-accent-orange/80"
                           }

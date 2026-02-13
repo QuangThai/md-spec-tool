@@ -73,6 +73,7 @@ const navItems = [
   { label: "Studio", href: "/studio" },
   { label: "Batch", href: "/batch" },
   { label: "Docs", href: "/docs" },
+  { label: "Transcribe", href: "/transcribe" },
 ];
 
 export default function AppHeader() {

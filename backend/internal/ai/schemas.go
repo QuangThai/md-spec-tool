@@ -57,8 +57,9 @@ type MappingMeta struct {
 // PasteAnalysis is the structured output for paste processing
 type PasteAnalysis struct {
 	SchemaVersion   string     `json:"schema_version"`
-	InputType       string     `json:"input_type"`                 // "table", "backlog_list", "test_cases", "prose", "mixed", "unknown"
+	InputType       string     `json:"input_type"`                 // "table", "test_cases", "product_backlog", "issue_tracker", "api_spec", "ui_spec", "prose", "mixed", "unknown"
 	DetectedFormat  string     `json:"detected_format"`            // "csv", "tsv", "markdown_table", "free_text", "mixed"
+	DetectedSchema  string     `json:"detected_schema,omitempty"`  // "test_case", "product_backlog", "issue_tracker", "api_spec", "ui_spec", "generic"
 	NormalizedTable [][]string `json:"normalized_table,omitempty"` // [headers, ...rows]
 	DetectedColumns []string   `json:"detected_columns,omitempty"`
 	SuggestedOutput string     `json:"suggested_output"` // "spec" or "table"
@@ -118,6 +119,7 @@ func ValidSuggestionTypes() []string {
 // CanonicalFields defines the known vocabulary (keep small: 10-20 max)
 var CanonicalFields = map[string]string{
 	"id":                     "Unique identifier (TC ID, Issue #, etc.)",
+	"title":                  "Title or short summary",
 	"feature":                "Feature, module, or epic name",
 	"scenario":               "Scenario or test case name",
 	"instructions":           "Step-by-step instructions",
@@ -128,7 +130,16 @@ var CanonicalFields = map[string]string{
 	"type":                   "Type classification (bug, feature, task)",
 	"status":                 "Current status (active, done, pending)",
 	"endpoint":               "API endpoint or URL",
+	"method":                 "HTTP method (GET, POST, PUT, DELETE)",
+	"parameters":             "API parameters or request body fields",
+	"response":               "API response structure or output format",
+	"status_code":            "HTTP status code (200, 400, 404, etc.)",
 	"notes":                  "Additional notes or comments",
+	"description":            "Detailed description of feature/item/issue",
+	"acceptance_criteria":    "Acceptance criteria or done definition",
+	"component":              "System component or module",
+	"assignee":               "Person responsible or team",
+	"category":               "Category or classification tag",
 	"no":                     "Row number or sequence",
 	"item_name":              "UI/UX item name",
 	"item_type":              "UI/UX item type",

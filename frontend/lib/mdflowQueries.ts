@@ -11,6 +11,7 @@ import {
   getTemplateContent,
   getTemplateInfo,
   getXLSXSheets,
+  previewGoogleSheet,
   previewPaste,
   previewTemplate,
   previewTSV,
@@ -112,23 +113,19 @@ export function usePreviewXLSXMutation(template?: string) {
 }
 
 /**
- * Preview for Google Sheet: fetches sheet data by url+gid, then runs preview (same as paste).
- * Refetches when url, gid, or template changes so changing sheet shows the correct table.
+ * Preview for Google Sheet using dedicated backend endpoint.
+ * Refetches when url, gid, template, or range changes.
  */
 export function usePreviewGoogleSheetQuery(
   url: string,
   gid: string,
   enabled: boolean,
-  template?: string
+  template?: string,
+  range?: string
 ) {
   return useQuery({
-    queryKey: queryKeys.mdflow.previewGoogleSheet(url, gid, template),
-    queryFn: async () => {
-      const sheetResult = await fetchGoogleSheet(url, gid);
-      const sheetData = unwrap(sheetResult);
-      const previewResult = await previewPaste(sheetData.data, template);
-      return unwrap(previewResult);
-    },
+    queryKey: queryKeys.mdflow.previewGoogleSheet(url, gid, template, range),
+    queryFn: async () => unwrap(await previewGoogleSheet(url, gid, template, range)),
     enabled: enabled && Boolean(url.trim()) && Boolean(gid),
     gcTime: 2 * 60 * 1000,
   });
@@ -142,29 +139,29 @@ export function useGetXLSXSheetsMutation() {
 
 export function useConvertPasteMutation() {
   return useMutation({
-    mutationFn: async (payload: { pasteText: string; template?: string; format?: string }) =>
-      unwrap(await convertPaste(payload.pasteText, payload.template, payload.format)),
+    mutationFn: async (payload: { pasteText: string; template?: string; format?: string; columnOverrides?: Record<string, string> }) =>
+      unwrap(await convertPaste(payload.pasteText, payload.template, payload.format, payload.columnOverrides)),
   });
 }
 
 export function useConvertXLSXMutation() {
   return useMutation({
-    mutationFn: async (payload: { file: File; sheetName?: string; template?: string; format?: string }) =>
-      unwrap(await convertXLSX(payload.file, payload.sheetName, payload.template, payload.format)),
+    mutationFn: async (payload: { file: File; sheetName?: string; template?: string; format?: string; columnOverrides?: Record<string, string> }) =>
+      unwrap(await convertXLSX(payload.file, payload.sheetName, payload.template, payload.format, payload.columnOverrides)),
   });
 }
 
 export function useConvertTSVMutation() {
   return useMutation({
-    mutationFn: async (payload: { file: File; template?: string; format?: string }) =>
-      unwrap(await convertTSV(payload.file, payload.template, payload.format)),
+    mutationFn: async (payload: { file: File; template?: string; format?: string; columnOverrides?: Record<string, string> }) =>
+      unwrap(await convertTSV(payload.file, payload.template, payload.format, payload.columnOverrides)),
   });
 }
 
 export function useConvertGoogleSheetMutation() {
   return useMutation({
-    mutationFn: async (payload: { url: string; template?: string; gid?: string; format?: string }) =>
-      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid, payload.format)),
+    mutationFn: async (payload: { url: string; template?: string; gid?: string; format?: string; range?: string; columnOverrides?: Record<string, string> }) =>
+      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid, payload.format, payload.range, payload.columnOverrides)),
   });
 }
 
