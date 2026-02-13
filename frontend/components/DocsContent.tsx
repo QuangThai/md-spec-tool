@@ -285,9 +285,14 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 {`{ "paste_text": "...", "template": "spec" }`}
               </div>
               <div className="mt-3 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/gsheet/convert <br />
+                POST /api/gsheet/convert <br />
                 {`{ "url": "https://docs.google.com/...", "template": "spec", "format": "spec" }`}
               </div>
+              <p className="mt-2 text-xs text-white/40">
+                In Studio, Google Sheets requests go through Next.js proxy routes
+                (<code>/api/gsheet/*</code>) before reaching backend
+                <code>/api/mdflow/gsheet/*</code>.
+              </p>
             </div>
 
             <div className="relative pl-8 border-l-2 border-accent-gold/20">
@@ -418,7 +423,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           </p>
           <div className="bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
             POST /api/mdflow/validate <br />
-            {`{ "paste_text": "...", "validation_rules": { "required": ["feature", "scenario"] } }`}
+            {`{ "paste_text": "...", "validation_rules": { "required_fields": ["feature", "scenario"] } }`}
           </div>
           <div className="p-6 bg-black/40 border border-white/10 rounded-xl space-y-4 font-mono text-sm">
             <div>
@@ -536,8 +541,9 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                   <span className="text-accent-orange mt-1">•</span>
                   <span>
                     <strong>Real-time Table Preview</strong> - Automatically
-                    shows parsed table structure with headers and sample rows
-                    (default: 4 rows)
+                    shows parsed table structure with headers and sample rows.
+                    UI starts with 4 rows collapsed and can expand, while API
+                    preview payloads return up to 20 rows
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
@@ -587,6 +593,10 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
   confidence: number
   column_mapping: Record<string, string>
   unmapped_columns: string[]
+  mapping_quality?: {...}
+  blocks?: Array<{ id, range, total_rows, language_hint, ... }>
+  selected_block_id?: string
+  selected_block_range?: string
   input_type: 'table' | 'markdown'
   ai_available: boolean
 }`}
@@ -708,18 +718,25 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                 <li>• Connect Google to access private sheets via OAuth</li>
               </ul>
               <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/gsheet/sheets <br />
+                POST /api/gsheet/sheets <br />
                 {`{ "url": "https://docs.google.com/spreadsheets/d/..." }`}
               </div>
               <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/gsheet <br />
-                {`{ "url": "https://docs.google.com/spreadsheets/d/..." }`}
-              </div>
-              <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
-                POST /api/mdflow/gsheet/convert
+                POST /api/gsheet/preview
                 <br />
                 {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "spec", "gid": "123" }`}
               </div>
+              <div className="mt-4 bg-black/40 p-4 rounded-lg border border-white/5 font-mono text-xs text-accent-green">
+                POST /api/gsheet/convert
+                <br />
+                {`{ "url": "https://docs.google.com/spreadsheets/d/...", "template": "spec", "gid": "123", "range": "Sheet1!A1:F200" }`}
+              </div>
+              <p className="mt-3 text-xs text-white/40">
+                These routes are frontend proxies that forward to backend
+                <code>/api/mdflow/gsheet/sheets</code>,
+                <code>/api/mdflow/gsheet/preview</code>, and
+                <code>/api/mdflow/gsheet/convert</code> with OAuth cookie support.
+              </p>
               <div className="mt-4 rounded-lg border border-accent-orange/20 bg-accent-orange/10 p-4 text-xs text-white/70">
                 <p className="font-bold text-white mb-2">Private Sheet Access</p>
                 <p>
@@ -853,9 +870,21 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
                   </kbd>
                 </div>
                 <div className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5">
-                  <span className="text-white">Download</span>
+                  <span className="text-white">Export</span>
                   <kbd className="px-2 py-1 rounded bg-white/10 text-white/70 font-mono text-xs">
-                    ⌘/Ctrl + S
+                    ⌘/Ctrl + Shift + E
+                  </kbd>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-white">Command Palette</span>
+                  <kbd className="px-2 py-1 rounded bg-white/10 text-white/70 font-mono text-xs">
+                    ⌘/Ctrl + K
+                  </kbd>
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5">
+                  <span className="text-white">Toggle Preview</span>
+                  <kbd className="px-2 py-1 rounded bg-white/10 text-white/70 font-mono text-xs">
+                    ⌘/Ctrl + P
                   </kbd>
                 </div>
               </div>
@@ -871,7 +900,7 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
           <p className="text-muted">
             AI suggestions are optional and activate when AI is available via
             backend <code>OPENAI_API_KEY</code> or per-request BYOK header
-            (<code>X-OpenAI-API-Key</code>). The Studio calls the AI endpoint to
+            (<code>X-OpenAI-API-Key</code>). The AI endpoint can be called to
             return actionable improvements for clarity, completeness, and
             formatting.
           </p>
@@ -1288,7 +1317,7 @@ const DocsContentBody: React.FC = () => {
               <div className="pt-12 sm:pt-16 lg:pt-20 mt-12 sm:mt-16 lg:mt-20 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4">
                 <div className="text-xs sm:text-sm text-muted">
                   Last updated:{" "}
-                  <span className="text-white">January 31, 2026</span>
+                  <span className="text-white">February 13, 2026</span>
                 </div>
               </div>
             </motion.div>

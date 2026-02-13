@@ -40,6 +40,8 @@ func TestGSheetParallelJapaneseEnglishFixture_SelectsEnglishBlock(t *testing.T) 
 		candidates = append(candidates, BlockSelectionCandidate{
 			EnglishScore: englishScore,
 			QualityScore: quality.Score,
+			RowCount:     len(dataRows),
+			ColumnCount:  len(headers),
 		})
 		selectedHeaders = append(selectedHeaders, headers)
 	}

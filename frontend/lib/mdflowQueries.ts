@@ -160,8 +160,8 @@ export function useConvertTSVMutation() {
 
 export function useConvertGoogleSheetMutation() {
   return useMutation({
-    mutationFn: async (payload: { url: string; template?: string; gid?: string; format?: string; range?: string; columnOverrides?: Record<string, string> }) =>
-      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid, payload.format, payload.range, payload.columnOverrides)),
+    mutationFn: async (payload: { url: string; template?: string; gid?: string; format?: string; range?: string; selectedBlockId?: string; columnOverrides?: Record<string, string> }) =>
+      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid, payload.format, payload.range, payload.selectedBlockId, payload.columnOverrides)),
   });
 }
 

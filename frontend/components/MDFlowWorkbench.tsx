@@ -246,20 +246,6 @@ export default function MDFlowWorkbench() {
     gsheetRangeValue
   );
 
-  useEffect(() => {
-    if (!isGsheetUrl) return;
-    if (gsheetRange.trim()) return;
-    const selectedRange = previewGoogleSheetQuery.data?.selected_block_range;
-    if (selectedRange) {
-      setGsheetRange(selectedRange);
-    }
-  }, [
-    isGsheetUrl,
-    gsheetRange,
-    previewGoogleSheetQuery.data?.selected_block_range,
-    setGsheetRange,
-  ]);
-
   // Reset store when leaving Studio so data is not shown when user comes back
   useEffect(() => {
     return () => reset();
@@ -470,16 +456,36 @@ export default function MDFlowWorkbench() {
 
         // Check if it's a Google Sheets URL
          if (isGoogleSheetsURL(pasteText.trim())) {
-           // Note: format must correspond to a valid template registered in the backend
-           // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
-           result = await convertGoogleSheetMutation.mutateAsync({
-             url: pasteText.trim(),
-             template: format,
-             gid: selectedGid,
-             format,
-             range: gsheetRangeValue || undefined,
-             columnOverrides,
-           });
+           const previewSelectedBlockId = previewGoogleSheetQuery.data?.selected_block_id;
+           const previewColumnMapping = previewGoogleSheetQuery.data?.column_mapping || {};
+           const previewConfidence = previewGoogleSheetQuery.data?.confidence ?? 0;
+           const previewColumnConfidence =
+             previewGoogleSheetQuery.data?.mapping_quality?.column_confidence || {};
+           const trustedPreviewMapping =
+             previewConfidence >= 50
+               ? Object.fromEntries(
+                   Object.entries(previewColumnMapping).filter(([header, mappedField]) => {
+                     if (!header || !mappedField) return false;
+                     const score = previewColumnConfidence[header];
+                     return typeof score !== "number" || score >= 0.7;
+                   })
+                 )
+               : {};
+           const effectiveColumnOverrides = {
+             ...trustedPreviewMapping,
+             ...columnOverrides,
+           };
+            // Note: format must correspond to a valid template registered in the backend
+            // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
+            result = await convertGoogleSheetMutation.mutateAsync({
+              url: pasteText.trim(),
+              template: format,
+              gid: selectedGid,
+              format,
+              range: gsheetRangeValue || undefined,
+              selectedBlockId: previewSelectedBlockId,
+              columnOverrides: effectiveColumnOverrides,
+            });
            const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
            const tabLabel = selectedTab?.title || selectedGid;
            inputPreview = tabLabel
@@ -557,6 +563,10 @@ export default function MDFlowWorkbench() {
     format,
     columnOverrides,
     gsheetRangeValue,
+    previewGoogleSheetQuery.data?.selected_block_id,
+    previewGoogleSheetQuery.data?.column_mapping,
+    previewGoogleSheetQuery.data?.confidence,
+    previewGoogleSheetQuery.data?.mapping_quality?.column_confidence,
     setLoading,
     setError,
     setResult,
@@ -731,7 +741,7 @@ export default function MDFlowWorkbench() {
         return;
       }
 
-      if (mode === "xlsx" && /\.(xlsx|xls)$/i.test(f.name)) {
+      if (mode === "xlsx" && /\.xlsx$/i.test(f.name)) {
         setFile(f);
         setLoading(true);
         setError(null);
@@ -1145,7 +1155,7 @@ export default function MDFlowWorkbench() {
                       >
                         <input
                           type="file"
-                          accept={mode === "tsv" ? ".tsv" : ".xlsx,.xls"}
+                          accept={mode === "tsv" ? ".tsv" : ".xlsx"}
                           onChange={handleFileChange}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           aria-label={
@@ -1195,7 +1205,7 @@ export default function MDFlowWorkbench() {
                                     ? "Drop file here"
                                     : mode === "tsv"
                                       ? "Upload .TSV"
-                                      : "Upload .XLSX or .XLS"}
+                                      : "Upload .XLSX"}
                                 </p>
                                 <p className="text-xs text-white/50 mt-1">
                                   Click or drag & drop

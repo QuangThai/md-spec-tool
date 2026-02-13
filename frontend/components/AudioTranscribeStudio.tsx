@@ -18,7 +18,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 
-// Style for scrollbar
+// Style for scrollbar (scoped to component)
 const scrollbarStyles = `
   ::-webkit-scrollbar {
     height: 6px;
@@ -74,7 +74,7 @@ export default function AudioTranscribeStudio() {
     if (!document.getElementById(styleId)) {
       const style = document.createElement("style");
       style.id = styleId;
-      style.textContent = scrollbarStyles;
+      // style.textContent = scrollbarStyles; // disabled for now
       document.head.appendChild(style);
     }
     return () => {
@@ -105,7 +105,7 @@ export default function AudioTranscribeStudio() {
     waveSurfer.on("audioprocess", () => {
       const currentTime = waveSurfer.getCurrentTime();
       setCurrentTime(currentTime);
-      
+
       // Check if segment playback has finished
       if (playingSegmentEndRef.current !== null && currentTime >= playingSegmentEndRef.current) {
         waveSurfer.pause();
@@ -208,15 +208,6 @@ export default function AudioTranscribeStudio() {
       playingSegmentEndRef.current = null;
     }
   }, []);
-
-  const handleZoomChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const value = Number(event.target.value);
-      setZoom(value);
-      applyZoom(value);
-    },
-    [applyZoom]
-  );
 
   const handleSplitHere = useCallback(() => {
     if (!duration || !response) return;
@@ -346,13 +337,16 @@ export default function AudioTranscribeStudio() {
   const captionRail = useMemo(() => {
     if (!duration || transcriptSplits.length === 0) return null;
     return (
-      <div className="flex w-full gap-1.5 overflow-x-auto pb-2">
+      <div className="flex w-full gap-1.5 overflow-x-auto custom-scrollbar pb-2" style={{
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'rgba(242, 123, 47, 0.4) rgba(0, 0, 0, 0.2)'
+      }}>
         {transcriptSplits.map((split) => {
           const width = ((split.end - split.start) / duration) * 100;
           return (
             <div
               key={split.id}
-              className="flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-linear-to-r from-pink-400 via-pink-400 to-rose-400 px-3 shadow-md transition hover:shadow-lg hover:opacity-90 cursor-pointer"
+              className="flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-linear-to-r from-accent-orange/10 via-accent-orange/20 to-accent-orange/30 px-3 shadow-md transition hover:shadow-lg hover:opacity-90 cursor-pointer"
               style={{ minWidth: `max(3rem, ${Math.max(width, 15)}%)` }}
               title={split.text}
             >
@@ -371,91 +365,91 @@ export default function AudioTranscribeStudio() {
     <div className="min-h-screen bg-bg-mesh">
       <div className="mx-auto max-w-7xl">
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <section className="min-w-0 space-y-5">
-          <div className="rounded-2xl border border-white/10 bg-white/2 px-6 py-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-lg font-bold text-white">
-                  {file ? file.name : "Drop an audio file"}
-                </p>
-                <p className="text-xs text-white/50">
-                  {file
-                    ? `Duration: ${formatTime(duration || 0)} · Size: ${formatBytes(file.size)}`
-                    : "MP3, WAV, M4A, MP4 (max 30MB default)"}
-                </p>
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+          <section className="min-w-0 space-y-5">
+            <div className="rounded-2xl border border-white/10 bg-white/2 px-6 py-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-lg font-bold text-white">
+                    {file ? file.name : "Drop an audio file"}
+                  </p>
+                  <p className="text-xs text-white/50">
+                    {file
+                      ? `Duration: ${formatTime(duration || 0)} · Size: ${formatBytes(file.size)}`
+                      : "MP3, WAV, M4A, MP4 (max 30MB default)"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="group relative inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/10">
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>New File</span>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                    />
+                  </label>
+                  {file && (
+                    <button
+                      type="button"
+                      onClick={handleClearFile}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/10"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="group relative inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/10">
-                  <Upload className="h-3.5 w-3.5" />
-                  <span>New File</span>
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    onChange={handleFileChange}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                  />
-                </label>
-                {file && (
+            </div>
+
+            {(error || previewError) && (
+              <div className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">
+                {error || previewError}
+              </div>
+            )}
+
+            {response?.warnings?.length ? (
+              <div className="rounded-xl border border-amber-900/50 bg-amber-950/30 px-4 py-3 text-xs text-amber-400">
+                {response.warnings.join(" ")}
+              </div>
+            ) : null}
+
+            <div className="rounded-2xl border border-white/10 bg-white/2 px-6 py-5">
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={handlePlayToggle}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-orange text-white shadow-md transition hover:bg-accent-orange/90"
+                  disabled={!audioUrl}
+                >
+                  {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                </button>
+                <p className="font-mono text-sm text-white/70">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </p>
+                <div className="ml-auto flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={handleClearFile}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-xs font-medium text-white/70 transition hover:border-white/30 hover:bg-white/10"
+                    onClick={() => { const v = Math.max(40, zoom - 20); setZoom(v); applyZoom(v); }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-white/20 bg-white/5 text-white/50 transition hover:bg-white/10"
                   >
-                    <X className="h-3.5 w-3.5" />
-                    Clear
+                    <Minus className="h-3.5 w-3.5" />
                   </button>
-                )}
+                  <span className="w-10 text-center text-xs font-medium text-white/50">{zoom}%</span>
+                  <button
+                    type="button"
+                    onClick={() => { const v = Math.min(200, zoom + 20); setZoom(v); applyZoom(v); }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-white/20 bg-white/5 text-white/50 transition hover:bg-white/10"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-
-          {(error || previewError) && (
-            <div className="rounded-xl border border-red-900/50 bg-red-950/30 px-4 py-3 text-sm text-red-400">
-              {error || previewError}
-            </div>
-          )}
-
-          {response?.warnings?.length ? (
-            <div className="rounded-xl border border-amber-900/50 bg-amber-950/30 px-4 py-3 text-xs text-amber-400">
-              {response.warnings.join(" ")}
-            </div>
-          ) : null}
-
-          <div className="rounded-2xl border border-white/10 bg-white/2 px-6 py-5">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={handlePlayToggle}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-orange text-white shadow-md transition hover:bg-accent-orange/90"
-                disabled={!audioUrl}
-              >
-                {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-              </button>
-              <p className="font-mono text-sm text-white/70">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </p>
-              <div className="ml-auto flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => { const v = Math.max(40, zoom - 20); setZoom(v); applyZoom(v); }}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/20 bg-white/5 text-white/50 transition hover:bg-white/10"
-                >
-                  <Minus className="h-3.5 w-3.5" />
-                </button>
-                <span className="w-10 text-center text-xs font-medium text-white/50">{zoom}%</span>
-                <button
-                  type="button"
-                  onClick={() => { const v = Math.min(200, zoom + 20); setZoom(v); applyZoom(v); }}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/20 bg-white/5 text-white/50 transition hover:bg-white/10"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-            <div className="mt-4">
-              {previewSupported ? (
-                <div className="max-w-full overflow-x-auto rounded-xl" style={{
+              <div className="mt-4">
+                {previewSupported ? (
+                  <div className="max-w-full overflow-x-auto rounded-xl" style={{
                     scrollbarWidth: 'thin',
                     scrollbarColor: 'rgba(242, 123, 47, 0.4) rgba(0, 0, 0, 0.2)'
                   }}>
@@ -464,232 +458,227 @@ export default function AudioTranscribeStudio() {
                       className="min-w-full rounded-xl bg-black/50 p-4"
                     />
                   </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-center text-sm text-white/40">
-                  Audio preview unavailable. You can still transcribe.
-                  {audioUrl ? (
-                    <audio
-                      controls
-                      src={audioUrl}
-                      className="mt-3 w-full"
-                    />
-                  ) : null}
-                </div>
-              )}
-              {captionRail && (
-                <div className="mt-4 rounded-xl bg-black/40 p-3 overflow-hidden">
-                  {captionRail}
-                </div>
-              )}
+                ) : (
+                  <div className="rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-center text-sm text-white/40">
+                    Audio preview unavailable. You can still transcribe.
+                    {audioUrl ? (
+                      <audio
+                        controls
+                        src={audioUrl}
+                        className="mt-3 w-full"
+                      />
+                    ) : null}
+                  </div>
+                )}
+                {captionRail && (
+                  <div className="mt-4 rounded-xl bg-black/40 p-3 overflow-hidden">
+                    {captionRail}
+                  </div>
+                )}
               </div>
               <p className="mt-3 text-xs text-white/40">
-              Click to seek · Drag orange line to scrub · Shift+Click to add split point
-              </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 border-t border-white/5 pt-4">
-            <button
-              type="button"
-              onClick={handleSplitHere}
-              disabled={!response}
-              className="inline-flex items-center gap-2 rounded-lg bg-accent-orange/20 px-4 py-2 text-sm font-semibold text-accent-orange transition hover:bg-accent-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Scissors className="h-4 w-4" />
-              Split Here
-            </button>
-            <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-white/50">
-              <span className="font-medium">Auto-split by:</span>
-              <button
-                type="button"
-                onClick={() => handleSplitSource("sentence")}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-medium transition ${
-                  splitSource === "sentence"
-                    ? "border-accent-orange/50 bg-accent-orange/20 text-white"
-                    : "border-white/10 bg-white/5 text-white/50 hover:bg-white/10"
-                }`}
-              >
-                <Scissors className="h-3 w-3" />
-                Sent. ({autoSplitCounts.sentence})
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSplitSource("paragraph")}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-medium transition ${
-                  splitSource === "paragraph"
-                    ? "border-accent-orange/50 bg-accent-orange/20 text-white"
-                    : "border-white/10 bg-white/5 text-white/50 hover:bg-white/10"
-                }`}
-              >
-                <Scissors className="h-3 w-3" />
-                Para. ({autoSplitCounts.paragraph})
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/2 px-6 py-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white">
-                Split Segments
-              </h2>
-              <p className="text-sm text-white/50">
-                {activeSplits.length} segments
+                Click to seek · Drag orange line to scrub · Shift+Click to add split point
               </p>
             </div>
 
-            <div className="mt-4 space-y-3">
-              {activeSplits.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-center text-sm text-white/40">
-                  Upload audio and transcribe to see split segments.
-                </div>
-              ) : (
-                activeSplits.map((split, index) => (
-                  <div
-                    key={`${split.id}-${index}`}
-                    className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-accent-orange/20 bg-accent-orange/5 px-4 py-3"
-                  >
-                    <div>
-                      <p className="text-sm font-bold text-white">
-                        {splitSource === "paragraph" ? "Paragraph" : "Sentence"} {index + 1}
-                      </p>
-                      <p className="font-mono text-xs text-white/50">
-                        {formatSrtTime(split.start)} - {formatSrtTime(split.end)}{" "}
-                        <span className="text-white/30">
-                          ({formatTime(split.end - split.start)})
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handlePlaySegment(split)}
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
-                          playingSegmentId === split.id
-                            ? "border-accent-orange/50 bg-accent-orange/20 text-accent-orange"
-                            : "border-white/20 bg-white/5 text-white/70 hover:bg-white/10"
-                        }`}
-                      >
-                        {playingSegmentId === split.id ? (
-                          <Pause className="h-3.5 w-3.5" />
-                        ) : (
-                          <Play className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => downloadJSON([split])}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Download
-                      </button>
-                      {splitSource === "custom" && (
+            <div className="flex flex-wrap items-center gap-3 border-t border-white/5 pt-4">
+              <button
+                type="button"
+                onClick={handleSplitHere}
+                disabled={!response}
+                className="inline-flex items-center gap-2 rounded-lg bg-accent-orange/20 px-4 py-2 text-sm font-semibold text-accent-orange transition hover:bg-accent-orange/30 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Scissors className="h-4 w-4" />
+                Split Here
+              </button>
+              <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-white/50">
+                <span className="font-medium">Auto-split by:</span>
+                <button
+                  type="button"
+                  onClick={() => handleSplitSource("sentence")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-medium transition ${splitSource === "sentence"
+                    ? "border-accent-orange/50 bg-accent-orange/20 text-white"
+                    : "border-white/10 bg-white/5 text-white/50 hover:bg-white/10"
+                    }`}
+                >
+                  <Scissors className="h-3 w-3" />
+                  Sent. ({autoSplitCounts.sentence})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSplitSource("paragraph")}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-medium transition ${splitSource === "paragraph"
+                    ? "border-accent-orange/50 bg-accent-orange/20 text-white"
+                    : "border-white/10 bg-white/5 text-white/50 hover:bg-white/10"
+                    }`}
+                >
+                  <Scissors className="h-3 w-3" />
+                  Para. ({autoSplitCounts.paragraph})
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/2 px-6 py-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">
+                  Split Segments
+                </h2>
+                <p className="text-sm text-white/50">
+                  {activeSplits.length} segments
+                </p>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {activeSplits.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-6 text-center text-sm text-white/40">
+                    Upload audio and transcribe to see split segments.
+                  </div>
+                ) : (
+                  activeSplits.map((split, index) => (
+                    <div
+                      key={`${split.id}-${index}`}
+                      className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-accent-orange/20 bg-accent-orange/5 px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm font-bold text-white">
+                          {splitSource === "paragraph" ? "Paragraph" : "Sentence"} {index + 1}
+                        </p>
+                        <p className="font-mono text-xs text-white/50">
+                          {formatSrtTime(split.start)} - {formatSrtTime(split.end)}{" "}
+                          <span className="text-white/30">
+                            ({formatTime(split.end - split.start)})
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => handleRemoveSplit(index)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-900/50 bg-red-950/20 text-red-400 transition hover:bg-red-950/40"
+                          onClick={() => handlePlaySegment(split)}
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${playingSegmentId === split.id
+                            ? "border-accent-orange/50 bg-accent-orange/20 text-accent-orange"
+                            : "border-white/20 bg-white/5 text-white/70 hover:bg-white/10"
+                            }`}
                         >
-                          <X className="h-3.5 w-3.5" />
+                          {playingSegmentId === split.id ? (
+                            <Pause className="h-3.5 w-3.5" />
+                          ) : (
+                            <Play className="h-3.5 w-3.5" />
+                          )}
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          onClick={() => downloadJSON([split])}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:bg-white/10"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Download
+                        </button>
+                        {splitSource === "custom" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSplit(index)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-900/50 bg-red-950/20 text-red-400 transition hover:bg-red-950/40"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+
+          <aside className="min-w-0 self-start rounded-2xl border border-white/10 bg-white/2 px-6 py-5 lg:sticky lg:top-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">Transcript</h2>
+              <button
+                type="button"
+                onClick={handleTranscribe}
+                disabled={!file || loading}
+                className="inline-flex items-center gap-2 rounded-lg border border-accent-orange/60 bg-accent-orange/80 px-3.5 py-2 text-xs font-semibold text-white transition hover:border-accent-orange hover:bg-accent-orange disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                {loading ? (
+                  <>
+                    <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Transcribe{response && <span className="text-white/70">(Done)</span>}
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl bg-black/30 p-1">
+              <div className="flex">
+                <button
+                  type="button"
+                  onClick={() => setTranscriptMode("sentences")}
+                  className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${transcriptMode === "sentences"
+                    ? "bg-accent-orange/20 text-white shadow-sm"
+                    : "text-white/40 hover:text-white/60"
+                    }`}
+                >
+                  Sentences
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTranscriptMode("paragraphs")}
+                  className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${transcriptMode === "paragraphs"
+                    ? "bg-accent-orange/20 text-white shadow-sm"
+                    : "text-white/40 hover:text-white/60"
+                    }`}
+                >
+                  Paragraphs
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {transcriptSplits.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-8 text-center text-sm text-white/40">
+                  Transcript will appear here after processing.
+                </div>
+              ) : (
+                transcriptSplits.map((split, index) => (
+                  <div key={split.id} className="flex gap-3 border-b border-white/5 pb-4 last:border-0">
+                    <span className="shrink-0 text-xs font-bold text-white/40">
+                      {transcriptMode === "sentences" ? `S${index + 1}` : `P${index + 1}`}
+                    </span>
+                    <p className="text-sm leading-relaxed text-white/70">{split.text}</p>
                   </div>
                 ))
               )}
             </div>
-          </div>
-        </section>
 
-        <aside className="min-w-0 self-start rounded-2xl border border-white/10 bg-white/2 px-6 py-5 lg:sticky lg:top-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Transcript</h2>
-            <button
-              type="button"
-              onClick={handleTranscribe}
-              disabled={!file || loading}
-              className="inline-flex items-center gap-2 rounded-lg border border-accent-orange/60 bg-accent-orange/80 px-3.5 py-2 text-xs font-semibold text-white transition hover:border-accent-orange hover:bg-accent-orange disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-            >
-              {loading ? (
-                <>
-                  <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Transcribe{response && <span className="text-white/70">(Done)</span>}
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="mt-4 rounded-xl bg-black/30 p-1">
-            <div className="flex">
+            <div className="mt-5 flex gap-3">
               <button
                 type="button"
-                onClick={() => setTranscriptMode("sentences")}
-                className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${
-                  transcriptMode === "sentences"
-                    ? "bg-accent-orange/20 text-white shadow-sm"
-                    : "text-white/40 hover:text-white/60"
-                }`}
+                onClick={() => downloadJSON(transcriptSplits)}
+                disabled={transcriptSplits.length === 0}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-2.5 text-xs font-medium text-white/70 transition hover:bg-white/10 disabled:opacity-50"
               >
-                Sentences
+                <Download className="h-3.5 w-3.5" />
+                JSON
               </button>
               <button
                 type="button"
-                onClick={() => setTranscriptMode("paragraphs")}
-                className={`flex-1 rounded-lg px-4 py-2 text-xs font-semibold transition ${
-                  transcriptMode === "paragraphs"
-                    ? "bg-accent-orange/20 text-white shadow-sm"
-                    : "text-white/40 hover:text-white/60"
-                }`}
+                onClick={() => downloadSRT(transcriptSplits)}
+                disabled={transcriptSplits.length === 0}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-2.5 text-xs font-medium text-white/70 transition hover:bg-white/10 disabled:opacity-50"
               >
-                Paragraphs
+                <Download className="h-3.5 w-3.5" />
+                SRT
               </button>
             </div>
-          </div>
-
-          <div className="mt-5 space-y-4">
-            {transcriptSplits.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-white/10 bg-black/20 px-4 py-8 text-center text-sm text-white/40">
-                Transcript will appear here after processing.
-              </div>
-            ) : (
-              transcriptSplits.map((split, index) => (
-                <div key={split.id} className="flex gap-3 border-b border-white/5 pb-4 last:border-0">
-                  <span className="shrink-0 text-xs font-bold text-white/40">
-                    {transcriptMode === "sentences" ? `S${index + 1}` : `P${index + 1}`}
-                  </span>
-                  <p className="text-sm leading-relaxed text-white/70">{split.text}</p>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="mt-5 flex gap-3">
-            <button
-              type="button"
-              onClick={() => downloadJSON(transcriptSplits)}
-              disabled={transcriptSplits.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-2.5 text-xs font-medium text-white/70 transition hover:bg-white/10 disabled:opacity-50"
-            >
-              <Download className="h-3.5 w-3.5" />
-              JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => downloadSRT(transcriptSplits)}
-              disabled={transcriptSplits.length === 0}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-2.5 text-xs font-medium text-white/70 transition hover:bg-white/10 disabled:opacity-50"
-            >
-              <Download className="h-3.5 w-3.5" />
-              SRT
-            </button>
-          </div>
-        </aside>
-      </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
@@ -711,8 +700,8 @@ function formatSrtTime(seconds: number) {
   return `${hours.toString().padStart(2, "0")}:${mins
     .toString()
     .padStart(2, "0")}:${secs.toString().padStart(2, "0")},${ms
-    .toString()
-    .padStart(3, "0")}`;
+      .toString()
+      .padStart(3, "0")}`;
 }
 
 function formatBytes(bytes: number) {

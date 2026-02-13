@@ -218,6 +218,7 @@ export async function convertGoogleSheet(
   gid?: string,
   format?: string,
   range?: string,
+  selectedBlockId?: string,
   columnOverrides?: Record<string, string>
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const payload: {
@@ -226,6 +227,7 @@ export async function convertGoogleSheet(
     gid?: string;
     format?: string;
     range?: string;
+    selected_block_id?: string;
     column_overrides?: Record<string, string>;
   } = {
     url,
@@ -234,6 +236,7 @@ export async function convertGoogleSheet(
   if (gid) payload.gid = gid;
   if (format) payload.format = format;
   if (range) payload.range = range;
+  if (selectedBlockId) payload.selected_block_id = selectedBlockId;
   if (columnOverrides && Object.keys(columnOverrides).length > 0) {
     payload.column_overrides = columnOverrides;
   }
