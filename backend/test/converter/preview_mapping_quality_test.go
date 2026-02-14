@@ -1,6 +1,9 @@
-package converter
+package converter_test
 
-import "testing"
+import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
+	"testing"
+)
 
 func TestBuildPreviewMappingQuality_RecommendsTableWhenNoCoreFields(t *testing.T) {
 	// No core fields mapped, low ratio -> should recommend table

@@ -1,7 +1,8 @@
-package suggest
+package suggest_test
 
 import (
 	"context"
+	. "github.com/yourorg/md-spec-tool/internal/suggest"
 	"testing"
 
 	"github.com/yourorg/md-spec-tool/internal/ai"
@@ -64,7 +65,7 @@ func TestNewSuggester(t *testing.T) {
 		t.Fatal("expected suggester to not be nil")
 	}
 
-	if suggester.aiService != mockService {
+	if suggester.AIService() != mockService {
 		t.Error("expected aiService to be set")
 	}
 }
@@ -100,7 +101,7 @@ func TestSuggester_IsConfigured(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			suggester := &Suggester{aiService: tt.service}
+			suggester := NewSuggester(tt.service)
 			got := suggester.IsConfigured()
 			if got != tt.expected {
 				t.Errorf("IsConfigured() = %v, want %v", got, tt.expected)
@@ -110,7 +111,7 @@ func TestSuggester_IsConfigured(t *testing.T) {
 }
 
 func TestSuggester_GetSuggestions_NotConfigured(t *testing.T) {
-	suggester := &Suggester{aiService: nil}
+	suggester := NewSuggester(nil)
 
 	resp, err := suggester.GetSuggestions(context.Background(), &SuggestionRequest{
 		SpecDoc:  &converter.SpecDoc{},
@@ -248,7 +249,7 @@ func TestBuildSpecContent(t *testing.T) {
 		},
 	}
 
-	content := buildSpecContent(doc)
+	content := BuildSpecContent(doc)
 
 	// Verify content includes all fields
 	if content == "" {

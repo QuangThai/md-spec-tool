@@ -208,7 +208,15 @@ export class HttpClient {
       return { data };
     } catch (err) {
       if (err instanceof ApiError) {
-        return { error: err.message };
+        let message = err.message;
+        if (err.code) {
+          message += ` (${err.code})`;
+        }
+        const validationReason = err.details?.validation_reason;
+        if (typeof validationReason === 'string' && validationReason) {
+          message += ` [${validationReason}]`;
+        }
+        return { error: message };
       }
       return { error: err instanceof Error ? err.message : 'Unknown error' };
     }

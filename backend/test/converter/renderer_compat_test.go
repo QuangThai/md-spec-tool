@@ -1,6 +1,9 @@
-package converter
+package converter_test
 
-import "testing"
+import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
+	"testing"
+)
 
 func TestMDFlowRenderer_GetTemplateNames_CanonicalOnly(t *testing.T) {
 	r := NewMDFlowRenderer()

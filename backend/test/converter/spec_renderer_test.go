@@ -1,6 +1,7 @@
-package converter
+package converter_test
 
 import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
 	"strings"
 	"testing"
 )
@@ -100,7 +101,7 @@ func TestGroupRowsByFeature(t *testing.T) {
 		{Feature: "", Scenario: "uncategorized"},
 	}
 
-	groups := groupRowsByFeature(rows)
+	groups := GroupRowsByFeature(rows)
 
 	if len(groups) != 3 {
 		t.Errorf("Expected 3 feature groups, got %d", len(groups))
@@ -135,7 +136,7 @@ func TestFormatAsNumberedList(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		result := formatAsNumberedList(tt.input)
+		result := FormatAsNumberedList(tt.input)
 		if tt.expected != "" && !strings.HasPrefix(result, tt.expected) {
 			t.Errorf("Test %d: expected to start with %q, got %q", i, tt.expected, result)
 		}
@@ -158,7 +159,7 @@ func TestEscapeTableCell(t *testing.T) {
 	}
 
 	for i, tt := range tests {
-		result := escapeTableCell(tt.input)
+		result := EscapeTableCell(tt.input)
 		if result != tt.expected {
 			t.Errorf("Test %d: expected %q, got %q", i, tt.expected, result)
 		}

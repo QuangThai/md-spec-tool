@@ -26,9 +26,14 @@ export interface KeyboardShortcutsConfig {
   escape?: () => void;
 }
 
-function isMac(): boolean {
+export function isMac(): boolean {
   if (typeof navigator === 'undefined') return false;
-  return navigator.platform?.toLowerCase().includes('mac') ?? false;
+  const uaData = (navigator as Navigator & { userAgentData?: { platform: string } })
+    .userAgentData;
+  return (
+    uaData?.platform === 'macOS' ||
+    /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
+  );
 }
 
 export function formatShortcut(shortcut: ShortcutDefinition): string {

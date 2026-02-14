@@ -1,6 +1,7 @@
-package converter
+package converter_test
 
 import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
 	"strings"
 	"testing"
 )
@@ -74,7 +75,7 @@ func TestTableRenderer_InferHeaders(t *testing.T) {
 		},
 	}
 
-	headers := renderer.inferHeaders(rows)
+	headers := renderer.InferHeaders(rows)
 
 	// Should infer common fields
 	expectedFields := map[string]bool{
@@ -121,7 +122,7 @@ func TestTableRenderer_GetCellValue(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := renderer.getCellValue(row, tt.header)
+		result := renderer.GetCellValue(row, tt.header)
 		if result != tt.expected {
 			t.Errorf("Header %q: expected %q, got %q", tt.header, tt.expected, result)
 		}

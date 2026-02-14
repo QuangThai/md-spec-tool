@@ -57,6 +57,21 @@ export interface MDFlowMeta {
   ai_avg_confidence?: number;
   ai_mapped_columns?: number;
   ai_unmapped_columns?: number;
+  quality_report?: {
+    strict_mode: boolean;
+    validation_passed: boolean;
+    validation_reason?: string;
+    header_confidence: number;
+    min_header_confidence: number;
+    source_rows: number;
+    converted_rows: number;
+    row_loss_ratio: number;
+    max_row_loss_ratio: number;
+    header_count: number;
+    mapped_columns: number;
+    mapped_ratio: number;
+    core_field_coverage?: Record<string, boolean>;
+  };
 }
 
 export interface ConversionResponse {

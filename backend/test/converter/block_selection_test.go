@@ -1,6 +1,9 @@
-package converter
+package converter_test
 
-import "testing"
+import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
+	"testing"
+)
 
 func TestSelectPreferredBlock_PrefersRicherStructureWhenQualityClose(t *testing.T) {
 	candidates := []BlockSelectionCandidate{

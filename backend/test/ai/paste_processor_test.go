@@ -1,17 +1,16 @@
-package ai
+package ai_test
 
 import (
 	"context"
+	. "github.com/yourorg/md-spec-tool/internal/ai"
 	"testing"
 )
 
 func TestPasteProcessor_QuickDetectTSV(t *testing.T) {
-	processor := &PasteProcessorService{
-		config: DefaultConfig(),
-	}
+	processor := NewPasteProcessorForTest(DefaultConfig())
 
 	content := "ID\tName\tStatus\n1\tTest1\tActive\n2\tTest2\tInactive"
-	result := processor.quickTableDetect(content)
+	result := processor.QuickTableDetect(content)
 
 	if result == nil {
 		t.Fatal("expected TSV to be detected, got nil")
@@ -35,16 +34,14 @@ func TestPasteProcessor_QuickDetectTSV(t *testing.T) {
 }
 
 func TestPasteProcessor_QuickDetectMarkdownTable(t *testing.T) {
-	processor := &PasteProcessorService{
-		config: DefaultConfig(),
-	}
+	processor := NewPasteProcessorForTest(DefaultConfig())
 
 	content := `| ID | Name | Status |
 | --- | --- | --- |
 | 1 | Test1 | Active |
 | 2 | Test2 | Inactive |`
 
-	result := processor.quickTableDetect(content)
+	result := processor.QuickTableDetect(content)
 
 	if result == nil {
 		t.Fatal("expected markdown table to be detected, got nil")
@@ -65,12 +62,10 @@ func TestPasteProcessor_QuickDetectMarkdownTable(t *testing.T) {
 }
 
 func TestPasteProcessor_QuickDetectCSV(t *testing.T) {
-	processor := &PasteProcessorService{
-		config: DefaultConfig(),
-	}
+	processor := NewPasteProcessorForTest(DefaultConfig())
 
 	content := "ID,Name,Status\n1,Test1,Active\n2,Test2,Inactive"
-	result := processor.quickTableDetect(content)
+	result := processor.QuickTableDetect(content)
 
 	if result == nil {
 		t.Fatal("expected CSV to be detected, got nil")
@@ -86,13 +81,11 @@ func TestPasteProcessor_QuickDetectCSV(t *testing.T) {
 }
 
 func TestPasteProcessor_NoTableFormat(t *testing.T) {
-	processor := &PasteProcessorService{
-		config: DefaultConfig(),
-	}
+	processor := NewPasteProcessorForTest(DefaultConfig())
 
 	// Plain text without table delimiters
 	content := "This is just a single line of text"
-	result := processor.quickTableDetect(content)
+	result := processor.QuickTableDetect(content)
 
 	if result != nil {
 		t.Errorf("expected nil for non-table content, got %v", result)
@@ -119,15 +112,15 @@ func TestParseMarkdownRow(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := parseMarkdownRow(tt.line)
+		got := ParseMarkdownRow(tt.line)
 		if len(got) != len(tt.expected) {
-			t.Errorf("parseMarkdownRow(%q) returned %d cells, want %d", tt.line, len(got), len(tt.expected))
+			t.Errorf("ParseMarkdownRow(%q) returned %d cells, want %d", tt.line, len(got), len(tt.expected))
 			continue
 		}
 
 		for i, cell := range got {
 			if cell != tt.expected[i] {
-				t.Errorf("parseMarkdownRow(%q) cell %d = %q, want %q", tt.line, i, cell, tt.expected[i])
+				t.Errorf("ParseMarkdownRow(%q) cell %d = %q, want %q", tt.line, i, cell, tt.expected[i])
 			}
 		}
 	}
@@ -167,10 +160,10 @@ func TestDetectCSVReliability(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := detectCSVReliability(tt.lines)
+		got := DetectCSVReliability(tt.lines)
 		isReliable := got >= tt.minConf
 		if isReliable != tt.expected {
-			t.Errorf("detectCSVReliability(%q) = %.2f (reliable=%v), want reliable=%v", tt.name, got, isReliable, tt.expected)
+			t.Errorf("DetectCSVReliability(%q) = %.2f (reliable=%v), want reliable=%v", tt.name, got, isReliable, tt.expected)
 		}
 	}
 }
@@ -233,16 +226,14 @@ func TestPasteProcessor_GetDataRows(t *testing.T) {
 }
 
 func TestPasteProcessor_ComplexMarkdownTable(t *testing.T) {
-	processor := &PasteProcessorService{
-		config: DefaultConfig(),
-	}
+	processor := NewPasteProcessorForTest(DefaultConfig())
 
 	content := `| TC ID | Test Case Name | Expected Result | Status |
 | --- | --- | --- | --- |
 | TC-001 | Login with valid credentials | User logged in successfully | Pass |
 | TC-002 | Login with invalid credentials | Error message displayed | Pass |`
 
-	result := processor.quickTableDetect(content)
+	result := processor.QuickTableDetect(content)
 
 	if result == nil {
 		t.Fatal("expected markdown table to be detected")
@@ -267,9 +258,9 @@ func TestPasteProcessor_AnalyzePasteWithAIService(t *testing.T) {
 	mockService := &mockAIService{
 		analyzePasteFunc: func(ctx context.Context, req AnalyzePasteRequest) (*PasteAnalysis, error) {
 			return &PasteAnalysis{
-				SchemaVersion:  SchemaVersionPasteAnalysis,
-				InputType:      "test_cases",
-				DetectedFormat: "markdown_table",
+				SchemaVersion:   SchemaVersionPasteAnalysis,
+				InputType:       "test_cases",
+				DetectedFormat:  "markdown_table",
 				SuggestedOutput: "spec",
 				Confidence:      0.9,
 			}, nil
@@ -302,12 +293,10 @@ func TestPasteProcessor_AnalyzePasteWithAIService(t *testing.T) {
 }
 
 func TestPasteProcessor_TSVWithEmptyLines(t *testing.T) {
-	processor := &PasteProcessorService{
-		config: DefaultConfig(),
-	}
+	processor := NewPasteProcessorForTest(DefaultConfig())
 
 	content := "ID\tName\tStatus\n1\tTest1\tActive\n\n2\tTest2\tInactive"
-	result := processor.quickTableDetect(content)
+	result := processor.QuickTableDetect(content)
 
 	if result == nil {
 		t.Fatal("expected TSV to be detected despite empty lines")

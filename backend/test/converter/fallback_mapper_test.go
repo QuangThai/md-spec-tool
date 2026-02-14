@@ -1,6 +1,7 @@
-package converter
+package converter_test
 
 import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
 	"testing"
 )
 
@@ -71,10 +72,10 @@ func TestFallbackMapper_MapColumns_MultiLanguageHeaders(t *testing.T) {
 	colMap, _ := mapper.MapColumns(headers)
 
 	expectedMappings := map[CanonicalField]bool{
-		FieldNo:        true, // 番号
-		FieldItemName:  true, // 項目名
-		FieldItemType:  true, // 種別
-		FieldNotes:     true, // remarks (maps to notes)
+		FieldNo:       true, // 番号
+		FieldItemName: true, // 項目名
+		FieldItemType: true, // 種別
+		FieldNotes:    true, // remarks (maps to notes)
 	}
 
 	for field, shouldExist := range expectedMappings {

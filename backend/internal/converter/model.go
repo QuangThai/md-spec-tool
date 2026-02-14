@@ -139,6 +139,23 @@ type SpecDocMeta struct {
 	AIMappedColumns   int            `json:"ai_mapped_columns,omitempty"`
 	AIUnmappedColumns int            `json:"ai_unmapped_columns,omitempty"`
 	OutputFormat      string         `json:"output_format,omitempty"`
+	QualityReport     *QualityReport `json:"quality_report,omitempty"`
+}
+
+type QualityReport struct {
+	StrictMode          bool            `json:"strict_mode"`
+	ValidationPassed    bool            `json:"validation_passed"`
+	ValidationReason    string          `json:"validation_reason,omitempty"`
+	HeaderConfidence    int             `json:"header_confidence"`
+	MinHeaderConfidence int             `json:"min_header_confidence"`
+	SourceRows          int             `json:"source_rows"`
+	ConvertedRows       int             `json:"converted_rows"`
+	RowLossRatio        float64         `json:"row_loss_ratio"`
+	MaxRowLossRatio     float64         `json:"max_row_loss_ratio"`
+	HeaderCount         int             `json:"header_count"`
+	MappedColumns       int             `json:"mapped_columns"`
+	MappedRatio         float64         `json:"mapped_ratio"`
+	CoreFieldCoverage   map[string]bool `json:"core_field_coverage,omitempty"`
 }
 
 // ConvertRequest represents the API request for conversion

@@ -1,6 +1,9 @@
-package converter
+package converter_test
 
-import "testing"
+import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
+	"testing"
+)
 
 func TestDetectLikelyDelimiter_Semicolon(t *testing.T) {
 	lines := []string{
@@ -9,14 +12,14 @@ func TestDetectLikelyDelimiter_Semicolon(t *testing.T) {
 		"2;Checkout;done",
 	}
 
-	if got := detectLikelyDelimiter(lines); got != ';' {
+	if got := DetectLikelyDelimiter(lines); got != ';' {
 		t.Fatalf("expected semicolon delimiter, got %q", string(got))
 	}
 }
 
 func TestParseSimple_UsesDetectedDelimiter(t *testing.T) {
 	parser := NewPasteParser()
-	matrix, err := parser.parseSimple("id;name;status\n1;Login;open")
+	matrix, err := parser.ParseSimple("id;name;status\n1;Login;open")
 	if err != nil {
 		t.Fatalf("parseSimple returned error: %v", err)
 	}

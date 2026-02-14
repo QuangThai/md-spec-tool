@@ -1,6 +1,7 @@
-package ai
+package ai_test
 
 import (
+	. "github.com/yourorg/md-spec-tool/internal/ai"
 	"testing"
 )
 
@@ -26,10 +27,10 @@ func TestValidateMappingSemantics(t *testing.T) {
 					{CanonicalName: "expected", SourceHeader: "Expected", ColumnIndex: 3, Confidence: 0.92},
 				},
 				Meta: MappingMeta{
-					DetectedType:   "test_case",
-					AvgConfidence:  0.90,
-					TotalColumns:   4,
-					MappedColumns:  4,
+					DetectedType:    "test_case",
+					AvgConfidence:   0.90,
+					TotalColumns:    4,
+					MappedColumns:   4,
 					UnmappedColumns: 0,
 				},
 			},
@@ -47,10 +48,10 @@ func TestValidateMappingSemantics(t *testing.T) {
 					{CanonicalName: "expected", SourceHeader: "Result", ColumnIndex: 2, Confidence: 0.35},
 				},
 				Meta: MappingMeta{
-					DetectedType:   "test_case",
-					AvgConfidence:  0.40,
-					TotalColumns:   3,
-					MappedColumns:  3,
+					DetectedType:    "test_case",
+					AvgConfidence:   0.40,
+					TotalColumns:    3,
+					MappedColumns:   3,
 					UnmappedColumns: 0,
 				},
 			},
@@ -67,10 +68,10 @@ func TestValidateMappingSemantics(t *testing.T) {
 					{CanonicalName: "title", SourceHeader: "Title", ColumnIndex: 0, Confidence: 0.90}, // Same index!
 				},
 				Meta: MappingMeta{
-					DetectedType:   "test_case",
-					AvgConfidence:  0.92,
-					TotalColumns:   2,
-					MappedColumns:  2,
+					DetectedType:    "test_case",
+					AvgConfidence:   0.92,
+					TotalColumns:    2,
+					MappedColumns:   2,
 					UnmappedColumns: 0,
 				},
 			},
@@ -88,10 +89,10 @@ func TestValidateMappingSemantics(t *testing.T) {
 					// Missing 'instructions' and 'expected' for test_case schema
 				},
 				Meta: MappingMeta{
-					DetectedType:   "test_case",
-					AvgConfidence:  0.92,
-					TotalColumns:   2,
-					MappedColumns:  2,
+					DetectedType:    "test_case",
+					AvgConfidence:   0.92,
+					TotalColumns:    2,
+					MappedColumns:   2,
 					UnmappedColumns: 0,
 				},
 			},
@@ -104,11 +105,11 @@ func TestValidateMappingSemantics(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := validator.ValidateMappingSemantics(tt.result, tt.schema)
-			
+
 			if result.Overall != tt.expectedStatus {
 				t.Errorf("expected status %s, got %s", tt.expectedStatus, result.Overall)
 			}
-			
+
 			hasErrors := len(result.Issues) > 0
 			if hasErrors != tt.expectErrors {
 				t.Errorf("expected errors=%v, got %v (issues: %d)", tt.expectErrors, hasErrors, len(result.Issues))
@@ -120,10 +121,10 @@ func TestValidateMappingSemantics(t *testing.T) {
 // TestApplyConfidenceFallback tests confidence-based fallback
 func TestApplyConfidenceFallback(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          *ColumnMappingResult
+		name              string
+		input             *ColumnMappingResult
 		expectedCanonical int
-		expectedExtra  int
+		expectedExtra     int
 	}{
 		{
 			name: "move low confidence to extra_columns",
@@ -136,10 +137,10 @@ func TestApplyConfidenceFallback(t *testing.T) {
 				},
 				ExtraColumns: []ExtraColumnMapping{},
 				Meta: MappingMeta{
-					DetectedType:   "test_case",
-					AvgConfidence:  0.71,
-					TotalColumns:   3,
-					MappedColumns:  3,
+					DetectedType:    "test_case",
+					AvgConfidence:   0.71,
+					TotalColumns:    3,
+					MappedColumns:   3,
 					UnmappedColumns: 0,
 				},
 			},
@@ -157,10 +158,10 @@ func TestApplyConfidenceFallback(t *testing.T) {
 				},
 				ExtraColumns: []ExtraColumnMapping{},
 				Meta: MappingMeta{
-					DetectedType:   "test_case",
-					AvgConfidence:  0.90,
-					TotalColumns:   3,
-					MappedColumns:  3,
+					DetectedType:    "test_case",
+					AvgConfidence:   0.90,
+					TotalColumns:    3,
+					MappedColumns:   3,
 					UnmappedColumns: 0,
 				},
 			},
@@ -171,15 +172,13 @@ func TestApplyConfidenceFallback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := &ServiceImpl{
-				validator: NewValidator(),
-			}
-			result := service.applyConfidenceFallback(tt.input)
-			
+			service := NewServiceForFallbackTest()
+			result := service.ApplyConfidenceFallback(tt.input)
+
 			if len(result.CanonicalFields) != tt.expectedCanonical {
 				t.Errorf("expected %d canonical fields, got %d", tt.expectedCanonical, len(result.CanonicalFields))
 			}
-			
+
 			if len(result.ExtraColumns) != tt.expectedExtra {
 				t.Errorf("expected %d extra columns, got %d", tt.expectedExtra, len(result.ExtraColumns))
 			}
@@ -191,10 +190,8 @@ func TestApplyConfidenceFallback(t *testing.T) {
 func TestGetMappingWithFallback(t *testing.T) {
 	// Note: This test would require mocking the client layer
 	// For now, we'll test the logic structure
-	service := &ServiceImpl{
-		validator: NewValidator(),
-	}
-	
+	service := NewServiceForFallbackTest()
+
 	// Test applyConfidenceFallback as part of the orchestration
 	lowConfidenceResult := &ColumnMappingResult{
 		SchemaVersion: SchemaVersionColumnMapping,
@@ -204,25 +201,25 @@ func TestGetMappingWithFallback(t *testing.T) {
 		},
 		ExtraColumns: []ExtraColumnMapping{},
 		Meta: MappingMeta{
-			DetectedType:   "generic",
-			AvgConfidence:  0.45,
-			TotalColumns:   2,
-			MappedColumns:  2,
+			DetectedType:    "generic",
+			AvgConfidence:   0.45,
+			TotalColumns:    2,
+			MappedColumns:   2,
 			UnmappedColumns: 0,
 		},
 	}
-	
-	result := service.applyConfidenceFallback(lowConfidenceResult)
-	
+
+	result := service.ApplyConfidenceFallback(lowConfidenceResult)
+
 	// Verify fallback moved low-confidence mapping
 	if len(result.CanonicalFields) != 1 {
 		t.Errorf("expected 1 canonical field after fallback, got %d", len(result.CanonicalFields))
 	}
-	
+
 	if len(result.ExtraColumns) != 1 {
 		t.Errorf("expected 1 extra column after fallback, got %d", len(result.ExtraColumns))
 	}
-	
+
 	// Verify no data was lost
 	if result.Meta.TotalColumns != 2 {
 		t.Errorf("expected total_columns=2, got %d", result.Meta.TotalColumns)
@@ -246,12 +243,12 @@ func TestGetRequiredFieldsBySchema(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.schema, func(t *testing.T) {
-			result := getRequiredFieldsBySchema(tt.schema)
-			
+			result := GetRequiredFieldsBySchema(tt.schema)
+
 			if len(result) != len(tt.expected) {
 				t.Errorf("expected %d required fields, got %d", len(tt.expected), len(result))
 			}
-			
+
 			// Check all expected fields are present
 			for _, field := range tt.expected {
 				found := false
@@ -277,10 +274,10 @@ func TestRefineMappingContext(t *testing.T) {
 			{CanonicalName: "title", SourceHeader: "Name", ColumnIndex: 1, Confidence: 0.65},
 		},
 		Meta: MappingMeta{
-			DetectedType:   "generic",
-			AvgConfidence:  0.60,
-			TotalColumns:   2,
-			MappedColumns:  2,
+			DetectedType:    "generic",
+			AvgConfidence:   0.60,
+			TotalColumns:    2,
+			MappedColumns:   2,
 			UnmappedColumns: 0,
 		},
 	}

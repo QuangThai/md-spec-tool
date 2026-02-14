@@ -13,6 +13,21 @@ interface TechnicalAnalysisProps {
     source_type?: string;
     parser?: string;
     source_url?: string;
+    quality_report?: {
+      strict_mode: boolean;
+      validation_passed: boolean;
+      validation_reason?: string;
+      header_confidence: number;
+      min_header_confidence: number;
+      source_rows: number;
+      converted_rows: number;
+      row_loss_ratio: number;
+      max_row_loss_ratio: number;
+      header_count: number;
+      mapped_columns: number;
+      mapped_ratio: number;
+      core_field_coverage?: Record<string, boolean>;
+    };
   } | null;
   warnings: MDFlowWarning[];
   mdflowOutput: string | null;
@@ -35,6 +50,14 @@ export function TechnicalAnalysis({
   aiSuggestionsError,
   aiConfigured,
 }: TechnicalAnalysisProps) {
+  const qualityReport = meta?.quality_report;
+  const coveredCoreFields = qualityReport?.core_field_coverage
+    ? Object.values(qualityReport.core_field_coverage).filter(Boolean).length
+    : 0;
+  const totalCoreFields = qualityReport?.core_field_coverage
+    ? Object.keys(qualityReport.core_field_coverage).length
+    : 0;
+
   return (
     <AnimatePresence mode="wait">
       {!mdflowOutput ? (
@@ -99,6 +122,55 @@ export function TechnicalAnalysis({
           {/* Enhanced Warning Panel */}
           {warnings && warnings.length > 0 && (
             <WarningPanel warnings={warnings} />
+          )}
+
+          {qualityReport && (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">
+                  Quality Report
+                </span>
+                <span
+                  className={`text-[9px] font-bold uppercase tracking-wider ${qualityReport.validation_passed ? "text-green-400/90" : "text-accent-gold/90"
+                    }`}
+                >
+                  {qualityReport.validation_passed ? "Passed" : `Needs Review (${qualityReport.validation_reason || "unknown"})`}
+                </span>
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Header Conf</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    {qualityReport.header_confidence}% / {qualityReport.min_header_confidence}%
+                  </div>
+                </div>
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Row Loss</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    {Math.round(qualityReport.row_loss_ratio * 100)}% / {Math.round(qualityReport.max_row_loss_ratio * 100)}%
+                  </div>
+                </div>
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Rows</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    {qualityReport.converted_rows}/{qualityReport.source_rows}
+                  </div>
+                </div>
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Mapped</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    {qualityReport.mapped_columns}/{qualityReport.header_count} ({Math.round(qualityReport.mapped_ratio * 100)}%)
+                  </div>
+                </div>
+              </div>
+
+              {totalCoreFields > 0 && (
+                <div className="mt-2 text-[9px] text-white/55 font-mono">
+                  Core coverage: {coveredCoreFields}/{totalCoreFields}
+                </div>
+              )}
+            </div>
           )}
 
           {/* AI Suggestions Panel */}

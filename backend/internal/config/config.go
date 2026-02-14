@@ -40,6 +40,11 @@ const (
 	// AI preview defaults (reduced for fast response when skip_ai=false)
 	DefaultAIPreviewTimeout    = 10 * time.Second
 	DefaultAIPreviewMaxRetries = 1
+
+	// Spec validation defaults
+	DefaultSpecStrictMode          = true
+	DefaultSpecMinHeaderConfidence = 60
+	DefaultSpecMaxRowLossRatio     = 0.4
 )
 
 type Config struct {
@@ -82,6 +87,11 @@ type Config struct {
 
 	// Storage
 	ShareStorePath string
+
+	// Spec validation
+	SpecStrictMode          bool
+	SpecMinHeaderConfidence int
+	SpecMaxRowLossRatio     float64
 }
 
 func LoadConfig() *Config {
@@ -140,6 +150,11 @@ func LoadConfig() *Config {
 
 		// Storage
 		ShareStorePath: getEnv("SHARE_STORE_PATH", ""),
+
+		// Spec validation
+		SpecStrictMode:          getEnvBool("SPEC_STRICT_MODE", DefaultSpecStrictMode),
+		SpecMinHeaderConfidence: getEnvInt("SPEC_MIN_HEADER_CONFIDENCE", DefaultSpecMinHeaderConfidence),
+		SpecMaxRowLossRatio:     getEnvFloat64("SPEC_MAX_ROW_LOSS_RATIO", DefaultSpecMaxRowLossRatio),
 	}
 }
 
@@ -170,6 +185,12 @@ func ValidateConfig(cfg *Config) error {
 	}
 	if cfg.ShareCreateRateLimit <= 0 || cfg.ShareUpdateRateLimit <= 0 || cfg.ShareCommentRateLimit <= 0 {
 		return fmt.Errorf("share rate limits must be positive")
+	}
+	if cfg.SpecMinHeaderConfidence < 0 || cfg.SpecMinHeaderConfidence > 100 {
+		return fmt.Errorf("SPEC_MIN_HEADER_CONFIDENCE must be in range 0..100")
+	}
+	if cfg.SpecMaxRowLossRatio < 0 || cfg.SpecMaxRowLossRatio > 1 {
+		return fmt.Errorf("SPEC_MAX_ROW_LOSS_RATIO must be in range 0..1")
 	}
 	return nil
 }
@@ -223,6 +244,18 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	parsed, err := time.ParseDuration(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func getEnvFloat64(key string, fallback float64) float64 {
+	value := getEnv(key, "")
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return fallback
 	}

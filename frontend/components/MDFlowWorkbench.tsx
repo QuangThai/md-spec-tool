@@ -27,7 +27,7 @@ import {
 import { createShare } from "@/lib/shareApi";
 import { ConversionRecord } from "@/lib/types";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
-import { useKeyboardShortcuts } from "@/lib/useKeyboardShortcuts";
+import { isMac, useKeyboardShortcuts } from "@/lib/useKeyboardShortcuts";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -456,16 +456,15 @@ export default function MDFlowWorkbench() {
 
         // Check if it's a Google Sheets URL
          if (isGoogleSheetsURL(pasteText.trim())) {
-           const previewSelectedBlockId = previewGoogleSheetQuery.data?.selected_block_id;
-           const previewColumnMapping = previewGoogleSheetQuery.data?.column_mapping || {};
-           const previewConfidence = previewGoogleSheetQuery.data?.confidence ?? 0;
-           const previewColumnConfidence =
-             previewGoogleSheetQuery.data?.mapping_quality?.column_confidence || {};
-           const trustedPreviewMapping =
-             previewConfidence >= 50
-               ? Object.fromEntries(
-                   Object.entries(previewColumnMapping).filter(([header, mappedField]) => {
-                     if (!header || !mappedField) return false;
+            const previewSelectedBlockId = previewGoogleSheetQuery.data?.selected_block_id;
+            const previewColumnMapping = previewGoogleSheetQuery.data?.column_mapping || {};
+            const previewColumnConfidence =
+              previewGoogleSheetQuery.data?.mapping_quality?.column_confidence || {};
+            const trustedPreviewMapping =
+              (previewGoogleSheetQuery.data?.confidence ?? 0) >= 50
+                ? Object.fromEntries(
+                    Object.entries(previewColumnMapping).filter(([header, mappedField]) => {
+                      if (!header || !mappedField) return false;
                      const score = previewColumnConfidence[header];
                      return typeof score !== "number" || score >= 0.7;
                    })
@@ -486,7 +485,7 @@ export default function MDFlowWorkbench() {
               selectedBlockId: previewSelectedBlockId,
               columnOverrides: effectiveColumnOverrides,
             });
-           const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
+            const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
            const tabLabel = selectedTab?.title || selectedGid;
            inputPreview = tabLabel
              ? `Google Sheet: ${pasteText.trim().slice(0, 60)}... (${tabLabel})`
@@ -1312,10 +1311,7 @@ export default function MDFlowWorkbench() {
                         loading ||
                         (mode === "paste" && !pasteText.trim()) ||
                         ((mode === "xlsx" || mode === "tsv") && !file);
-                      const isMac =
-                        typeof navigator !== "undefined" &&
-                        navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-                      const modKey = isMac ? "⌘" : "Ctrl";
+                      const modKey = isMac() ? "⌘" : "Ctrl";
 
                       return (
                         <motion.button

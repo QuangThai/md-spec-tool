@@ -67,6 +67,13 @@ type gsheetValuesResult struct {
 	StartRow  int
 }
 
+type convertValidationStats struct {
+	SourceRows       int
+	HeaderRow        int
+	HeaderConfidence int
+	HeaderCount      int
+}
+
 // parseGoogleSheetURL extracts the sheet ID from various Google Sheets URL formats
 // Returns sheetID, gid, and a boolean indicating success
 func parseGoogleSheetURL(urlStr string) (sheetID string, gid string, ok bool) {
@@ -558,21 +565,26 @@ func (h *MDFlowHandler) fetchGoogleSheetCSV(sheetID string, gid string, rangeOve
 	return nil, 0, lastErr
 }
 
-func (h *MDFlowHandler) convertGoogleSheetWithService(ctx context.Context, conv *converter.Converter, service *sheets.Service, sheetID string, gid string, templateName string, outputFormat string, rangeOverride string, selectedBlockID string, columnOverrides map[string]string) (*converter.ConvertResponse, error) {
+func (h *MDFlowHandler) convertGoogleSheetWithService(ctx context.Context, conv *converter.Converter, service *sheets.Service, sheetID string, gid string, templateName string, outputFormat string, rangeOverride string, selectedBlockID string, columnOverrides map[string]string) (*converter.ConvertResponse, convertValidationStats, error) {
 	valuesResult, err := h.fetchGoogleSheetValuesWithService(service, sheetID, gid, rangeOverride)
 	if err != nil {
-		return nil, err
+		return nil, convertValidationStats{}, err
 	}
 	rows := valuesResult.Rows
 	matrix := converter.NewCellMatrix(rows).Normalize()
 	selected := selectMatrixForConvert(ctx, conv, matrix, templateName, selectedBlockID, rangeOverride)
-	return conv.ConvertMatrixWithOverrides(ctx, selected, valuesResult.SheetName, templateName, outputFormat, columnOverrides)
+	stats := analyzeSelectedMatrix(selected)
+	result, err := conv.ConvertMatrixWithOverrides(ctx, selected, valuesResult.SheetName, templateName, outputFormat, columnOverrides)
+	if err != nil {
+		return nil, stats, err
+	}
+	return result, stats, nil
 }
 
-func (h *MDFlowHandler) convertGoogleSheetWithAPI(ctx context.Context, conv *converter.Converter, sheetID string, gid string, templateName string, outputFormat string, rangeOverride string, selectedBlockID string, columnOverrides map[string]string) (*converter.ConvertResponse, error) {
+func (h *MDFlowHandler) convertGoogleSheetWithAPI(ctx context.Context, conv *converter.Converter, sheetID string, gid string, templateName string, outputFormat string, rangeOverride string, selectedBlockID string, columnOverrides map[string]string) (*converter.ConvertResponse, convertValidationStats, error) {
 	service, err := h.getSheetsService()
 	if err != nil {
-		return nil, err
+		return nil, convertValidationStats{}, err
 	}
 
 	return h.convertGoogleSheetWithService(ctx, conv, service, sheetID, gid, templateName, outputFormat, rangeOverride, selectedBlockID, columnOverrides)
@@ -695,6 +707,148 @@ func selectMatrixForConvert(ctx context.Context, conv *converter.Converter, matr
 		return matrix
 	}
 	return selectPreferredBlockMatrix(ctx, conv, matrix, templateName)
+}
+
+func analyzeSelectedMatrix(matrix converter.CellMatrix) convertValidationStats {
+	headerDetector := converter.NewHeaderDetector()
+	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
+	sourceRows := matrix.RowCount() - headerRow - 1
+	if sourceRows < 0 {
+		sourceRows = 0
+	}
+	return convertValidationStats{
+		SourceRows:       sourceRows,
+		HeaderRow:        headerRow,
+		HeaderConfidence: confidence,
+		HeaderCount:      len(matrix.GetRow(headerRow)),
+	}
+}
+
+func buildCoreFieldCoverage(colMap converter.ColumnMap) map[string]bool {
+	coverage := map[string]bool{
+		string(converter.FieldFeature):           false,
+		string(converter.FieldScenario):          false,
+		string(converter.FieldDescription):       false,
+		string(converter.FieldInstructions):      false,
+		string(converter.FieldExpected):          false,
+		string(converter.FieldItemName):          false,
+		string(converter.FieldDisplayConditions): false,
+		string(converter.FieldAction):            false,
+		string(converter.FieldNavigationDest):    false,
+	}
+	for field := range colMap {
+		key := string(field)
+		if _, ok := coverage[key]; ok {
+			coverage[key] = true
+		}
+	}
+	return coverage
+}
+
+func (h *MDFlowHandler) buildQualityReport(stats convertValidationStats, result *converter.ConvertResponse) *converter.QualityReport {
+	convertedRows := result.Meta.TotalRows
+	mappedColumns := len(result.Meta.ColumnMap)
+	mappedRatio := 0.0
+	if stats.HeaderCount > 0 {
+		mappedRatio = float64(mappedColumns) / float64(stats.HeaderCount)
+	}
+	rowLossRatio := 0.0
+	if stats.SourceRows > 0 {
+		rowLossRatio = 1 - (float64(convertedRows) / float64(stats.SourceRows))
+		if rowLossRatio < 0 {
+			rowLossRatio = 0
+		}
+	}
+
+	validationPassed := true
+	validationReason := ""
+	if stats.HeaderConfidence < h.cfg.SpecMinHeaderConfidence {
+		validationPassed = false
+		validationReason = "low_header_confidence"
+	} else if stats.SourceRows >= 2 && rowLossRatio > h.cfg.SpecMaxRowLossRatio {
+		validationPassed = false
+		validationReason = "row_loss"
+	}
+
+	return &converter.QualityReport{
+		StrictMode:          h.cfg.SpecStrictMode,
+		ValidationPassed:    validationPassed,
+		ValidationReason:    validationReason,
+		HeaderConfidence:    stats.HeaderConfidence,
+		MinHeaderConfidence: h.cfg.SpecMinHeaderConfidence,
+		SourceRows:          stats.SourceRows,
+		ConvertedRows:       convertedRows,
+		RowLossRatio:        rowLossRatio,
+		MaxRowLossRatio:     h.cfg.SpecMaxRowLossRatio,
+		HeaderCount:         stats.HeaderCount,
+		MappedColumns:       mappedColumns,
+		MappedRatio:         mappedRatio,
+		CoreFieldCoverage:   buildCoreFieldCoverage(result.Meta.ColumnMap),
+	}
+}
+
+func qualityReportLogArgs(report *converter.QualityReport) []any {
+	if report == nil {
+		return nil
+	}
+	return []any{
+		"strict_mode", report.StrictMode,
+		"validation_passed", report.ValidationPassed,
+		"validation_reason", report.ValidationReason,
+		"header_confidence", report.HeaderConfidence,
+		"min_header_confidence", report.MinHeaderConfidence,
+		"source_rows", report.SourceRows,
+		"converted_rows", report.ConvertedRows,
+		"row_loss_ratio", report.RowLossRatio,
+		"max_row_loss_ratio", report.MaxRowLossRatio,
+		"header_count", report.HeaderCount,
+		"mapped_columns", report.MappedColumns,
+		"mapped_ratio", report.MappedRatio,
+	}
+}
+
+func (h *MDFlowHandler) buildConvertValidationError(format string, stats convertValidationStats, result *converter.ConvertResponse) *ErrorResponse {
+	if format != string(converter.OutputFormatSpec) {
+		return nil
+	}
+	if !h.cfg.SpecStrictMode {
+		return nil
+	}
+	if stats.HeaderConfidence < h.cfg.SpecMinHeaderConfidence {
+		return &ErrorResponse{
+			Error:            "Header confidence is too low for reliable spec conversion",
+			Code:             "CONVERT_VALIDATION_FAILED",
+			ValidationReason: "low_header_confidence",
+			Details: map[string]any{
+				"validation_reason":  "low_header_confidence",
+				"confidence":         stats.HeaderConfidence,
+				"header_row":         stats.HeaderRow,
+				"min_confidence":     h.cfg.SpecMinHeaderConfidence,
+				"recommended_action": "Refine range/header or use Simple Table output",
+			},
+		}
+	}
+	convertedRows := result.Meta.TotalRows
+	rowLossRatio := 0.0
+	if stats.SourceRows > 0 {
+		rowLossRatio = 1 - (float64(convertedRows) / float64(stats.SourceRows))
+	}
+	if stats.SourceRows >= 2 && rowLossRatio > h.cfg.SpecMaxRowLossRatio {
+		return &ErrorResponse{
+			Error:            "Conversion dropped too many rows to safely generate spec output",
+			Code:             "CONVERT_VALIDATION_FAILED",
+			ValidationReason: "row_loss",
+			Details: map[string]any{
+				"validation_reason":  "row_loss",
+				"source_rows":        stats.SourceRows,
+				"converted_rows":     convertedRows,
+				"loss_ratio":         rowLossRatio,
+				"max_allowed_loss":   h.cfg.SpecMaxRowLossRatio,
+				"recommended_action": "Expand range or review column mapping before converting to spec",
+			},
+		}
+	}
+	return nil
 }
 
 // GetGoogleSheetSheets handles POST /api/mdflow/gsheet/sheets
@@ -1098,8 +1252,16 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	if accessToken := getBearerToken(c); accessToken != "" {
 		service, err := h.getSheetsServiceWithToken(accessToken)
 		if err == nil {
-			if result, err := h.convertGoogleSheetWithService(c.Request.Context(), conv, service, sheetID, gid, req.Template, req.Format, req.Range, req.SelectedBlockID, columnOverrides); err == nil {
+			if result, stats, err := h.convertGoogleSheetWithService(c.Request.Context(), conv, service, sheetID, gid, req.Template, req.Format, req.Range, req.SelectedBlockID, columnOverrides); err == nil {
+				result.Meta.QualityReport = h.buildQualityReport(stats, result)
+				if validationErr := h.buildConvertValidationError(req.Format, stats, result); validationErr != nil {
+					validationErr.Details["quality_report"] = result.Meta.QualityReport
+					slog.Warn("mdflow.ConvertGoogleSheet validation failed", qualityReportLogArgs(result.Meta.QualityReport)...)
+					c.JSON(http.StatusUnprocessableEntity, validationErr)
+					return
+				}
 				result.Meta.SourceURL = req.URL
+				slog.Info("mdflow.ConvertGoogleSheet quality", qualityReportLogArgs(result.Meta.QualityReport)...)
 				slog.Info("mdflow.ConvertGoogleSheet ai", "ai_mode", result.Meta.AIMode, "ai_used", result.Meta.AIUsed, "ai_confidence", result.Meta.AIAvgConfidence)
 				c.JSON(http.StatusOK, MDFlowConvertResponse{
 					MDFlow:   result.MDFlow,
@@ -1115,9 +1277,17 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 		}
 	}
 
-	result, err := h.convertGoogleSheetWithAPI(c.Request.Context(), conv, sheetID, gid, req.Template, req.Format, req.Range, req.SelectedBlockID, columnOverrides)
+	result, stats, err := h.convertGoogleSheetWithAPI(c.Request.Context(), conv, sheetID, gid, req.Template, req.Format, req.Range, req.SelectedBlockID, columnOverrides)
 	if err == nil {
+		result.Meta.QualityReport = h.buildQualityReport(stats, result)
+		if validationErr := h.buildConvertValidationError(req.Format, stats, result); validationErr != nil {
+			validationErr.Details["quality_report"] = result.Meta.QualityReport
+			slog.Warn("mdflow.ConvertGoogleSheet validation failed", qualityReportLogArgs(result.Meta.QualityReport)...)
+			c.JSON(http.StatusUnprocessableEntity, validationErr)
+			return
+		}
 		result.Meta.SourceURL = req.URL
+		slog.Info("mdflow.ConvertGoogleSheet quality", qualityReportLogArgs(result.Meta.QualityReport)...)
 		slog.Info("mdflow.ConvertGoogleSheet ai", "ai_mode", result.Meta.AIMode, "ai_used", result.Meta.AIUsed, "ai_confidence", result.Meta.AIAvgConfidence)
 		c.JSON(http.StatusOK, MDFlowConvertResponse{
 			MDFlow:   result.MDFlow,
@@ -1163,14 +1333,23 @@ func (h *MDFlowHandler) ConvertGoogleSheet(c *gin.Context) {
 	}
 
 	selectedMatrix := selectMatrixForConvert(ctx, conv, matrix, req.Template, req.SelectedBlockID, req.Range)
+	stats = analyzeSelectedMatrix(selectedMatrix)
 	result, err = conv.ConvertMatrixWithOverrides(ctx, selectedMatrix, gid, req.Template, req.Format, columnOverrides)
 	if err != nil {
 		slog.Error("mdflow.ConvertGoogleSheet conversion error", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert data"})
 		return
 	}
+	result.Meta.QualityReport = h.buildQualityReport(stats, result)
+	if validationErr := h.buildConvertValidationError(req.Format, stats, result); validationErr != nil {
+		validationErr.Details["quality_report"] = result.Meta.QualityReport
+		slog.Warn("mdflow.ConvertGoogleSheet validation failed", qualityReportLogArgs(result.Meta.QualityReport)...)
+		c.JSON(http.StatusUnprocessableEntity, validationErr)
+		return
+	}
 
 	result.Meta.SourceURL = req.URL
+	slog.Info("mdflow.ConvertGoogleSheet quality", qualityReportLogArgs(result.Meta.QualityReport)...)
 	c.JSON(http.StatusOK, MDFlowConvertResponse{
 		MDFlow:   result.MDFlow,
 		Warnings: result.Warnings,

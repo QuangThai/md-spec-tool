@@ -1,6 +1,9 @@
-package handlers
+package handlers_test
 
-import "testing"
+import (
+	. "github.com/yourorg/md-spec-tool/internal/http/handlers"
+	"testing"
+)
 
 func TestResolveTemplateContentName(t *testing.T) {
 	tests := []struct {
@@ -16,9 +19,9 @@ func TestResolveTemplateContentName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		gotName, gotOK := resolveTemplateContentName(tt.name)
+		gotName, gotOK := ResolveTemplateContentName(tt.name)
 		if gotName != tt.expectedName || gotOK != tt.expectedOK {
-			t.Fatalf("resolveTemplateContentName(%q) = (%q,%v), want (%q,%v)",
+			t.Fatalf("ResolveTemplateContentName(%q) = (%q,%v), want (%q,%v)",
 				tt.name, gotName, gotOK, tt.expectedName, tt.expectedOK)
 		}
 	}

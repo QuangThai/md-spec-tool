@@ -1,6 +1,9 @@
-package converter
+package converter_test
 
-import "testing"
+import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
+	"testing"
+)
 
 func TestEvaluateMappingQuality_SpecTableSchema(t *testing.T) {
 	// Spec-table headers: No, Item Name, Item Type, Display Conditions, Action, Navigation Dest
@@ -15,7 +18,7 @@ func TestEvaluateMappingQuality_SpecTableSchema(t *testing.T) {
 		FieldNavigationDest:    6,
 	}
 
-	quality := evaluateMappingQuality(80, headers, colMap)
+	quality := EvaluateMappingQuality(80, headers, colMap)
 
 	// Should have high core coverage from spec-table schema (6 of 6 spec-table fields)
 	if quality.CoreMapped != 6 {
@@ -28,28 +31,28 @@ func TestEvaluateMappingQuality_SpecTableSchema(t *testing.T) {
 
 func TestShouldFallbackToTable_SpecTableNoFallback(t *testing.T) {
 	// Spec-table with good mapping: should NOT fallback
-	quality := mappingQuality{
+	quality := MappingQuality{
 		Score:        0.55,
 		MappedRatio:  0.8,
 		CoreMapped:   6,
 		CoreCoverage: 1.0,
 	}
 
-	if shouldFallbackToTable("spec", quality) {
+	if ShouldFallbackToTable("spec", quality) {
 		t.Error("expected no fallback for spec-table with good mapping")
 	}
 }
 
 func TestShouldFallbackToTable_NoCoreFieldsFallback(t *testing.T) {
 	// No core fields: should fallback
-	quality := mappingQuality{
+	quality := MappingQuality{
 		Score:        0.3,
 		MappedRatio:  0.2,
 		CoreMapped:   0,
 		CoreCoverage: 0,
 	}
 
-	if !shouldFallbackToTable("spec", quality) {
+	if !ShouldFallbackToTable("spec", quality) {
 		t.Error("expected fallback when no core fields mapped")
 	}
 }

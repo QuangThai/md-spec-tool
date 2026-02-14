@@ -1,6 +1,7 @@
-package converter
+package converter_test
 
 import (
+	. "github.com/yourorg/md-spec-tool/internal/converter"
 	"os"
 	"strings"
 	"testing"

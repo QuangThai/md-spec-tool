@@ -1,7 +1,8 @@
-package ai
+package ai_test
 
 import (
 	"context"
+	. "github.com/yourorg/md-spec-tool/internal/ai"
 	"testing"
 )
 
