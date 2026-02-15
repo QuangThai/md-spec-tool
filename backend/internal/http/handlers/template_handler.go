@@ -5,8 +5,29 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/md-spec-tool/internal/config"
 	"github.com/yourorg/md-spec-tool/internal/converter"
 )
+
+// TemplateHandler handles all template-related endpoints
+type TemplateHandler struct {
+	renderer *converter.MDFlowRenderer
+	cfg      *config.Config
+}
+
+// NewTemplateHandler creates a new TemplateHandler
+func NewTemplateHandler(rend *converter.MDFlowRenderer, cfg *config.Config) *TemplateHandler {
+	if rend == nil {
+		rend = converter.NewMDFlowRenderer()
+	}
+	if cfg == nil {
+		cfg = config.LoadConfig()
+	}
+	return &TemplateHandler{
+		renderer: rend,
+		cfg:      cfg,
+	}
+}
 
 // TemplateListResponse represents available templates
 type TemplateListResponse struct {
@@ -35,7 +56,7 @@ type TemplatePreviewResponse struct {
 
 // GetTemplates handles GET /api/mdflow/templates
 // Returns available MDFlow templates with metadata
-func (h *MDFlowHandler) GetTemplates(c *gin.Context) {
+func (h *TemplateHandler) GetTemplates(c *gin.Context) {
 	c.JSON(http.StatusOK, TemplateListResponse{
 		Templates: []TemplateInfo{
 			{Name: "spec", Description: "Structured specification output", Format: "spec"},
@@ -46,7 +67,7 @@ func (h *MDFlowHandler) GetTemplates(c *gin.Context) {
 
 // PreviewTemplate handles POST /api/mdflow/templates/preview
 // Renders sample data using a custom template
-func (h *MDFlowHandler) PreviewTemplate(c *gin.Context) {
+func (h *TemplateHandler) PreviewTemplate(c *gin.Context) {
 	var req TemplatePreviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "template_content is required"})
@@ -93,14 +114,14 @@ func (h *MDFlowHandler) PreviewTemplate(c *gin.Context) {
 
 // GetTemplateInfo handles GET /api/mdflow/templates/info
 // Returns available template variables and functions
-func (h *MDFlowHandler) GetTemplateInfo(c *gin.Context) {
+func (h *TemplateHandler) GetTemplateInfo(c *gin.Context) {
 	info := h.renderer.GetTemplateInfo()
 	c.JSON(http.StatusOK, info)
 }
 
 // GetTemplateContent handles GET /api/mdflow/templates/:name
 // Returns the content of a built-in template
-func (h *MDFlowHandler) GetTemplateContent(c *gin.Context) {
+func (h *TemplateHandler) GetTemplateContent(c *gin.Context) {
 	name := strings.ToLower(strings.TrimSpace(c.Param("name")))
 	if name == "" {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "template name is required"})

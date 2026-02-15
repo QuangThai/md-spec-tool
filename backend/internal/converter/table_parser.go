@@ -28,6 +28,7 @@ func (p *TableParser) MatrixToTable(headers []string, dataRows [][]string, sheet
 			Meta: TableMeta{
 				HeaderRowIndex:  0,
 				TotalSourceRows: len(dataRows),
+				IncludeMetadata: true,
 			},
 		}
 	}
@@ -48,6 +49,7 @@ func (p *TableParser) MatrixToTable(headers []string, dataRows [][]string, sheet
 			BlankHeaderCount: headerMeta.blankCount,
 			DuplicateHeaders: headerMeta.duplicateCount,
 			Warnings:         headerMeta.warnings,
+			IncludeMetadata:  true,
 		},
 	}
 }
@@ -63,6 +65,7 @@ func (p *TableParser) ParseMatrix(matrix CellMatrix, sheetName string) (*Table, 
 			Meta: TableMeta{
 				HeaderRowIndex:  0,
 				TotalSourceRows: 0,
+				IncludeMetadata: true,
 			},
 		}, nil
 	}
@@ -88,6 +91,7 @@ func (p *TableParser) ParseMatrix(matrix CellMatrix, sheetName string) (*Table, 
 			BlankHeaderCount: headerMeta.blankCount,
 			DuplicateHeaders: headerMeta.duplicateCount,
 			Warnings:         headerMeta.warnings,
+			IncludeMetadata:  true,
 		},
 	}
 
@@ -230,6 +234,7 @@ func (p *TableParser) ParseMatrixWithHeaderRow(matrix CellMatrix, sheetName stri
 			Meta: TableMeta{
 				HeaderRowIndex:  0,
 				TotalSourceRows: 0,
+				IncludeMetadata: true,
 			},
 		}, nil
 	}
@@ -257,6 +262,7 @@ func (p *TableParser) ParseMatrixWithHeaderRow(matrix CellMatrix, sheetName stri
 			BlankHeaderCount: headerMeta.blankCount,
 			DuplicateHeaders: headerMeta.duplicateCount,
 			Warnings:         headerMeta.warnings,
+			IncludeMetadata:  true,
 		},
 	}
 

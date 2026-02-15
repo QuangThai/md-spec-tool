@@ -112,12 +112,25 @@ export function DiffViewer({ diff }: DiffViewerProps) {
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-hidden bg-black/40 rounded-b-2xl">
-        {viewMode === "inline" && (
-          <InlineDiffView diff={diff} getLineClass={getLineClass} />
-        )}
+        {(!diff.hunks?.length && diff.added_lines === 0 && diff.removed_lines === 0) ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
+            <p className="text-[12px] font-bold text-white/60 uppercase tracking-wider">
+              No changes detected
+            </p>
+            <p className="text-[11px] text-white/40 mt-1.5">
+              Versions may be identical
+            </p>
+          </div>
+        ) : (
+          <>
+            {viewMode === "inline" && (
+              <InlineDiffView diff={diff} getLineClass={getLineClass} />
+            )}
 
-        {viewMode === "sidebyside" && (
-          <SideBySideDiffView diff={diff} getLineClass={getLineClass} />
+            {viewMode === "sidebyside" && (
+              <SideBySideDiffView diff={diff} getLineClass={getLineClass} />
+            )}
+          </>
         )}
       </div>
     </div>
@@ -128,7 +141,7 @@ function InlineDiffView({ diff, getLineClass }: any) {
   return (
     <div className="h-full overflow-y-auto overflow-x-auto custom-scrollbar rounded-b-2xl">
       <div className="font-mono text-xs leading-relaxed">
-        <div className="sticky top-0 bg-white/3 backdrop-blur-md border-b border-white/10 px-4 py-3 flex gap-4 text-white/50 rounded-t-2xl">
+        <div className="sticky top-0 z-10 bg-white/3 backdrop-blur-md border-b border-white/10 px-4 py-3 flex gap-4 text-white/50 rounded-t-2xl shrink-0">
           <span className="flex items-center gap-1">
             <span className="w-4 h-4 rounded bg-rose-500/20 border border-rose-500/50" />
             before
@@ -141,7 +154,7 @@ function InlineDiffView({ diff, getLineClass }: any) {
 
         {diff.hunks.map((hunk: any, hunkIdx: number) => (
           <div key={hunkIdx}>
-            <div className="sticky top-12 bg-black/40 backdrop-blur-md px-4 py-2.5 border-b border-white/5 text-cyan-300/80 text-[11px] font-bold uppercase tracking-wider">
+            <div className="sticky top-12 z-10 bg-black/60 backdrop-blur-md px-4 py-2.5 border-b border-white/5 text-cyan-300/80 text-[11px] font-bold uppercase tracking-wider">
               @@ -{hunk.old_start},{hunk.old_count} +{hunk.new_start},
               {hunk.new_count} @@
             </div>
@@ -230,7 +243,7 @@ function SideBySideDiffView({ diff }: any) {
             return (
               <div key={`hunk-${hunkIdx}`}>
                 {/* Hunk header */}
-                <div className="sticky top-0 flex bg-black/40 border-b border-white/5 z-5">
+                <div className="sticky top-0 z-10 flex bg-black/60 backdrop-blur-md border-b border-white/5 shrink-0">
                   <div className="flex-1 px-4 py-2 border-r border-white/5">
                     <span className="text-cyan-300/70 text-[10px] font-bold">
                       @@ -{hunk.old_start},{hunk.old_count}

@@ -3,10 +3,12 @@ package diff
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pmezard/go-difflib/difflib"
 )
 
 type DiffLine struct {
-	Type    string `json:"type"`     // "add", "remove", "context"
+	Type    string `json:"type"` // "add", "remove", "context"
 	LineNum int    `json:"line_num"`
 	Content string `json:"content"`
 }
@@ -25,7 +27,8 @@ type UnifiedDiff struct {
 	Removed int        `json:"removed_lines"`
 }
 
-// Diff computes unified diff between two texts
+// Diff computes unified diff between two texts using Patience algorithm
+// Provides better contextual diffs with proper hunk support
 func Diff(oldText, newText string) *UnifiedDiff {
 	oldLines := strings.Split(oldText, "\n")
 	newLines := strings.Split(newText, "\n")
@@ -51,53 +54,127 @@ func Diff(oldText, newText string) *UnifiedDiff {
 	}
 }
 
-// computeHunks creates diff hunks using simple line matching
+// computeHunks creates diff hunks using the Patience diff algorithm
+// Provides better context lines and more accurate change detection
 func computeHunks(oldLines, newLines []string) []DiffHunk {
-	hunk := DiffHunk{
-		OldStart: 1,
-		OldCount: len(oldLines),
-		NewStart: 1,
-		NewCount: len(newLines),
-	}
+	// Use difflib.SequenceMatcher for accurate diff computation
+	matcher := difflib.NewMatcher(oldLines, newLines)
+	opcodes := matcher.GetOpCodes()
 
-	// Create maps for quick lookup
-	oldMap := make(map[string]int)
-	for i, line := range oldLines {
-		if line != "" {
-			oldMap[line] = i
+	var hunks []DiffHunk
+	contextLines := 3 // Number of context lines to include
+
+	for _, opcode := range opcodes {
+		tag := string(opcode.Tag)
+		oldStart := opcode.I1
+		oldEnd := opcode.I2
+		newStart := opcode.J1
+		newEnd := opcode.J2
+
+		// Skip if no actual changes
+		if tag == "e" { // 'e' for equal in difflib
+			continue
 		}
-	}
 
-	newMap := make(map[string]int)
-	for i, line := range newLines {
-		if line != "" {
-			newMap[line] = i
+		// Create hunk with context
+		hunkStart := oldStart
+		if hunkStart > contextLines {
+			hunkStart -= contextLines
 		}
-	}
 
-	// Mark removed lines
-	for i, line := range oldLines {
-		if _, exists := newMap[line]; !exists {
+		hunkEnd := oldEnd
+		if hunkEnd+contextLines < len(oldLines) {
+			hunkEnd += contextLines
+		} else {
+			hunkEnd = len(oldLines)
+		}
+
+		newHunkStart := newStart
+		if newHunkStart > contextLines {
+			newHunkStart -= contextLines
+		}
+
+		newHunkEnd := newEnd
+		if newHunkEnd+contextLines < len(newLines) {
+			newHunkEnd += contextLines
+		} else {
+			newHunkEnd = len(newLines)
+		}
+
+		hunk := DiffHunk{
+			OldStart: hunkStart + 1,
+			OldCount: hunkEnd - hunkStart,
+			NewStart: newHunkStart + 1,
+			NewCount: newHunkEnd - newHunkStart,
+		}
+
+		// Add context lines before change
+		for i := hunkStart; i < oldStart && i < len(oldLines); i++ {
 			hunk.Lines = append(hunk.Lines, DiffLine{
-				Type:    "remove",
+				Type:    "context",
 				LineNum: i + 1,
-				Content: line,
+				Content: oldLines[i],
 			})
 		}
-	}
 
-	// Mark added lines
-	for i, line := range newLines {
-		if _, exists := oldMap[line]; !exists {
+		// Process the actual change
+		// difflib uses: 'r' for replace, 'd' for delete, 'i' for insert, 'e' for equal
+		switch tag {
+		case "r": // replace
+			// Add removed lines
+			for i := oldStart; i < oldEnd; i++ {
+				hunk.Lines = append(hunk.Lines, DiffLine{
+					Type:    "remove",
+					LineNum: i + 1,
+					Content: oldLines[i],
+				})
+			}
+			// Add new lines
+			for i := newStart; i < newEnd; i++ {
+				hunk.Lines = append(hunk.Lines, DiffLine{
+					Type:    "add",
+					LineNum: i + 1,
+					Content: newLines[i],
+				})
+			}
+
+		case "d": // delete
+			for i := oldStart; i < oldEnd; i++ {
+				hunk.Lines = append(hunk.Lines, DiffLine{
+					Type:    "remove",
+					LineNum: i + 1,
+					Content: oldLines[i],
+				})
+			}
+
+		case "i": // insert
+			for i := newStart; i < newEnd; i++ {
+				hunk.Lines = append(hunk.Lines, DiffLine{
+					Type:    "add",
+					LineNum: i + 1,
+					Content: newLines[i],
+				})
+			}
+		}
+
+		// Add context lines after change
+		for i := oldEnd; i < hunkEnd && i < len(oldLines); i++ {
 			hunk.Lines = append(hunk.Lines, DiffLine{
-				Type:    "add",
+				Type:    "context",
 				LineNum: i + 1,
-				Content: line,
+				Content: oldLines[i],
 			})
 		}
+
+		hunks = append(hunks, hunk)
 	}
 
-	return []DiffHunk{hunk}
+	// If no hunks generated, return empty slice
+	if len(hunks) == 0 {
+		return []DiffHunk{}
+	}
+
+	return hunks
 }
 
 // FormatUnified returns unified diff format (text)

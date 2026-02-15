@@ -19,6 +19,22 @@ type rateLimitEntry struct {
 func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
 	var mu sync.Mutex
 	hits := make(map[string]rateLimitEntry)
+	
+	// Start periodic cleanup goroutine for expired entries
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			mu.Lock()
+			now := time.Now()
+			for ip, entry := range hits {
+				if now.Sub(entry.windowStart) >= window {
+					delete(hits, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
 
 	return func(c *gin.Context) {
 		ip := c.ClientIP()

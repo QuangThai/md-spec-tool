@@ -1,9 +1,10 @@
 package converter_test
 
 import (
-	. "github.com/yourorg/md-spec-tool/internal/converter"
 	"strings"
 	"testing"
+
+	. "github.com/yourorg/md-spec-tool/internal/converter"
 )
 
 func TestTableRenderer_Render(t *testing.T) {

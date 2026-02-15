@@ -37,11 +37,17 @@ export interface GoogleSheetSheetsResponse {
   active_gid: string;
 }
 
+export interface ConvertRenderOptions {
+  includeMetadata?: boolean;
+  numberRows?: boolean;
+}
+
 export async function convertPaste(
   pasteText: string,
   template?: string,
   format?: string,
-  columnOverrides?: Record<string, string>
+  columnOverrides?: Record<string, string>,
+  options?: ConvertRenderOptions
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/paste', {
     paste_text: pasteText,
@@ -50,6 +56,8 @@ export async function convertPaste(
     column_overrides: columnOverrides && Object.keys(columnOverrides).length > 0
       ? columnOverrides
       : undefined,
+    include_metadata: options?.includeMetadata,
+    number_rows: options?.numberRows,
   });
 }
 
@@ -58,7 +66,8 @@ export async function convertXLSX(
   sheetName?: string,
   template?: string,
   format?: string,
-  columnOverrides?: Record<string, string>
+  columnOverrides?: Record<string, string>,
+  options?: ConvertRenderOptions
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const formData = new FormData();
   formData.append('file', file);
@@ -68,6 +77,12 @@ export async function convertXLSX(
   if (columnOverrides && Object.keys(columnOverrides).length > 0) {
     formData.append('column_overrides', JSON.stringify(columnOverrides));
   }
+  if (typeof options?.includeMetadata === 'boolean') {
+    formData.append('include_metadata', String(options.includeMetadata));
+  }
+  if (typeof options?.numberRows === 'boolean') {
+    formData.append('number_rows', String(options.numberRows));
+  }
 
   return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/xlsx', formData);
 }
@@ -76,7 +91,8 @@ export async function convertTSV(
   file: File,
   template?: string,
   format?: string,
-  columnOverrides?: Record<string, string>
+  columnOverrides?: Record<string, string>,
+  options?: ConvertRenderOptions
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const formData = new FormData();
   formData.append('file', file);
@@ -84,6 +100,12 @@ export async function convertTSV(
   if (format) formData.append('format', format);
   if (columnOverrides && Object.keys(columnOverrides).length > 0) {
     formData.append('column_overrides', JSON.stringify(columnOverrides));
+  }
+  if (typeof options?.includeMetadata === 'boolean') {
+    formData.append('include_metadata', String(options.includeMetadata));
+  }
+  if (typeof options?.numberRows === 'boolean') {
+    formData.append('number_rows', String(options.numberRows));
   }
 
   return backendClient.safePost<MDFlowConvertResponse>('/api/mdflow/tsv', formData);
@@ -219,7 +241,8 @@ export async function convertGoogleSheet(
   format?: string,
   range?: string,
   selectedBlockId?: string,
-  columnOverrides?: Record<string, string>
+  columnOverrides?: Record<string, string>,
+  options?: ConvertRenderOptions
 ): Promise<ApiResult<MDFlowConvertResponse>> {
   const payload: {
     url: string;
@@ -229,6 +252,8 @@ export async function convertGoogleSheet(
     range?: string;
     selected_block_id?: string;
     column_overrides?: Record<string, string>;
+    include_metadata?: boolean;
+    number_rows?: boolean;
   } = {
     url,
     template: template || '',
@@ -239,6 +264,12 @@ export async function convertGoogleSheet(
   if (selectedBlockId) payload.selected_block_id = selectedBlockId;
   if (columnOverrides && Object.keys(columnOverrides).length > 0) {
     payload.column_overrides = columnOverrides;
+  }
+  if (typeof options?.includeMetadata === 'boolean') {
+    payload.include_metadata = options.includeMetadata;
+  }
+  if (typeof options?.numberRows === 'boolean') {
+    payload.number_rows = options.numberRows;
   }
 
   return nextApiClient.safePost<MDFlowConvertResponse>('/api/gsheet/convert', payload);

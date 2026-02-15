@@ -11,11 +11,17 @@ import (
 )
 
 type ShareHandler struct {
-	store *share.Store
+	store share.StoreInterface
 }
 
-func NewShareHandler(store *share.Store) *ShareHandler {
+// NewShareHandler creates a new ShareHandler with a store
+func NewShareHandler(store share.StoreInterface) *ShareHandler {
 	return &ShareHandler{store: store}
+}
+
+// NewShareHandlerWithStore creates a new ShareHandler with a concrete Store (backward compatibility)
+func NewShareHandlerWithStore(store *share.Store) *ShareHandler {
+	return NewShareHandler(store)
 }
 
 type CreateShareRequest struct {
@@ -107,6 +113,8 @@ func (h *ShareHandler) CreateShare(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid slug"})
 		case share.ErrInvalidPermission:
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid permission"})
+		case share.ErrStoreFull:
+			c.JSON(http.StatusTooManyRequests, ErrorResponse{Error: "share limit exceeded"})
 		default:
 			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to create share"})
 		}

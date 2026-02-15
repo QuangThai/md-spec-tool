@@ -41,6 +41,11 @@ const (
 	DefaultAIPreviewTimeout    = 10 * time.Second
 	DefaultAIPreviewMaxRetries = 1
 
+	// BYOK cache defaults
+	DefaultBYOKCacheTTL        = 5 * time.Minute
+	DefaultBYOKCleanupTicker   = 1 * time.Minute
+	DefaultBYOKMaxEntries      = 1000
+
 	// Spec validation defaults
 	DefaultSpecStrictMode          = true
 	DefaultSpecMinHeaderConfidence = 60
@@ -84,6 +89,11 @@ type Config struct {
 	// AI preview configuration (reduced timeout/retries for when skip_ai=false on preview)
 	AIPreviewTimeout    time.Duration
 	AIPreviewMaxRetries int
+
+	// BYOK cache configuration
+	BYOKCacheTTL      time.Duration
+	BYOKCleanupTicker time.Duration
+	BYOKMaxEntries    int
 
 	// Storage
 	ShareStorePath string
@@ -147,6 +157,11 @@ func LoadConfig() *Config {
 		// AI preview configuration
 		AIPreviewTimeout:    getEnvDuration("AI_PREVIEW_TIMEOUT", DefaultAIPreviewTimeout),
 		AIPreviewMaxRetries: getEnvInt("AI_PREVIEW_MAX_RETRIES", DefaultAIPreviewMaxRetries),
+
+		// BYOK cache configuration
+		BYOKCacheTTL:      getEnvDuration("BYOK_CACHE_TTL", DefaultBYOKCacheTTL),
+		BYOKCleanupTicker: getEnvDuration("BYOK_CLEANUP_TICKER", DefaultBYOKCleanupTicker),
+		BYOKMaxEntries:    getEnvInt("BYOK_MAX_ENTRIES", DefaultBYOKMaxEntries),
 
 		// Storage
 		ShareStorePath: getEnv("SHARE_STORE_PATH", ""),

@@ -135,7 +135,7 @@ func MakePayloadHash(payload interface{}) (string, error) {
 		return "", err
 	}
 	hash := sha256.Sum256(data)
-	return fmt.Sprintf("%x", hash[:8]), nil // First 8 bytes = 16 hex chars
+	return fmt.Sprintf("%x", hash[:]), nil // Full 32 bytes for collision-free hashing
 }
 
 // MakeCacheKey constructs a cache key from operation parameters

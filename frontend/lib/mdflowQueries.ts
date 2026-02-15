@@ -139,29 +139,41 @@ export function useGetXLSXSheetsMutation() {
 
 export function useConvertPasteMutation() {
   return useMutation({
-    mutationFn: async (payload: { pasteText: string; template?: string; format?: string; columnOverrides?: Record<string, string> }) =>
-      unwrap(await convertPaste(payload.pasteText, payload.template, payload.format, payload.columnOverrides)),
+    mutationFn: async (payload: { pasteText: string; template?: string; format?: string; columnOverrides?: Record<string, string>; includeMetadata?: boolean; numberRows?: boolean }) =>
+      unwrap(await convertPaste(payload.pasteText, payload.template, payload.format, payload.columnOverrides, {
+        includeMetadata: payload.includeMetadata,
+        numberRows: payload.numberRows,
+      })),
   });
 }
 
 export function useConvertXLSXMutation() {
   return useMutation({
-    mutationFn: async (payload: { file: File; sheetName?: string; template?: string; format?: string; columnOverrides?: Record<string, string> }) =>
-      unwrap(await convertXLSX(payload.file, payload.sheetName, payload.template, payload.format, payload.columnOverrides)),
+    mutationFn: async (payload: { file: File; sheetName?: string; template?: string; format?: string; columnOverrides?: Record<string, string>; includeMetadata?: boolean; numberRows?: boolean }) =>
+      unwrap(await convertXLSX(payload.file, payload.sheetName, payload.template, payload.format, payload.columnOverrides, {
+        includeMetadata: payload.includeMetadata,
+        numberRows: payload.numberRows,
+      })),
   });
 }
 
 export function useConvertTSVMutation() {
   return useMutation({
-    mutationFn: async (payload: { file: File; template?: string; format?: string; columnOverrides?: Record<string, string> }) =>
-      unwrap(await convertTSV(payload.file, payload.template, payload.format, payload.columnOverrides)),
+    mutationFn: async (payload: { file: File; template?: string; format?: string; columnOverrides?: Record<string, string>; includeMetadata?: boolean; numberRows?: boolean }) =>
+      unwrap(await convertTSV(payload.file, payload.template, payload.format, payload.columnOverrides, {
+        includeMetadata: payload.includeMetadata,
+        numberRows: payload.numberRows,
+      })),
   });
 }
 
 export function useConvertGoogleSheetMutation() {
   return useMutation({
-    mutationFn: async (payload: { url: string; template?: string; gid?: string; format?: string; range?: string; selectedBlockId?: string; columnOverrides?: Record<string, string> }) =>
-      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid, payload.format, payload.range, payload.selectedBlockId, payload.columnOverrides)),
+    mutationFn: async (payload: { url: string; template?: string; gid?: string; format?: string; range?: string; selectedBlockId?: string; columnOverrides?: Record<string, string>; includeMetadata?: boolean; numberRows?: boolean }) =>
+      unwrap(await convertGoogleSheet(payload.url, payload.template, payload.gid, payload.format, payload.range, payload.selectedBlockId, payload.columnOverrides, {
+        includeMetadata: payload.includeMetadata,
+        numberRows: payload.numberRows,
+      })),
   });
 }
 

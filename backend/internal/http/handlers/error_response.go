@@ -7,4 +7,5 @@ type ErrorResponse struct {
 	Code             string         `json:"code,omitempty"`
 	ValidationReason string         `json:"validation_reason,omitempty"`
 	Details          map[string]any `json:"details,omitempty"`
+	RequestID        string         `json:"request_id,omitempty"`
 }

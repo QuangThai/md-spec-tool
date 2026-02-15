@@ -17,10 +17,11 @@ func NewTableRenderer() *TableRenderer {
 
 // TableRenderInput holds data for table rendering
 type TableRenderInput struct {
-	Title   string
-	Headers []string
-	Rows    []SpecRow
-	// If headers not provided, uses row field names
+	Title           string
+	Headers         []string
+	Rows            []SpecRow
+	IncludeMetadata bool // Phase 3: if false, skip front matter
+	NumberRows      bool // Phase 3: if true, add row number column
 }
 
 // Render implements Renderer interface
@@ -36,9 +37,11 @@ func (r *TableRenderer) Render(table *Table) (string, []string, error) {
 	}
 
 	input := TableRenderInput{
-		Title:   title,
-		Headers: table.Headers,
-		Rows:    r.tableToSpecRows(table),
+		Title:           title,
+		Headers:         table.Headers,
+		Rows:            r.tableToSpecRows(table),
+		IncludeMetadata: table.Meta.IncludeMetadata,
+		NumberRows:      table.Meta.NumberRows,
 	}
 
 	output := r.renderTable(input)
@@ -49,47 +52,54 @@ func (r *TableRenderer) Render(table *Table) (string, []string, error) {
 func (r *TableRenderer) renderTable(input TableRenderInput) string {
 	var buf bytes.Buffer
 
-	buf.WriteString("---\n")
-	buf.WriteString("name: \"Specification\"\n")
-	buf.WriteString("version: \"1.0\"\n")
-	buf.WriteString(fmt.Sprintf("generated_at: \"%s\"\n", time.Now().Format("2006-01-02")))
-	buf.WriteString("type: \"specification\"\n")
-	buf.WriteString("---\n\n")
-
-	// Title
-	if input.Title != "" {
-		buf.WriteString(fmt.Sprintf("# %s\n\n", input.Title))
+	if input.IncludeMetadata {
+		buf.WriteString("---\n")
+		buf.WriteString("name: \"Specification\"\n")
+		buf.WriteString("version: \"1.0\"\n")
+		buf.WriteString(fmt.Sprintf("generated_at: \"%s\"\n", time.Now().Format("2006-01-02")))
+		buf.WriteString("type: \"specification\"\n")
+		buf.WriteString("---\n\n")
+		if input.Title != "" {
+			buf.WriteString(fmt.Sprintf("# %s\n\n", input.Title))
+		}
 	}
 
-	// Use provided headers or infer from row structure
-	headers := input.Headers
-	if len(headers) == 0 {
-		headers = r.inferHeaders(input.Rows)
+	columnHeaders := input.Headers
+	if len(columnHeaders) == 0 {
+		columnHeaders = r.inferHeaders(input.Rows)
 	}
 
-	if len(headers) == 0 || len(input.Rows) == 0 {
+	if len(columnHeaders) == 0 || len(input.Rows) == 0 {
 		buf.WriteString("No data to render.\n")
 		return buf.String()
 	}
 
+	displayHeaders := columnHeaders
+	if input.NumberRows {
+		displayHeaders = append([]string{"#"}, columnHeaders...)
+	}
+
 	// Header row
 	buf.WriteString("|")
-	for _, h := range headers {
+	for _, h := range displayHeaders {
 		buf.WriteString(fmt.Sprintf(" %s |", escapeTableCell(h)))
 	}
 	buf.WriteString("\n")
 
 	// Separator row
 	buf.WriteString("|")
-	for range headers {
+	for range displayHeaders {
 		buf.WriteString(" --- |")
 	}
 	buf.WriteString("\n")
 
 	// Data rows
-	for _, row := range input.Rows {
+	for i, row := range input.Rows {
 		buf.WriteString("|")
-		for _, h := range headers {
+		if input.NumberRows {
+			buf.WriteString(fmt.Sprintf(" %d |", i+1))
+		}
+		for _, h := range columnHeaders {
 			val := r.getCellValue(row, h)
 			buf.WriteString(fmt.Sprintf(" %s |", val))
 		}

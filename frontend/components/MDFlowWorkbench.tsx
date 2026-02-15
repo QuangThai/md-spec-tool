@@ -32,6 +32,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   Check,
+  ChevronDown,
   Copy,
   Download,
   Eye,
@@ -44,6 +45,7 @@ import {
   KeyRound,
   Link2,
   RefreshCcw,
+  RotateCcw,
   Save,
   Share2,
   ShieldCheck,
@@ -174,7 +176,9 @@ export default function MDFlowWorkbench() {
   const [copied, setCopied] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
-  const [previousOutput, setPreviousOutput] = useState<string>("");
+  // Two-slot snapshots for Compare: A = "before", B = "after". Save saves current output to the next empty slot.
+  const [snapshotA, setSnapshotA] = useState<string>("");
+  const [snapshotB, setSnapshotB] = useState<string>("");
   const [currentDiff, setCurrentDiff] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showValidationConfigurator, setShowValidationConfigurator] =
@@ -196,6 +200,9 @@ export default function MDFlowWorkbench() {
   const [gsheetRange, setGsheetRange] = useState("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [includeMetadata, setIncludeMetadata] = useState(true);
+  const [numberRows, setNumberRows] = useState(false);
   const openaiKey = useOpenAIKeyStore((s) => s.apiKey);
   const setOpenaiKey = useOpenAIKeyStore((s) => s.setApiKey);
   const clearOpenaiKey = useOpenAIKeyStore((s) => s.clearApiKey);
@@ -217,6 +224,8 @@ export default function MDFlowWorkbench() {
 
   const isGsheetUrl = isGoogleSheetsURL(debouncedPasteText.trim());
   const isInputGsheetUrl = isGoogleSheetsURL(pasteText.trim());
+  const isTableFormat = format === "table";
+  const changedOutputOptionsCount = (includeMetadata ? 0 : 1) + (numberRows ? 1 : 0);
   const gsheetRangeValue = useMemo(() => {
     const trimmed = gsheetRange.trim();
     if (!trimmed) return "";
@@ -226,6 +235,13 @@ export default function MDFlowWorkbench() {
     if (!title) return "";
     return `${title}!${trimmed}`;
   }, [gsheetRange, gsheetTabs, selectedGid]);
+
+  useEffect(() => {
+    if (!isTableFormat && numberRows) {
+      setNumberRows(false);
+    }
+  }, [isTableFormat, numberRows]);
+
   const previewPasteQuery = usePreviewPasteQuery(
     debouncedPasteText,
     mode === "paste" && debouncedPasteText.trim().length > 0 && !isGsheetUrl,
@@ -455,53 +471,57 @@ export default function MDFlowWorkbench() {
         }
 
         // Check if it's a Google Sheets URL
-         if (isGoogleSheetsURL(pasteText.trim())) {
-            const previewSelectedBlockId = previewGoogleSheetQuery.data?.selected_block_id;
-            const previewColumnMapping = previewGoogleSheetQuery.data?.column_mapping || {};
-            const previewColumnConfidence =
-              previewGoogleSheetQuery.data?.mapping_quality?.column_confidence || {};
-            const trustedPreviewMapping =
-              (previewGoogleSheetQuery.data?.confidence ?? 0) >= 50
-                ? Object.fromEntries(
-                    Object.entries(previewColumnMapping).filter(([header, mappedField]) => {
-                      if (!header || !mappedField) return false;
-                     const score = previewColumnConfidence[header];
-                     return typeof score !== "number" || score >= 0.7;
-                   })
-                 )
-               : {};
-           const effectiveColumnOverrides = {
-             ...trustedPreviewMapping,
-             ...columnOverrides,
-           };
-            // Note: format must correspond to a valid template registered in the backend
-            // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
-            result = await convertGoogleSheetMutation.mutateAsync({
-              url: pasteText.trim(),
-              template: format,
-              gid: selectedGid,
-              format,
-              range: gsheetRangeValue || undefined,
-              selectedBlockId: previewSelectedBlockId,
-              columnOverrides: effectiveColumnOverrides,
-            });
-            const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
-           const tabLabel = selectedTab?.title || selectedGid;
-           inputPreview = tabLabel
-             ? `Google Sheet: ${pasteText.trim().slice(0, 60)}... (${tabLabel})`
-             : `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
-         } else {
-           // Note: format must correspond to a valid template registered in the backend
-           // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
-           result = await convertPasteMutation.mutateAsync({
-             pasteText,
-             template: format,
-             format,
-             columnOverrides,
-           });
-           inputPreview =
-             pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
-         }
+        if (isGoogleSheetsURL(pasteText.trim())) {
+          const previewSelectedBlockId = previewGoogleSheetQuery.data?.selected_block_id;
+          const previewColumnMapping = previewGoogleSheetQuery.data?.column_mapping || {};
+          const previewColumnConfidence =
+            previewGoogleSheetQuery.data?.mapping_quality?.column_confidence || {};
+          const trustedPreviewMapping =
+            (previewGoogleSheetQuery.data?.confidence ?? 0) >= 50
+              ? Object.fromEntries(
+                Object.entries(previewColumnMapping).filter(([header, mappedField]) => {
+                  if (!header || !mappedField) return false;
+                  const score = previewColumnConfidence[header];
+                  return typeof score !== "number" || score >= 0.7;
+                })
+              )
+              : {};
+          const effectiveColumnOverrides = {
+            ...trustedPreviewMapping,
+            ...columnOverrides,
+          };
+          // Note: format must correspond to a valid template registered in the backend
+          // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
+          result = await convertGoogleSheetMutation.mutateAsync({
+            url: pasteText.trim(),
+            template: format,
+            gid: selectedGid,
+            format,
+            range: gsheetRangeValue || undefined,
+            selectedBlockId: previewSelectedBlockId,
+            columnOverrides: effectiveColumnOverrides,
+            includeMetadata,
+            numberRows,
+          });
+          const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
+          const tabLabel = selectedTab?.title || selectedGid;
+          inputPreview = tabLabel
+            ? `Google Sheet: ${pasteText.trim().slice(0, 60)}... (${tabLabel})`
+            : `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
+        } else {
+          // Note: format must correspond to a valid template registered in the backend
+          // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
+          result = await convertPasteMutation.mutateAsync({
+            pasteText,
+            template: format,
+            format,
+            columnOverrides,
+            includeMetadata,
+            numberRows,
+          });
+          inputPreview =
+            pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
+        }
       } else if (mode === "xlsx") {
         if (!file) {
           setError("No file uploaded");
@@ -513,6 +533,8 @@ export default function MDFlowWorkbench() {
           template: format,
           format,
           columnOverrides,
+          includeMetadata,
+          numberRows,
         });
         inputPreview = `${file.name}${selectedSheet ? ` (${selectedSheet})` : ""
           }`;
@@ -526,6 +548,8 @@ export default function MDFlowWorkbench() {
           template: format,
           format,
           columnOverrides,
+          includeMetadata,
+          numberRows,
         });
         inputPreview = file.name;
       }
@@ -561,6 +585,8 @@ export default function MDFlowWorkbench() {
     selectedGid,
     format,
     columnOverrides,
+    includeMetadata,
+    numberRows,
     gsheetRangeValue,
     previewGoogleSheetQuery.data?.selected_block_id,
     previewGoogleSheetQuery.data?.column_mapping,
@@ -833,11 +859,10 @@ export default function MDFlowWorkbench() {
                     <button
                       type="button"
                       onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-                      className={`p-1.5 sm:p-2 rounded-lg border transition-all cursor-pointer ${
-                        openaiKey
-                          ? "bg-green-500/15 hover:bg-green-500/25 border-green-500/30 hover:border-green-500/40 text-green-400"
-                          : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
-                      }`}
+                      className={`p-1.5 sm:p-2 rounded-lg border transition-all cursor-pointer ${openaiKey
+                        ? "bg-green-500/15 hover:bg-green-500/25 border-green-500/30 hover:border-green-500/40 text-green-400"
+                        : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
+                        }`}
                     >
                       <KeyRound className="w-3.5 h-3.5" />
                     </button>
@@ -916,11 +941,10 @@ export default function MDFlowWorkbench() {
                               }
                             }}
                             disabled={apiKeyDraft.trim().length < 10}
-                            className={`shrink-0 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider rounded-lg border transition-all ${
-                              apiKeyDraft.trim().length >= 10
-                                ? "border-accent-orange/30 bg-accent-orange/20 text-white hover:bg-accent-orange/30 cursor-pointer"
-                                : "border-white/10 bg-white/5 text-white/30 cursor-not-allowed"
-                            }`}
+                            className={`shrink-0 px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider rounded-lg border transition-all ${apiKeyDraft.trim().length >= 10
+                              ? "border-accent-orange/30 bg-accent-orange/20 text-white hover:bg-accent-orange/30 cursor-pointer"
+                              : "border-white/10 bg-white/5 text-white/30 cursor-not-allowed"
+                              }`}
                           >
                             Save
                           </button>
@@ -1296,7 +1320,7 @@ export default function MDFlowWorkbench() {
                   data-tour="template-selector"
                 >
                   {/* Template dropdown - collapsible on mobile */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-48">
                     <TemplateCards
                       selected={format}
                       onSelect={setFormat}
@@ -1351,6 +1375,7 @@ export default function MDFlowWorkbench() {
                     })()}
                   </div>
                 </div>
+
               </div>
             </div>
           </section>
@@ -1403,14 +1428,45 @@ export default function MDFlowWorkbench() {
                       )}
                     </button>
                   </Tooltip>
-                  <Tooltip content="Save snapshot">
+                  {snapshotA && (
+                    <span
+                      className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-500/20 text-rose-300/90 border border-rose-500/30"
+                      title="Version A saved"
+                    >
+                      A ✓
+                    </span>
+                  )}
+                  {snapshotB && (
+                    <span
+                      className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-500/20 text-emerald-300/90 border border-emerald-500/30"
+                      title="Version B saved"
+                    >
+                      B ✓
+                    </span>
+                  )}
+                  <Tooltip
+                    content={
+                      !snapshotA
+                        ? "Save as Version A (before)"
+                        : !snapshotB
+                          ? "Save as Version B (after)"
+                          : "Overwrite Version B"
+                    }
+                  >
                     <button
                       type="button"
                       onClick={() => {
                         if (mdflowOutput) {
-                          setPreviousOutput(mdflowOutput);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 1500);
+                          if (!snapshotA) {
+                            setSnapshotA(mdflowOutput);
+                            toast.success("Version A saved", "Run with new input, save again");
+                          } else if (!snapshotB) {
+                            setSnapshotB(mdflowOutput);
+                            toast.success("Version B saved", "Ready to compare");
+                          } else {
+                            setSnapshotB(mdflowOutput);
+                            toast.success("Version B updated");
+                          }
                         }
                       }}
                       disabled={!mdflowOutput}
@@ -1422,26 +1478,49 @@ export default function MDFlowWorkbench() {
                       <Save className="w-3.5 h-3.5" />
                     </button>
                   </Tooltip>
-                  {previousOutput && (
-                    <Tooltip content="Compare">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (mdflowOutput) {
+                  {snapshotA && snapshotB && (
+                    <>
+                      <Tooltip content="Compare (2 versions)">
+                        <button
+                          type="button"
+                          onClick={async () => {
                             const diff = await diffMDFlowMutation.mutateAsync({
-                              before: previousOutput,
-                              after: mdflowOutput,
+                              before: snapshotA,
+                              after: snapshotB,
                             });
                             setCurrentDiff(diff);
                             setShowDiff(true);
-                          }
-                        }}
-                        disabled={!mdflowOutput}
-                        className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
-                      >
-                        <GitCompare className="w-3.5 h-3.5" />
-                      </button>
-                    </Tooltip>
+                            if (
+                              diff &&
+                              !diff.hunks?.length &&
+                              diff.added_lines === 0 &&
+                              diff.removed_lines === 0
+                            ) {
+                              toast.info(
+                                "No changes detected",
+                                "Versions may be identical"
+                              );
+                            }
+                          }}
+                          className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
+                        >
+                          <GitCompare className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip content="Clear snapshots">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSnapshotA("");
+                            setSnapshotB("");
+                            toast.success("Snapshots cleared");
+                          }}
+                          className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
+                    </>
                   )}
                   <Tooltip content="Export">
                     <button

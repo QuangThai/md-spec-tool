@@ -14,14 +14,40 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/md-spec-tool/internal/config"
 	"github.com/yourorg/md-spec-tool/internal/converter"
 )
 
 const maxPreviewRows = 20
 
+// PreviewHandler handles all preview endpoints for various input types
+type PreviewHandler struct {
+	converter  *converter.Converter
+	cfg        *config.Config
+	byokCache  *AIServiceProvider
+}
+
+// NewPreviewHandler creates a new PreviewHandler
+func NewPreviewHandler(conv *converter.Converter, cfg *config.Config, byokCache *AIServiceProvider) *PreviewHandler {
+	if conv == nil {
+		conv = converter.NewConverter()
+	}
+	if cfg == nil {
+		cfg = config.LoadConfig()
+	}
+	if byokCache == nil {
+		byokCache = NewAIServiceProvider(cfg)
+	}
+	return &PreviewHandler{
+		converter:  conv,
+		cfg:        cfg,
+		byokCache:  byokCache,
+	}
+}
+
 // buildPreviewFromMatrix builds a PreviewResponse from a parsed CellMatrix.
 // Shared logic for PreviewPaste, PreviewTSV, PreviewXLSX to avoid duplication.
-func (h *MDFlowHandler) buildPreviewFromMatrix(c *gin.Context, matrix converter.CellMatrix, templateName string) PreviewResponse {
+func (h *PreviewHandler) buildPreviewFromMatrix(c *gin.Context, matrix converter.CellMatrix, templateName string) PreviewResponse {
 	headerDetector := converter.NewHeaderDetector()
 	headerRow, confidence := headerDetector.DetectHeaderRow(matrix)
 	headers := matrix.GetRow(headerRow)
@@ -35,7 +61,7 @@ func (h *MDFlowHandler) buildPreviewFromMatrix(c *gin.Context, matrix converter.
 	} else {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 		defer cancel()
-		conv := h.getConverterForRequest(c)
+		conv := h.byokCache.GetConverterForRequest(c, h.converter)
 		dataRows := matrix.SliceRows(headerRow+1, matrix.RowCount())
 		columnMapping, unmapped = conv.GetPreviewColumnMappingWithContext(ctx, headers, dataRows, templateName, "")
 	}
@@ -65,12 +91,12 @@ func (h *MDFlowHandler) buildPreviewFromMatrix(c *gin.Context, matrix converter.
 		UnmappedCols:   unmapped,
 		MappingQuality: &quality,
 		InputType:      "table",
-		AIAvailable:    h.hasAIForRequest(c),
+		AIAvailable:    h.byokCache.HasAIForRequest(c),
 	}
 }
 
 // emptyTablePreview returns an empty PreviewResponse for table/markdown edge cases.
-func (h *MDFlowHandler) emptyTablePreview(c *gin.Context, confidence int, inputType string) PreviewResponse {
+func (h *PreviewHandler) emptyTablePreview(c *gin.Context, confidence int, inputType string) PreviewResponse {
 	resp := PreviewResponse{
 		Headers:       []string{},
 		Rows:          [][]string{},
@@ -81,44 +107,14 @@ func (h *MDFlowHandler) emptyTablePreview(c *gin.Context, confidence int, inputT
 		ColumnMapping: map[string]string{},
 		UnmappedCols:  []string{},
 		InputType:     inputType,
-		AIAvailable:   h.hasAIForRequest(c),
+		AIAvailable:   h.byokCache.HasAIForRequest(c),
 	}
 	return resp
 }
 
-// PreviewResponse represents the table preview before conversion
-type PreviewResponse struct {
-	Headers            []string                         `json:"headers"`
-	Rows               [][]string                       `json:"rows"`
-	TotalRows          int                              `json:"total_rows"`
-	PreviewRows        int                              `json:"preview_rows"`
-	HeaderRow          int                              `json:"header_row"`
-	Confidence         int                              `json:"confidence"`
-	ColumnMapping      map[string]string                `json:"column_mapping"`
-	UnmappedCols       []string                         `json:"unmapped_columns"`
-	MappingQuality     *converter.PreviewMappingQuality `json:"mapping_quality,omitempty"`
-	Blocks             []PreviewBlock                   `json:"blocks,omitempty"`
-	SelectedBlockID    string                           `json:"selected_block_id,omitempty"`
-	SelectedBlockRange string                           `json:"selected_block_range,omitempty"`
-	InputType          string                           `json:"input_type"`
-	AIAvailable        bool                             `json:"ai_available"`
-}
-
-type PreviewBlock struct {
-	ID             string                           `json:"id"`
-	Range          string                           `json:"range"`
-	TotalRows      int                              `json:"total_rows"`
-	TotalColumns   int                              `json:"total_columns"`
-	LanguageHint   string                           `json:"language_hint"`
-	EnglishScore   float64                          `json:"english_score"`
-	HeaderRow      int                              `json:"header_row"`
-	Confidence     int                              `json:"confidence"`
-	MappingQuality *converter.PreviewMappingQuality `json:"mapping_quality,omitempty"`
-}
-
 // PreviewPaste handles POST /api/mdflow/preview
 // Returns a preview of the parsed table data before conversion
-func (h *MDFlowHandler) PreviewPaste(c *gin.Context) {
+func (h *PreviewHandler) PreviewPaste(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxPasteBytes+4<<10)
 
 	var req PasteConvertRequest
@@ -166,7 +162,7 @@ func (h *MDFlowHandler) PreviewPaste(c *gin.Context) {
 
 // PreviewTSV handles POST /api/mdflow/tsv/preview
 // Returns a preview of the uploaded TSV file before conversion
-func (h *MDFlowHandler) PreviewTSV(c *gin.Context) {
+func (h *PreviewHandler) PreviewTSV(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxUploadBytes+1<<20)
 
 	file, header, err := c.Request.FormFile("file")
@@ -230,7 +226,7 @@ func (h *MDFlowHandler) PreviewTSV(c *gin.Context) {
 
 // PreviewXLSX handles POST /api/mdflow/xlsx/preview
 // Returns a preview of the uploaded XLSX file before conversion
-func (h *MDFlowHandler) PreviewXLSX(c *gin.Context) {
+func (h *PreviewHandler) PreviewXLSX(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxUploadBytes+1<<20)
 
 	file, header, err := c.Request.FormFile("file")

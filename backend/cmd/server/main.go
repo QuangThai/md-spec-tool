@@ -29,8 +29,8 @@ func main() {
 	}
 	slog.Info("Starting server", "host", cfg.Host, "port", cfg.Port, "ai_enabled", cfg.AIEnabled)
 
-	// Setup router
-	router := httphandler.SetupRouter(cfg)
+	// Setup router (returns router and cleanup function)
+	router, cleanup := httphandler.SetupRouterWithCleanup(cfg)
 
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 
@@ -68,6 +68,10 @@ func main() {
 		slog.Error("Server shutdown error", "err", err)
 		os.Exit(1)
 	}
+
+	// Cleanup handlers and providers
+	slog.Info("Cleaning up resources...")
+	cleanup()
 
 	slog.Info("Server shutdown complete")
 }

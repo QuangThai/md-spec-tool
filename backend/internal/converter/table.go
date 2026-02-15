@@ -31,6 +31,9 @@ type TableMeta struct {
 	AIAvgConfidence   float64   // Average AI confidence
 	AIMappedColumns   int       // Count of mapped columns by AI
 	AIUnmappedColumns int       // Count of unmapped columns by AI
+	// Phase 3: Convert options
+	IncludeMetadata bool // If false, skip front matter and summary (default true)
+	NumberRows      bool // If true, add row number column (default false)
 }
 
 // NewTable creates a new Table with basic validation
@@ -42,6 +45,7 @@ func NewTable(sheetName string, headers []string, rows []TableRow) *Table {
 		Meta: TableMeta{
 			HeaderRowIndex:  0,
 			TotalSourceRows: len(rows),
+			IncludeMetadata: true,
 		},
 	}
 }

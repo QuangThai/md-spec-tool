@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -27,6 +28,7 @@ var (
 	ErrInvalidSlug       = errors.New("invalid slug")
 	ErrCommentsDisabled  = errors.New("comments disabled")
 	ErrInvalidPermission = errors.New("invalid permission")
+	ErrStoreFull         = errors.New("share limit exceeded")
 )
 
 type Share struct {
@@ -70,6 +72,7 @@ type Store struct {
 	shares    map[string]*Share
 	slugIndex map[string]string
 	path      string
+	maxShares int // Maximum number of shares to prevent OOM (0 = unlimited)
 }
 
 
@@ -78,12 +81,23 @@ type storeSnapshot struct {
 }
 
 func NewStore(path string) *Store {
+	return NewStoreWithLimit(path, 10000) // Default limit: 10,000 shares
+}
+
+func NewStoreWithLimit(path string, maxShares int) *Store {
 	store := &Store{
 		shares:    make(map[string]*Share),
 		slugIndex: make(map[string]string),
 		path:      strings.TrimSpace(path),
+		maxShares: maxShares,
 	}
 	store.loadFromDisk()
+	
+	// Ensure maxShares is at least as large as existing data to avoid locking out users
+	if len(store.shares) > store.maxShares {
+		store.maxShares = len(store.shares)
+		slog.Warn("maxShares adjusted to accommodate existing data", "loaded_shares", len(store.shares), "new_max", store.maxShares)
+	}
 	return store
 }
 
@@ -115,6 +129,11 @@ func (s *Store) CreateShare(input CreateShareInput) (*Share, error) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Check max shares limit
+	if s.maxShares > 0 && len(s.shares) >= s.maxShares {
+		return nil, ErrStoreFull
+	}
 
 	if input.IsPublic {
 		if slug == "" {
@@ -161,7 +180,7 @@ func (s *Store) GetShare(key string) (*Share, error) {
 
 	share, ok := s.shares[key]
 	if ok {
-		return share, nil
+		return s.cloneShare(share), nil
 	}
 
 	token, exists := s.slugIndex[key]
@@ -174,7 +193,7 @@ func (s *Store) GetShare(key string) (*Share, error) {
 		return nil, ErrShareNotFound
 	}
 
-	return share, nil
+	return s.cloneShare(share), nil
 }
 
 func (s *Store) ListPublic() []*Share {
@@ -184,7 +203,7 @@ func (s *Store) ListPublic() []*Share {
 	result := make([]*Share, 0)
 	for _, share := range s.shares {
 		if share.IsPublic && share.Slug != "" {
-			result = append(result, share)
+			result = append(result, s.cloneShare(share))
 		}
 	}
 
@@ -428,6 +447,26 @@ func generateCommentID() string {
 		return "cmt-" + time.Now().Format("20060102150405")
 	}
 	return "cmt-" + token
+}
+
+func (s *Store) cloneShare(share *Share) *Share {
+	if share == nil {
+		return nil
+	}
+	comments := make([]Comment, len(share.Comments))
+	copy(comments, share.Comments)
+	return &Share{
+		Token:         share.Token,
+		Slug:          share.Slug,
+		Title:         share.Title,
+		Template:      share.Template,
+		MDFlow:        share.MDFlow,
+		IsPublic:      share.IsPublic,
+		AllowComments: share.AllowComments,
+		Permission:    share.Permission,
+		CreatedAt:     share.CreatedAt,
+		Comments:      comments,
+	}
 }
 
 func randomSlug(length int) string {

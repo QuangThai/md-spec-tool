@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/yourorg/md-spec-tool/internal/ai"
+	"github.com/yourorg/md-spec-tool/internal/config"
 	"github.com/yourorg/md-spec-tool/internal/converter"
 )
 
@@ -24,10 +25,30 @@ type ValidateResponse struct {
 	SemanticResult *ai.SemanticValidationResult `json:"semantic_result,omitempty"`
 }
 
+// ValidationHandler handles all validation endpoints
+type ValidationHandler struct {
+	cfg       *config.Config
+	byokCache *AIServiceProvider
+}
+
+// NewValidationHandler creates a new ValidationHandler
+func NewValidationHandler(cfg *config.Config, byokCache *AIServiceProvider) *ValidationHandler {
+	if cfg == nil {
+		cfg = config.LoadConfig()
+	}
+	if byokCache == nil {
+		byokCache = NewAIServiceProvider(cfg)
+	}
+	return &ValidationHandler{
+		cfg:       cfg,
+		byokCache: byokCache,
+	}
+}
+
 // Validate handles POST /api/mdflow/validate
 // Builds SpecDoc from paste_text and runs custom validation rules
 // Automatically runs AI semantic validation when AI service is available
-func (h *MDFlowHandler) Validate(c *gin.Context) {
+func (h *ValidationHandler) Validate(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxPasteBytes+4<<10)
 
 	var req ValidateRequest
@@ -60,7 +81,7 @@ func (h *MDFlowHandler) Validate(c *gin.Context) {
 	}
 
 	// Auto-run AI semantic validation when AI service is available (BYOK-aware)
-	aiService := h.getAIServiceForRequest(c)
+	aiService := h.byokCache.GetAIServiceForRequest(c)
 	if aiService != nil {
 		semanticResult, err := aiService.ValidateSemantic(c.Request.Context(), ai.SemanticValidationRequest{
 			SpecContent: req.PasteText,

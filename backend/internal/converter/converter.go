@@ -55,6 +55,20 @@ type Converter struct {
 	rendererFactory *RendererFactory
 }
 
+// ConvertOptions controls output rendering options for conversion responses.
+type ConvertOptions struct {
+	IncludeMetadata bool
+	NumberRows      bool
+}
+
+// DefaultConvertOptions returns the default conversion options.
+func DefaultConvertOptions() ConvertOptions {
+	return ConvertOptions{
+		IncludeMetadata: true,
+		NumberRows:      false,
+	}
+}
+
 // NewConverter creates a new Converter
 func NewConverter() *Converter {
 	templateRegistry := NewTemplateRegistry()
@@ -78,6 +92,31 @@ func NewConverter() *Converter {
 		// Phase 4: Initialize renderer factory
 		rendererFactory: NewRendererFactory(templateRegistry),
 	}
+}
+
+// CloneWithAIService creates a new Converter that reuses heavy read-only dependencies
+// (templates, parsers, detectors) and only swaps the AI service.
+// This avoids re-initializing the TemplateRegistry and other expensive components.
+func (c *Converter) CloneWithAIService(service ai.Service) *Converter {
+	clone := &Converter{
+		// Reuse heavy read-only dependencies
+		pasteParser:      c.pasteParser,
+		xlsxParser:       c.xlsxParser,
+		headerDetector:   c.headerDetector,
+		columnMapper:     c.columnMapper,
+		renderer:         c.renderer,
+		tableParser:      c.tableParser,
+		tableAdapter:     c.tableAdapter,
+		genericRenderer:  c.genericRenderer,
+		templateRegistry: c.templateRegistry,
+		rendererFactory:  c.rendererFactory,
+		// Only swap the AI service
+		aiService: service,
+	}
+	if service != nil {
+		clone.aiMapper = ai.NewColumnMapperService(service)
+	}
+	return clone
 }
 
 // WithAIService injects an AI service for column mapping
@@ -146,6 +185,11 @@ func (c *Converter) ConvertPasteWithFormatContext(ctx context.Context, text stri
 
 // ConvertPasteWithOverrides applies column overrides before conversion.
 func (c *Converter) ConvertPasteWithOverrides(ctx context.Context, text string, templateName string, outputFormat string, overrides map[string]string) (*ConvertResponse, error) {
+	return c.ConvertPasteWithOverridesAndOptions(ctx, text, templateName, outputFormat, overrides, DefaultConvertOptions())
+}
+
+// ConvertPasteWithOverridesAndOptions applies column overrides and rendering options before conversion.
+func (c *Converter) ConvertPasteWithOverridesAndOptions(ctx context.Context, text string, templateName string, outputFormat string, overrides map[string]string, options ConvertOptions) (*ConvertResponse, error) {
 	analysis := DetectInputType(text)
 	if analysis.Type == InputTypeMarkdown {
 		return c.convertMarkdown(text, templateName)
@@ -160,7 +204,7 @@ func (c *Converter) ConvertPasteWithOverrides(ctx context.Context, text string, 
 		matrix = applyColumnOverrides(matrix, overrides)
 	}
 
-	return c.convertMatrixWithFormat(ctx, matrix, "", templateName, outputFormat)
+	return c.convertMatrixWithFormatAndOptions(ctx, matrix, "", templateName, outputFormat, options)
 }
 
 // ConvertMatrix converts a CellMatrix to MDFlow (uses template-driven pipeline)
@@ -184,10 +228,15 @@ func (c *Converter) ConvertMatrixWithFormatContext(ctx context.Context, matrix C
 
 // ConvertMatrixWithOverrides applies column overrides before conversion.
 func (c *Converter) ConvertMatrixWithOverrides(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, outputFormat string, overrides map[string]string) (*ConvertResponse, error) {
+	return c.ConvertMatrixWithOverridesAndOptions(ctx, matrix, sheetName, templateName, outputFormat, overrides, DefaultConvertOptions())
+}
+
+// ConvertMatrixWithOverridesAndOptions applies column overrides and rendering options before conversion.
+func (c *Converter) ConvertMatrixWithOverridesAndOptions(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, outputFormat string, overrides map[string]string, options ConvertOptions) (*ConvertResponse, error) {
 	if len(overrides) > 0 {
 		matrix = applyColumnOverrides(matrix, overrides)
 	}
-	return c.convertMatrixWithFormat(ctx, matrix, sheetName, templateName, outputFormat)
+	return c.convertMatrixWithFormatAndOptions(ctx, matrix, sheetName, templateName, outputFormat, options)
 }
 
 // convertMarkdown handles markdown/prose input without table parsing
@@ -254,6 +303,10 @@ func (c *Converter) ParseXLSX(filePath string, sheetName string) (CellMatrix, er
 // outputFormat: "spec" | "table" (output rendering format)
 // templateName: template identifier for rendering
 func (c *Converter) convertMatrixWithFormat(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, outputFormat string) (*ConvertResponse, error) {
+	return c.convertMatrixWithFormatAndOptions(ctx, matrix, sheetName, templateName, outputFormat, DefaultConvertOptions())
+}
+
+func (c *Converter) convertMatrixWithFormatAndOptions(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, outputFormat string, options ConvertOptions) (*ConvertResponse, error) {
 	// Validate output format
 	outputFormat = strings.ToLower(strings.TrimSpace(outputFormat))
 	if OutputFormat(outputFormat) != OutputFormatSpec && OutputFormat(outputFormat) != OutputFormatTable && outputFormat != "" {
@@ -265,12 +318,12 @@ func (c *Converter) convertMatrixWithFormat(ctx context.Context, matrix CellMatr
 		outputFormat = string(OutputFormatSpec)
 	}
 
-	return c.convertWithTemplate(ctx, matrix, sheetName, templateName, outputFormat)
+	return c.convertWithTemplate(ctx, matrix, sheetName, templateName, outputFormat, options)
 }
 
 // convertWithTemplate converts using template-driven rendering (Phase 3-4)
 // Supports all output types via template.Output.Type
-func (c *Converter) convertWithTemplate(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, format string) (*ConvertResponse, error) {
+func (c *Converter) convertWithTemplate(ctx context.Context, matrix CellMatrix, sheetName string, templateName string, format string, options ConvertOptions) (*ConvertResponse, error) {
 	if len(matrix) == 0 {
 		return &ConvertResponse{
 			MDFlow:   "",
@@ -322,6 +375,8 @@ func (c *Converter) convertWithTemplate(ctx context.Context, matrix CellMatrix, 
 	table := c.tableParser.MatrixToTable(headers, dataRows, sheetName)
 	table.Meta.HeaderRowIndex = headerRow
 	table.Meta.ColumnMap = colMap
+	table.Meta.IncludeMetadata = options.IncludeMetadata
+	table.Meta.NumberRows = options.NumberRows
 	applyAIMetaToTableMeta(&table.Meta, aiMeta)
 
 	// Load template - use format name if templateName is empty
@@ -790,4 +845,3 @@ func (c *Converter) GetPreviewColumnMappingRuleBased(headers []string, templateN
 func (c *Converter) HasAIService() bool {
 	return c.aiService != nil && c.aiMapper != nil
 }
-

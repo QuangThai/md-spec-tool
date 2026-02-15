@@ -8,6 +8,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GetRequestID retrieves the request ID from context
+func GetRequestID(c *gin.Context) string {
+	if id, ok := c.Request.Context().Value(RequestIDContextKey).(string); ok {
+		return id
+	}
+	return ""
+}
+
 // ErrBadRequest wraps an error with 400 status
 type ErrBadRequest struct{ Err error }
 
@@ -28,8 +36,9 @@ func (e *ErrRequestTooLarge) Unwrap() error { return e.Err }
 
 // ErrorPayload is the structured JSON error response
 type ErrorPayload struct {
-	Error string `json:"error"`
-	Code  string `json:"code,omitempty"`
+	Error     string `json:"error"`
+	Code      string `json:"code,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // ErrorHandler returns middleware that centralizes error handling.
@@ -50,9 +59,10 @@ func ErrorHandler() gin.HandlerFunc {
 		err := c.Errors.Last().Err
 		status := statusForError(err)
 		msg := err.Error()
+		requestID := GetRequestID(c)
 
-		slog.Debug("error handler", "status", status, "error", msg)
-		c.JSON(status, ErrorPayload{Error: msg})
+		slog.With("request_id", requestID).Debug("error handler", "status", status, "error", msg)
+		c.JSON(status, ErrorPayload{Error: msg, RequestID: requestID})
 	}
 }
 

@@ -15,44 +15,62 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/md-spec-tool/internal/config"
 	"github.com/yourorg/md-spec-tool/internal/converter"
 )
 
-// PasteConvertRequest represents the request for paste conversion
-type PasteConvertRequest struct {
-	PasteText       string            `json:"paste_text" binding:"required"`
-	Template        string            `json:"template"`
-	Format          string            `json:"format"`
-	ColumnOverrides map[string]string `json:"column_overrides,omitempty"`
+func resolveConvertOptions(includeMetadata *bool, numberRows *bool) converter.ConvertOptions {
+	options := converter.DefaultConvertOptions()
+	if includeMetadata != nil {
+		options.IncludeMetadata = *includeMetadata
+	}
+	if numberRows != nil {
+		options.NumberRows = *numberRows
+	}
+	return options
 }
 
-// XLSXConvertRequest represents the request for XLSX sheet conversion
-type XLSXConvertRequest struct {
-	SheetName string `json:"sheet_name"`
-	Template  string `json:"template"`
-	Format    string `json:"format"`
+func parseOptionalFormBool(c *gin.Context, field string) (*bool, error) {
+	raw := strings.TrimSpace(c.PostForm(field))
+	if raw == "" {
+		return nil, nil
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s value", field)
+	}
+	return &v, nil
 }
 
-// MDFlowConvertResponse represents the conversion response
-type MDFlowConvertResponse struct {
-	MDFlow   string                `json:"mdflow"`
-	Warnings []converter.Warning   `json:"warnings"`
-	Meta     converter.SpecDocMeta `json:"meta"`
-	Format   string                `json:"format"`
-	Template string                `json:"template"`
+// ConvertHandler handles conversion endpoints (Paste, TSV, XLSX)
+type ConvertHandler struct {
+	converter *converter.Converter
+	cfg       *config.Config
+	byokCache *AIServiceProvider
 }
 
-// InputAnalysisResponse represents the input type detection response
-type InputAnalysisResponse struct {
-	Type       string  `json:"type"` // 'markdown' | 'table' | 'unknown'
-	Confidence float64 `json:"confidence"`
-	Reason     string  `json:"reason,omitempty"`
+// NewConvertHandler creates a new ConvertHandler
+func NewConvertHandler(conv *converter.Converter, cfg *config.Config, byokCache *AIServiceProvider) *ConvertHandler {
+	if conv == nil {
+		conv = converter.NewConverter()
+	}
+	if cfg == nil {
+		cfg = config.LoadConfig()
+	}
+	if byokCache == nil {
+		byokCache = NewAIServiceProvider(cfg)
+	}
+	return &ConvertHandler{
+		converter: conv,
+		cfg:       cfg,
+		byokCache: byokCache,
+	}
 }
 
 // ConvertPaste handles POST /api/mdflow/paste
 // If detect_only=true query param, returns input type analysis
 // Otherwise converts pasted TSV/CSV text to MDFlow format
-func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
+func (h *ConvertHandler) ConvertPaste(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxPasteBytes+4<<10)
 
 	var req PasteConvertRequest
@@ -115,29 +133,38 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 	}
 
 	// Full conversion with format support (BYOK-aware)
-	// Create context with timeout to prevent hanging on slow AI calls
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 150*time.Second)
 	defer cancel()
 
-	slog.Info("mdflow.ConvertPaste starting", "has_ai", h.aiService != nil)
-
-	conv := h.getConverterForRequest(c)
+	conv := h.byokCache.GetConverterForRequest(c, h.converter)
 	columnOverrides := req.ColumnOverrides
 	if len(columnOverrides) == 0 {
 		columnOverrides = nil
 	}
-	result, err := conv.ConvertPasteWithOverrides(ctx, req.PasteText, req.Template, req.Format, columnOverrides)
+	options := resolveConvertOptions(req.IncludeMetadata, req.NumberRows)
+	result, err := conv.ConvertPasteWithOverridesAndOptions(ctx, req.PasteText, req.Template, req.Format, columnOverrides, options)
 	if err != nil {
-		slog.Error("mdflow.ConvertPaste failed", "error", err, "ai_enabled", h.aiService != nil)
+		slog.Error("mdflow.ConvertPaste failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert input"})
 		return
+	}
+
+	warnings := result.Warnings
+	if req.ValidationRules != nil && hasValidationRules(req.ValidationRules) {
+		specDoc, buildErr := converter.BuildSpecDocFromPaste(req.PasteText)
+		if buildErr == nil {
+			valResult := converter.Validate(specDoc, req.ValidationRules)
+			if len(valResult.Warnings) > 0 {
+				warnings = append(warnings, valResult.Warnings...)
+			}
+		}
 	}
 
 	slog.Info("mdflow.ConvertPaste ai", "ai_mode", result.Meta.AIMode, "ai_used", result.Meta.AIUsed, "ai_confidence", result.Meta.AIAvgConfidence)
 
 	c.JSON(http.StatusOK, MDFlowConvertResponse{
 		MDFlow:   result.MDFlow,
-		Warnings: result.Warnings,
+		Warnings: warnings,
 		Meta:     result.Meta,
 		Format:   req.Format,
 		Template: req.Template,
@@ -146,7 +173,7 @@ func (h *MDFlowHandler) ConvertPaste(c *gin.Context) {
 
 // ConvertXLSX handles POST /api/mdflow/xlsx
 // Converts uploaded XLSX file to MDFlow format
-func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
+func (h *ConvertHandler) ConvertXLSX(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxUploadBytes+1<<20)
 
 	// Get file from multipart form
@@ -188,6 +215,16 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 		return
 	}
 	if err := validateSheetName(sheetName); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	includeMetadata, err := parseOptionalFormBool(c, "include_metadata")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	numberRows, err := parseOptionalFormBool(c, "number_rows")
+	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
@@ -235,7 +272,7 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 		return
 	}
 
-	conv := h.getConverterForRequest(c)
+	conv := h.byokCache.GetConverterForRequest(c, h.converter)
 	matrix, err := conv.ParseXLSX(tempName, sheetName)
 	if err != nil {
 		slog.Error("mdflow.ConvertXLSX parse error", "error", err)
@@ -247,7 +284,8 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 130*time.Second)
 	defer cancel()
 
-	result, err := conv.ConvertMatrixWithOverrides(ctx, matrix, sheetName, template, format, columnOverrides)
+	options := resolveConvertOptions(includeMetadata, numberRows)
+	result, err := conv.ConvertMatrixWithOverridesAndOptions(ctx, matrix, sheetName, template, format, columnOverrides, options)
 	if err != nil {
 		slog.Error("mdflow.ConvertXLSX failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
@@ -267,7 +305,7 @@ func (h *MDFlowHandler) ConvertXLSX(c *gin.Context) {
 
 // ConvertTSV handles POST /api/mdflow/tsv
 // Converts uploaded TSV file to MDFlow format
-func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
+func (h *ConvertHandler) ConvertTSV(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxUploadBytes+1<<20)
 
 	file, header, err := c.Request.FormFile("file")
@@ -303,6 +341,16 @@ func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
+	includeMetadata, err := parseOptionalFormBool(c, "include_metadata")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	numberRows, err := parseOptionalFormBool(c, "number_rows")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
 
 	content, err := io.ReadAll(io.LimitReader(file, h.cfg.MaxUploadBytes+1))
 	if err != nil {
@@ -322,13 +370,14 @@ func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
 		content = content[3:]
 	}
 
-	conv := h.getConverterForRequest(c)
+	conv := h.byokCache.GetConverterForRequest(c, h.converter)
 
 	// Create context with timeout to prevent hanging on slow AI calls
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 130*time.Second)
 	defer cancel()
 
-	result, err := conv.ConvertPasteWithOverrides(ctx, string(content), template, format, columnOverrides)
+	options := resolveConvertOptions(includeMetadata, numberRows)
+	result, err := conv.ConvertPasteWithOverridesAndOptions(ctx, string(content), template, format, columnOverrides, options)
 	if err != nil {
 		slog.Error("mdflow.ConvertTSV failed", "error", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to convert file"})
@@ -346,7 +395,7 @@ func (h *MDFlowHandler) ConvertTSV(c *gin.Context) {
 
 // GetXLSXSheets handles POST /api/mdflow/xlsx/sheets
 // Returns list of sheets in uploaded XLSX file
-func (h *MDFlowHandler) GetXLSXSheets(c *gin.Context) {
+func (h *ConvertHandler) GetXLSXSheets(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.cfg.MaxUploadBytes+1<<20)
 
 	file, header, err := c.Request.FormFile("file")
@@ -427,8 +476,23 @@ func (h *MDFlowHandler) GetXLSXSheets(c *gin.Context) {
 	})
 }
 
-// SheetsResponse represents the list of sheets
-type SheetsResponse struct {
-	Sheets      []string `json:"sheets"`
-	ActiveSheet string   `json:"active_sheet"`
+func hasValidationRules(rules *converter.ValidationRules) bool {
+	if rules == nil {
+		return false
+	}
+	if len(rules.RequiredFields) > 0 {
+		return true
+	}
+	if rules.FormatRules != nil {
+		if rules.FormatRules.IDPattern != "" {
+			return true
+		}
+		if len(rules.FormatRules.EmailFields) > 0 || len(rules.FormatRules.URLFields) > 0 {
+			return true
+		}
+	}
+	if len(rules.CrossField) > 0 {
+		return true
+	}
+	return false
 }

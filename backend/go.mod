@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/openai/openai-go/v3 v3.18.0
+	github.com/pmezard/go-difflib v1.0.0
 	github.com/xuri/excelize/v2 v2.8.1
 	golang.org/x/oauth2 v0.34.0
 	google.golang.org/api v0.264.0

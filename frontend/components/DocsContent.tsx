@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
@@ -416,6 +417,14 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
       title: "Validation Rules",
       content: (
         <div className="space-y-4">
+          <p className="text-sm">
+            <Link
+              href="/studio?open=validation"
+              className="text-accent-orange hover:text-accent-orange/80 font-medium"
+            >
+              Open Validation rules in Studio →
+            </Link>
+          </p>
           <p className="text-muted">
             The engine returns a structured{" "}
             <code className="text-accent-orange">MDFlowConvertResponse</code>{" "}
@@ -928,6 +937,14 @@ const docContent: Record<string, { title: string; content: React.ReactNode }> =
             The Template Editor lets you load built-in templates, edit custom
             templates, and preview output against your current sample data.
             Custom templates are stored locally in the browser.
+          </p>
+          <p className="text-sm">
+            <Link
+              href="/studio?open=template"
+              className="text-accent-orange hover:text-accent-orange/80 font-medium"
+            >
+              Open Template preview in Studio →
+            </Link>
           </p>
           <div className="grid gap-4">
             <div className="p-5 rounded-xl bg-black/40 border border-white/10 font-mono text-xs text-accent-green">

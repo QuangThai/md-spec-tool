@@ -17,16 +17,17 @@ func NewSpecRenderer() *SpecRenderer {
 
 // SpecRenderInput holds data for spec rendering
 type SpecRenderInput struct {
-	Title           string
-	Rows            []SpecRow
-	Headers         []string
-	ColumnMappings  map[string]interface{} // AI mapping metadata
-	AIMode          string                 // "on", "shadow", "off"
-	Degraded        bool                   // True if fallback was used
-	SchemaVersion   string
-	AvgConfidence   float64
-	MappedColumns   int
-	UnmappedColumns int
+	Title            string
+	Rows             []SpecRow
+	Headers          []string
+	ColumnMappings   map[string]interface{} // AI mapping metadata
+	AIMode           string                 // "on", "shadow", "off"
+	Degraded         bool                   // True if fallback was used
+	SchemaVersion    string
+	AvgConfidence    float64
+	MappedColumns    int
+	UnmappedColumns  int
+	IncludeMetadata  bool // Phase 3: if false, skip front matter and summary
 }
 
 // Render implements Renderer interface for Table format
@@ -64,6 +65,7 @@ func (r *SpecRenderer) Render(table *Table) (string, []string, error) {
 		AvgConfidence:   table.Meta.AIAvgConfidence,
 		MappedColumns:   mappedColumns,
 		UnmappedColumns: unmappedColumns,
+		IncludeMetadata: table.Meta.IncludeMetadata,
 	}
 
 	output := r.renderSpec(input)
@@ -74,17 +76,20 @@ func (r *SpecRenderer) Render(table *Table) (string, []string, error) {
 func (r *SpecRenderer) renderSpec(input SpecRenderInput) string {
 	var buf bytes.Buffer
 
-	// YAML front matter (AGENTS.md compatible)
-	buf.WriteString(r.renderFrontMatter(input))
+	includeMetadata := input.IncludeMetadata
 
-	// Title & metadata
+	if includeMetadata {
+		// YAML front matter (AGENTS.md compatible)
+		buf.WriteString(r.renderFrontMatter(input))
+		// Summary section
+		buf.WriteString(r.renderSummary(input))
+	}
+
+	// Title (always)
 	buf.WriteString(fmt.Sprintf("# %s\n\n", input.Title))
 
-	// Summary section
-	buf.WriteString(r.renderSummary(input))
-
-	// Column mappings section (if available)
-	if len(input.ColumnMappings) > 0 {
+	// Column mappings section (if available and include metadata)
+	if includeMetadata && len(input.ColumnMappings) > 0 {
 		buf.WriteString(r.renderMappingsSummary(input))
 	}
 
