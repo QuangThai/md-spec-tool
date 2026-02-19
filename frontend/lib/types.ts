@@ -54,9 +54,14 @@ export interface MDFlowMeta {
   ai_mode?: 'off' | 'shadow' | 'on';
   ai_used?: boolean;
   ai_degraded?: boolean;
+  ai_model?: string;
+  ai_prompt_version?: string;
   ai_avg_confidence?: number;
   ai_mapped_columns?: number;
   ai_unmapped_columns?: number;
+  ai_estimated_input_tokens?: number;
+  ai_estimated_output_tokens?: number;
+  ai_estimated_cost_usd?: number;
   quality_report?: {
     strict_mode: boolean;
     validation_passed: boolean;
@@ -98,6 +103,7 @@ export interface MDFlowConvertResponse {
   meta: MDFlowMeta;
   format?: OutputFormat;
   template?: string;
+  needs_review?: boolean;
 }
 
 export interface PreviewResponse {
@@ -205,6 +211,8 @@ export interface AISuggestResponse {
   suggestions: AISuggestion[];
   error?: string;
   configured: boolean;
+  ai_model?: string;
+  ai_prompt_version?: string;
 }
 
 // ============ Template Types ============
@@ -273,15 +281,24 @@ export class ApiError extends Error {
     message: string,
     public status?: number,
     public code?: string,
-    public details?: Record<string, unknown>
+    public details?: Record<string, unknown>,
+    public requestId?: string,
+    public validationReason?: string
   ) {
     super(message);
     this.name = 'ApiError';
   }
 
-  static fromResponse(status: number, body?: { error?: string; code?: string; details?: Record<string, unknown> }): ApiError {
+  static fromResponse(status: number, body?: { error?: string; code?: string; details?: Record<string, unknown>; request_id?: string; validation_reason?: string }): ApiError {
     const message = body?.error || `HTTP ${status}`;
-    return new ApiError(message, status, body?.code, body?.details);
+    return new ApiError(
+      message,
+      status,
+      body?.code,
+      body?.details,
+      body?.request_id,
+      body?.validation_reason
+    );
   }
 
   get isUnauthorized(): boolean {
@@ -305,6 +322,54 @@ export class ApiError extends Error {
 export interface ApiResult<T> {
   data?: T;
   error?: string;
+}
+
+export interface TelemetryDashboardResponse {
+  generated_at: string;
+  window_hours: number;
+  totals: {
+    events_total: number;
+    frontend_events: number;
+    backend_events: number;
+  };
+  funnel: {
+    studio_opened: number;
+    input_provided: number;
+    preview_succeeded: number;
+    convert_succeeded: number;
+    share_created: number;
+  };
+  kpis: {
+    activation_rate_10m: number;
+    time_to_value_ms: {
+      median: number;
+      p75: number;
+      p95: number;
+    };
+    preview_success_rate: number;
+    convert_success_rate: number;
+  };
+  reliability: {
+    api_5xx_rate: number;
+    p95_preview_latency_ms: number;
+    p95_convert_latency_ms: number;
+  };
+  errors: Array<{
+    event_name: string;
+    count: number;
+  }>;
+  ai_cost: {
+    total_cost_usd: number;
+    avg_cost_per_convert: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    total_ai_requests: number;
+    cost_by_model: Array<{
+      model: string;
+      cost_usd: number;
+      requests: number;
+    }>;
+  };
 }
 
 // ============ Component Props Types ============

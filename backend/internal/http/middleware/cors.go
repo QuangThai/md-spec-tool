@@ -26,7 +26,7 @@ func CORS(cfg *config.Config) gin.HandlerFunc {
 		
 		// Always include Vary: Origin to prevent caching issues with different origins
 		c.Writer.Header().Set("Vary", "Origin")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-OpenAI-API-Key")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-OpenAI-API-Key, X-Session-ID")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 
 		if c.Request.Method == "OPTIONS" {

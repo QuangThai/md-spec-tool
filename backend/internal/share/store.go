@@ -32,16 +32,17 @@ var (
 )
 
 type Share struct {
-	Token         string     `json:"token"`
-	Slug          string     `json:"slug"`
-	Title         string     `json:"title"`
-	Template      string     `json:"template"`
-	MDFlow        string     `json:"mdflow"`
-	IsPublic      bool       `json:"is_public"`
-	AllowComments bool       `json:"allow_comments"`
-	Permission    Permission `json:"permission"`
-	CreatedAt     time.Time  `json:"created_at"`
-	Comments      []Comment  `json:"comments"`
+	Token            string     `json:"token"`
+	Slug             string     `json:"slug"`
+	Title            string     `json:"title"`
+	Template         string     `json:"template"`
+	MDFlow           string     `json:"mdflow"`
+	IsPublic         bool       `json:"is_public"`
+	AllowComments    bool       `json:"allow_comments"`
+	Permission       Permission `json:"permission"`
+	CreatedAt        time.Time  `json:"created_at"`
+	Comments         []Comment  `json:"comments"`
+	ResolutionEvents []Event    `json:"resolution_events"`
 }
 
 type Comment struct {
@@ -75,7 +76,6 @@ type Store struct {
 	maxShares int // Maximum number of shares to prevent OOM (0 = unlimited)
 }
 
-
 type storeSnapshot struct {
 	Shares map[string]*Share `json:"shares"`
 }
@@ -92,7 +92,7 @@ func NewStoreWithLimit(path string, maxShares int) *Store {
 		maxShares: maxShares,
 	}
 	store.loadFromDisk()
-	
+
 	// Ensure maxShares is at least as large as existing data to avoid locking out users
 	if len(store.shares) > store.maxShares {
 		store.maxShares = len(store.shares)
@@ -151,16 +151,17 @@ func (s *Store) CreateShare(input CreateShareInput) (*Share, error) {
 	}
 
 	share := &Share{
-		Token:         token,
-		Slug:          slug,
-		Title:         input.Title,
-		Template:      input.Template,
-		MDFlow:        input.MDFlow,
-		IsPublic:      input.IsPublic,
-		AllowComments: input.AllowComments,
-		Permission:    permission,
-		CreatedAt:     time.Now().UTC(),
-		Comments:      []Comment{},
+		Token:            token,
+		Slug:             slug,
+		Title:            input.Title,
+		Template:         input.Template,
+		MDFlow:           input.MDFlow,
+		IsPublic:         input.IsPublic,
+		AllowComments:    input.AllowComments,
+		Permission:       permission,
+		CreatedAt:        time.Now().UTC(),
+		Comments:         []Comment{},
+		ResolutionEvents: []Event{},
 	}
 
 	s.shares[token] = share
@@ -311,6 +312,18 @@ func (s *Store) UpdateComment(key, commentID string, resolved bool) (Comment, er
 	for i, comment := range share.Comments {
 		if comment.ID == commentID {
 			share.Comments[i].Resolved = resolved
+
+			// Emit resolution event if resolving
+			if resolved {
+				event := Event{
+					EventType: "comment_resolved",
+					Timestamp: time.Now().UTC(),
+					CommentID: commentID,
+					Data:      comment.Author, // Store author in data field
+				}
+				share.ResolutionEvents = append(share.ResolutionEvents, event)
+			}
+
 			if err := s.saveToDiskLocked(); err != nil {
 				return Comment{}, err
 			}
@@ -455,17 +468,20 @@ func (s *Store) cloneShare(share *Share) *Share {
 	}
 	comments := make([]Comment, len(share.Comments))
 	copy(comments, share.Comments)
+	events := make([]Event, len(share.ResolutionEvents))
+	copy(events, share.ResolutionEvents)
 	return &Share{
-		Token:         share.Token,
-		Slug:          share.Slug,
-		Title:         share.Title,
-		Template:      share.Template,
-		MDFlow:        share.MDFlow,
-		IsPublic:      share.IsPublic,
-		AllowComments: share.AllowComments,
-		Permission:    share.Permission,
-		CreatedAt:     share.CreatedAt,
-		Comments:      comments,
+		Token:            share.Token,
+		Slug:             share.Slug,
+		Title:            share.Title,
+		Template:         share.Template,
+		MDFlow:           share.MDFlow,
+		IsPublic:         share.IsPublic,
+		AllowComments:    share.AllowComments,
+		Permission:       share.Permission,
+		CreatedAt:        share.CreatedAt,
+		Comments:         comments,
+		ResolutionEvents: events,
 	}
 }
 

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"strconv"
@@ -15,11 +17,26 @@ type rateLimitEntry struct {
 	windowStart time.Time
 }
 
+// RateLimitConfig holds rate limit parameters
+type RateLimitConfig struct {
+	Limit  int           // requests per window
+	Window time.Duration // rate limit window
+}
+
 // RateLimit enforces a fixed-window, per-IP rate limit.
+// Returns 429 RATE_LIMIT_EXCEEDED with Retry-After header.
+//
+// Example usage:
+//   router.POST("/api/heavy", middleware.RateLimit(60, time.Minute), handler)
+//
+// Tracking:
+// - Per client IP (uses ClientIP() which respects X-Forwarded-For with trusted proxies)
+// - Fixed window resets every `window` duration
+// - In-memory tracking (not distributed across instances)
 func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
 	var mu sync.Mutex
 	hits := make(map[string]rateLimitEntry)
-	
+
 	// Start periodic cleanup goroutine for expired entries
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
@@ -55,8 +72,23 @@ func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
 			if retryAfter < 0 {
 				retryAfter = 0
 			}
+
+			// Construct ErrRateLimit with retry info
+			err := &ErrRateLimit{
+				Err:        errors.New(fmt.Sprintf("rate limit exceeded: %d requests per %v", limit, window)),
+				RetryAfter: retryAfter,
+			}
+
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
+			c.Error(err)
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, NewErrorPayload(http.StatusTooManyRequests,
+				err.Error(),
+				GetRequestID(c),
+			).WithDetails(map[string]any{
+				"limit":        limit,
+				"window_secs":  int(window.Seconds()),
+				"retry_after":  retryAfter,
+			}))
 			return
 		}
 

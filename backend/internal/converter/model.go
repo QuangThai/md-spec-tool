@@ -125,21 +125,26 @@ type SpecDoc struct {
 
 // SpecDocMeta contains metadata about the parsed document
 type SpecDocMeta struct {
-	SheetName         string         `json:"sheet_name,omitempty"`
-	HeaderRow         int            `json:"header_row"`
-	ColumnMap         ColumnMap      `json:"column_map"`
-	UnmappedColumns   []string       `json:"unmapped_columns,omitempty"`
-	TotalRows         int            `json:"total_rows"`
-	RowsByFeature     map[string]int `json:"rows_by_feature,omitempty"`
-	SourceURL         string         `json:"source_url,omitempty"`
-	AIMode            string         `json:"ai_mode,omitempty"`
-	AIUsed            bool           `json:"ai_used,omitempty"`
-	AIDegraded        bool           `json:"ai_degraded,omitempty"`
-	AIAvgConfidence   float64        `json:"ai_avg_confidence,omitempty"`
-	AIMappedColumns   int            `json:"ai_mapped_columns,omitempty"`
-	AIUnmappedColumns int            `json:"ai_unmapped_columns,omitempty"`
-	OutputFormat      string         `json:"output_format,omitempty"`
-	QualityReport     *QualityReport `json:"quality_report,omitempty"`
+	SheetName               string         `json:"sheet_name,omitempty"`
+	HeaderRow               int            `json:"header_row"`
+	ColumnMap               ColumnMap      `json:"column_map"`
+	UnmappedColumns         []string       `json:"unmapped_columns,omitempty"`
+	TotalRows               int            `json:"total_rows"`
+	RowsByFeature           map[string]int `json:"rows_by_feature,omitempty"`
+	SourceURL               string         `json:"source_url,omitempty"`
+	AIMode                  string         `json:"ai_mode,omitempty"`
+	AIUsed                  bool           `json:"ai_used,omitempty"`
+	AIDegraded              bool           `json:"ai_degraded,omitempty"`
+	AIModel                 string         `json:"ai_model,omitempty"`
+	AIPromptVersion         string         `json:"ai_prompt_version,omitempty"`
+	AIAvgConfidence         float64        `json:"ai_avg_confidence,omitempty"`
+	AIMappedColumns         int            `json:"ai_mapped_columns,omitempty"`
+	AIUnmappedColumns       int            `json:"ai_unmapped_columns,omitempty"`
+	AIEstimatedInputTokens  int            `json:"ai_estimated_input_tokens,omitempty"`
+	AIEstimatedOutputTokens int            `json:"ai_estimated_output_tokens,omitempty"`
+	AIEstimatedCostUSD      float64        `json:"ai_estimated_cost_usd,omitempty"`
+	OutputFormat            string         `json:"output_format,omitempty"`
+	QualityReport           *QualityReport `json:"quality_report,omitempty"`
 }
 
 type QualityReport struct {

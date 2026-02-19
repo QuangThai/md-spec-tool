@@ -9,6 +9,7 @@ import {
   TemplateInfo,
   TemplateMetadata,
   TemplatePreviewResponse,
+  TelemetryDashboardResponse,
   TemplatesListResponse,
   ValidationResult,
   ValidationRules
@@ -122,6 +123,12 @@ export async function getXLSXSheets(
 
 export async function getMDFlowTemplates(): Promise<ApiResult<TemplatesListResponse>> {
   return backendClient.safeGet<TemplatesListResponse>('/api/mdflow/templates');
+}
+
+export async function getTelemetryDashboard(
+  hours: number = 24
+): Promise<ApiResult<TelemetryDashboardResponse>> {
+  return backendClient.safeGet<TelemetryDashboardResponse>('/api/telemetry/dashboard', { hours });
 }
 
 export async function diffMDFlow(

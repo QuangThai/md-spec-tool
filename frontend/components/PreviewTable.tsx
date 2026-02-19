@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Table, ExternalLink } from "lucide-react";
 import { PreviewResponse } from "@/lib/types";
 import { CANONICAL_FIELDS } from "@/constants/mdflow";
@@ -8,6 +8,8 @@ interface PreviewTableProps {
   preview: PreviewResponse;
   columnOverrides: Record<string, string>;
   onColumnOverride: (column: string, field: string) => void;
+  needsReview?: boolean;
+  reviewApproved?: boolean;
   sourceUrl?: string;
   onSelectBlockRange?: (range: string) => void;
 }
@@ -15,11 +17,14 @@ interface PreviewTableProps {
 /**
  * PreviewTable - Displays preview data with column mapping selector
  * Shows first 4 rows by default, expandable to show all
+ * ✅ Memoized to prevent re-renders on parent updates
  */
-export function PreviewTable({
+export const PreviewTable = memo(function PreviewTable({
   preview,
   columnOverrides,
   onColumnOverride,
+  needsReview = false,
+  reviewApproved = false,
   sourceUrl,
   onSelectBlockRange,
 }: PreviewTableProps) {
@@ -48,6 +53,16 @@ export function PreviewTable({
           <span className="text-[9px] text-white/40 font-mono">
             {preview.total_rows} rows • {preview.headers.length} cols
           </span>
+          {needsReview && !reviewApproved && (
+            <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-accent-gold/20 border border-accent-gold/30 text-accent-gold/80">
+              Needs Review
+            </span>
+          )}
+          {needsReview && reviewApproved && (
+            <span className="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-green-500/20 border border-green-500/30 text-green-300">
+              Reviewed
+            </span>
+          )}
           {preview.confidence < 70 && (
             <span className="text-[9px] text-accent-gold/80 font-medium">
               (low confidence: {preview.confidence}%)
@@ -191,4 +206,4 @@ export function PreviewTable({
       )}
     </div>
   );
-}
+});

@@ -22,9 +22,9 @@ const maxPreviewRows = 20
 
 // PreviewHandler handles all preview endpoints for various input types
 type PreviewHandler struct {
-	converter  *converter.Converter
-	cfg        *config.Config
-	byokCache  *AIServiceProvider
+	converter *converter.Converter
+	cfg       *config.Config
+	byokCache *AIServiceProvider
 }
 
 // NewPreviewHandler creates a new PreviewHandler
@@ -39,9 +39,9 @@ func NewPreviewHandler(conv *converter.Converter, cfg *config.Config, byokCache 
 		byokCache = NewAIServiceProvider(cfg)
 	}
 	return &PreviewHandler{
-		converter:  conv,
-		cfg:        cfg,
-		byokCache:  byokCache,
+		converter: conv,
+		cfg:       cfg,
+		byokCache: byokCache,
 	}
 }
 

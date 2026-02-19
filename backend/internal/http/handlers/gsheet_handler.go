@@ -347,11 +347,12 @@ func (h *GSheetHandler) ConvertGoogleSheet(c *gin.Context) {
 				}
 				result.Meta.SourceURL = req.URL
 				c.JSON(http.StatusOK, MDFlowConvertResponse{
-					MDFlow:   result.MDFlow,
-					Warnings: result.Warnings,
-					Meta:     result.Meta,
-					Format:   req.Format,
-					Template: req.Template,
+					MDFlow:      result.MDFlow,
+					Warnings:    result.Warnings,
+					Meta:        result.Meta,
+					Format:      req.Format,
+					Template:    req.Template,
+					NeedsReview: RequiresReview(result.Meta, result.Warnings),
 				})
 				return
 			}
@@ -376,11 +377,12 @@ func (h *GSheetHandler) ConvertGoogleSheet(c *gin.Context) {
 	result.Meta.SourceURL = req.URL
 
 	c.JSON(http.StatusOK, MDFlowConvertResponse{
-		MDFlow:   result.MDFlow,
-		Warnings: result.Warnings,
-		Meta:     result.Meta,
-		Format:   req.Format,
-		Template: req.Template,
+		MDFlow:      result.MDFlow,
+		Warnings:    result.Warnings,
+		Meta:        result.Meta,
+		Format:      req.Format,
+		Template:    req.Template,
+		NeedsReview: RequiresReview(result.Meta, result.Warnings),
 	})
 }
 

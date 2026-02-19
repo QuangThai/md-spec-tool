@@ -2,11 +2,13 @@ package ai
 
 // Prompt versions - bump when modifying prompts
 const (
-	PromptVersionColumnMapping      = "v2"
-	PromptVersionPasteAnalysis      = "v1"
-	PromptVersionSuggestions        = "v1"
-	PromptVersionDiffSummary        = "v1"
-	PromptVersionSemanticValidation = "v1"
+	PromptVersionColumnMapping       = "v3"
+	PromptVersionColumnMappingLegacy = "v2"
+	PromptVersionPasteAnalysis       = "v1"
+	PromptVersionSuggestions         = "v2"
+	PromptVersionSuggestionsLegacy   = "v1"
+	PromptVersionDiffSummary         = "v1"
+	PromptVersionSemanticValidation  = "v1"
 )
 
 const SystemPromptColumnMapping = `You are an expert at analyzing spreadsheet headers and mapping them to canonical fields for software specifications.

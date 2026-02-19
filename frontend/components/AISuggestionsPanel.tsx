@@ -1,6 +1,7 @@
 "use client";
 
 import { AISuggestion, AISuggestionType } from "@/lib/types";
+import { mapErrorToUserFacing } from "@/lib/errorUtils";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
@@ -22,6 +23,7 @@ interface AISuggestionsPanelProps {
   loading?: boolean;
   error?: string | null;
   configured?: boolean | null;
+  onRetry?: () => void;
 }
 
 // Suggestion type icons and labels
@@ -181,6 +183,7 @@ export function AISuggestionsPanel({
   loading,
   error,
   configured,
+  onRetry,
 }: AISuggestionsPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -202,16 +205,7 @@ export function AISuggestionsPanel({
 
   // Show error state
   if (error) {
-    // Extract a short error message
-    const shortError = error.length > 100 
-      ? error.includes("status 401") 
-        ? "Invalid OpenAI API key. Please check your API key configuration."
-        : error.includes("status 429")
-        ? "Rate limit exceeded. Please try again later."
-        : error.includes("status 500")
-        ? "OpenAI service error. Please try again."
-        : error.substring(0, 100) + "..."
-      : error;
+    const mapped = mapErrorToUserFacing(error);
     
     return (
       <div className="space-y-3" data-tour="ai-suggestions">
@@ -222,7 +216,20 @@ export function AISuggestionsPanel({
           </span>
         </div>
         <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 overflow-hidden">
-          <p className="text-[11px] text-red-400 wrap-break-word">{shortError}</p>
+          <p className="text-[11px] text-red-300 font-semibold">{mapped.title}</p>
+          <p className="mt-1 text-[11px] text-red-400 wrap-break-word">{mapped.message}</p>
+          {mapped.requestId ? (
+            <p className="mt-1 text-[10px] text-red-200/70 font-mono">request_id={mapped.requestId}</p>
+          ) : null}
+          {onRetry && mapped.retryable ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-2 inline-flex h-7 items-center rounded-md border border-red-300/25 bg-red-300/10 px-2.5 text-[10px] font-bold uppercase tracking-wider text-red-200 hover:bg-red-300/20"
+            >
+              Retry
+            </button>
+          ) : null}
         </div>
       </div>
     );

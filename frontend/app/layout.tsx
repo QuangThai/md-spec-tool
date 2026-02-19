@@ -1,21 +1,8 @@
 import AppShell from "@/app/AppShell";
 import { Providers } from "@/app/providers";
 import type { Metadata } from "next";
-import { Geist_Mono as GeistMono, Inter } from "next/font/google";
 import React from "react";
 import "../styles/globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const geistMono = GeistMono({
-  subsets: ["latin"],
-  variable: "--font-geist-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://md-spec-tool.vercel.app"),
@@ -61,7 +48,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${geistMono.variable}`}>
+    <html lang="en">
       <body className="relative bg-bg-mesh">
         <Providers>
           <AppShell>{children}</AppShell>

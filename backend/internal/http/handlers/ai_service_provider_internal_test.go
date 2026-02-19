@@ -34,7 +34,8 @@ func (fakeAIService) ValidateSemantic(context.Context, ai.SemanticValidationRequ
 	return nil, nil
 }
 
-func (fakeAIService) GetMode() string { return "on" }
+func (fakeAIService) GetMode() string  { return "on" }
+func (fakeAIService) GetModel() string { return "gpt-4o-mini" }
 
 func TestGetConverterForRequest_BYOKServiceUnavailable_DoesNotFallbackToBaseAI(t *testing.T) {
 	cfg := config.LoadConfig()

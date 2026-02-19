@@ -1,5 +1,5 @@
-import DocsContent from "@/components/DocsContent";
 import type { Metadata } from "next";
+import { DocsPageClient } from "./DocsPageClient";
 
 export const metadata: Metadata = {
   title: "Documentation | MDFlow Studio",
@@ -115,7 +115,7 @@ export default function DocsPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(docsBreadcrumbJsonLd) }}
       />
-      <DocsContent />
+      <DocsPageClient />
     </>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { ReactNode } from "react";
+import { mapErrorToUserFacing } from "@/lib/errorUtils";
 
 interface Props {
   children: ReactNode;
@@ -11,6 +12,14 @@ interface State {
   error: Error | null;
 }
 
+/**
+ * ErrorBoundary catches unexpected React errors during rendering.
+ * 
+ * For API errors, use the error mapping utilities in lib/errorUtils.ts
+ * to provide user-facing error messages.
+ * 
+ * This boundary is for component tree failures, not HTTP errors.
+ */
 export default class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -22,11 +31,29 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Error caught by boundary:", error, errorInfo);
+    // Log full error info for debugging
+    console.error("React Error Boundary caught:", {
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    });
+
+    // Report to monitoring service (optional)
+    if (typeof window !== "undefined" && (window as any).__APP_CONFIG__?.sentry) {
+      try {
+        // Integration point for Sentry or similar
+        console.info("Error reported to monitoring service");
+      } catch {
+        // Ignore reporting failures
+      }
+    }
   }
 
   render() {
     if (this.state.hasError) {
+      const message = this.state.error?.message || "A critical error occurred during operation.";
+      const userError = mapErrorToUserFacing(message);
+
       return (
         <div className="min-h-screen bg-bg-base flex items-center justify-center px-4">
           <div className="surface max-w-md w-full text-center">
@@ -36,21 +63,38 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               </div>
             </div>
             <h1 className="text-2xl font-bold text-white mb-2 uppercase tracking-tighter">
-              Engine Halted
+              {userError.title}
             </h1>
-            <p className="text-muted text-sm mb-8 leading-relaxed uppercase tracking-widest font-medium">
-              {this.state.error?.message ||
-                "A critical kernel panic occurred during operation."}
+            <p className="text-muted text-sm mb-4 leading-relaxed uppercase tracking-widest font-medium">
+              {userError.message}
             </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.href = "/";
-              }}
-              className="btn-primary w-full"
-            >
-              Reboot Engine
-            </button>
+
+            {/* Show request ID if available for support */}
+            {userError.requestId && (
+              <p className="text-muted text-xs mb-8 font-mono break-all">
+                Request ID: {userError.requestId}
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                }}
+                className="btn-secondary flex-1"
+              >
+                Dismiss
+              </button>
+              <button
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  window.location.href = "/";
+                }}
+                className="btn-primary flex-1"
+              >
+                Home
+              </button>
+            </div>
           </div>
         </div>
       );

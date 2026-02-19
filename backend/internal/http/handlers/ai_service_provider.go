@@ -46,12 +46,18 @@ func (p *AIServiceProvider) newAIService(apiKey string) (ai.Service, error) {
 	aiCfg.APIKey = apiKey
 	aiCfg.DisableCache = true // BYOK: isolate per-user
 	if p.cfg != nil {
-		aiCfg.Model = p.cfg.OpenAIModel
+		model := p.cfg.OpenAIConvertModel
+		if model == "" {
+			model = p.cfg.OpenAIModel
+		}
+		aiCfg.Model = model
 		aiCfg.RequestTimeout = p.cfg.AIRequestTimeout
 		aiCfg.MaxRetries = p.cfg.AIMaxRetries
 		aiCfg.CacheTTL = p.cfg.AICacheTTL
 		aiCfg.MaxCacheSize = p.cfg.AIMaxCacheSize
 		aiCfg.RetryBaseDelay = p.cfg.AIRetryBaseDelay
+		aiCfg.MaxCompletionTokens = p.cfg.AIConvertMaxTokens
+		aiCfg.PromptProfile = p.cfg.AIPromptProfile
 	}
 	return ai.NewService(aiCfg)
 }

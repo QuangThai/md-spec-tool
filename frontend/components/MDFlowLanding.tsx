@@ -179,7 +179,7 @@ export default function MDFlowLanding() {
               ))}
               <br />
               <motion.span
-                className="inline-block text-transparent bg-clip-text bg-linear-to-r from-accent-orange via-accent-gold to-white"
+                className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-accent-orange via-accent-gold to-white animate-gradient-shift"
                 variants={{
                   hidden: { opacity: 0, y: 18 },
                   visible: {
@@ -197,7 +197,8 @@ export default function MDFlowLanding() {
                 Technical{" "}
               </motion.span>
               <motion.span
-                className="inline-block text-transparent bg-clip-text bg-linear-to-r from-accent-orange via-accent-gold to-white"
+                className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-accent-orange via-accent-gold to-white animate-gradient-shift"
+                style={{ animationDelay: "0.5s" }}
                 variants={{
                   hidden: { opacity: 0, y: 18 },
                   visible: {
@@ -224,24 +225,25 @@ export default function MDFlowLanding() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 pt-6 sm:pt-10 lg:pt-12">
             <Link href="/studio">
               <motion.button
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className="btn-primary px-6 sm:px-10 lg:px-12 h-11 sm:h-14 lg:h-16 text-sm sm:text-base group relative overflow-hidden cursor-pointer"
+                whileHover={{ scale: 1.05, y: -3 }}
+                whileTap={{ scale: 0.95 }}
+                className="btn-primary px-6 sm:px-10 lg:px-12 h-11 sm:h-14 lg:h-16 text-sm sm:text-base group relative overflow-hidden cursor-pointer shadow-lg shadow-accent-orange/30 hover:shadow-xl hover:shadow-accent-orange/50 transition-shadow duration-300"
               >
                 <span className="relative z-10 flex items-center gap-2 sm:gap-3">
                   Launch Studio
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover:translate-x-1" />
                 </span>
-                <div className="absolute inset-0 bg-linear-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <div className="absolute inset-0 bg-linear-to-r from-white/0 via-white/30 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
               </motion.button>
             </Link>
             <Link href="#features">
               <motion.button
-                whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                className="btn-ghost px-6 sm:px-10 lg:px-12 h-11 sm:h-14 lg:h-16 text-sm sm:text-base border-white/10 group cursor-pointer"
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                className="btn-ghost px-6 sm:px-10 lg:px-12 h-11 sm:h-14 lg:h-16 text-sm sm:text-base border-accent-orange/40 group cursor-pointer hover:border-accent-orange/70 hover:bg-accent-orange/5 transition-all duration-300"
               >
                 View Capabilities
-                <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+                <ChevronRight className="ml-2 w-4 h-4 transition-all duration-300 -translate-x-2 group-hover:translate-x-1 opacity-70 group-hover:opacity-100" />
               </motion.button>
             </Link>
           </div>
@@ -299,8 +301,8 @@ export default function MDFlowLanding() {
               key={i}
               variants={fadeInUpSoft}
               transition={{ duration: 0.85, ease: [0.25, 0.46, 0.45, 0.94] }}
-              whileHover={{ y: -4 }}
-              className="bento-card group p-1 relative overflow-hidden min-h-[200px] sm:min-h-[260px] md:min-h-[280px] lg:h-[320px]"
+              whileHover={{ y: -6, scale: 1.02 }}
+              className="bento-card group p-1 relative overflow-hidden min-h-[200px] sm:min-h-[260px] md:min-h-[280px] lg:h-[320px] hover:shadow-xl hover:shadow-accent-orange/20 transition-shadow duration-300"
             >
               <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent" />
               <div className="relative px-2.5 sm:px-5 lg:px-8 pt-2.5 sm:pt-5 lg:pt-8 pb-5 sm:pb-8 lg:pb-10 h-full flex flex-col z-10">

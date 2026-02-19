@@ -44,9 +44,10 @@ func parseOptionalFormBool(c *gin.Context, field string) (*bool, error) {
 
 // ConvertHandler handles conversion endpoints (Paste, TSV, XLSX)
 type ConvertHandler struct {
-	converter *converter.Converter
-	cfg       *config.Config
-	byokCache *AIServiceProvider
+	converter    *converter.Converter
+	cfg          *config.Config
+	byokCache    *AIServiceProvider
+	quotaHandler *QuotaHandler
 }
 
 // NewConvertHandler creates a new ConvertHandler
@@ -61,10 +62,16 @@ func NewConvertHandler(conv *converter.Converter, cfg *config.Config, byokCache 
 		byokCache = NewAIServiceProvider(cfg)
 	}
 	return &ConvertHandler{
-		converter: conv,
-		cfg:       cfg,
-		byokCache: byokCache,
+		converter:    conv,
+		cfg:          cfg,
+		byokCache:    byokCache,
+		quotaHandler: nil, // Set via SetQuotaHandler
 	}
+}
+
+// SetQuotaHandler sets the quota handler for token tracking
+func (h *ConvertHandler) SetQuotaHandler(qh *QuotaHandler) {
+	h.quotaHandler = qh
 }
 
 // ConvertPaste handles POST /api/mdflow/paste
@@ -162,12 +169,16 @@ func (h *ConvertHandler) ConvertPaste(c *gin.Context) {
 
 	slog.Info("mdflow.ConvertPaste ai", "ai_mode", result.Meta.AIMode, "ai_used", result.Meta.AIUsed, "ai_confidence", result.Meta.AIAvgConfidence)
 
+	// Track token usage for quota enforcement (input + output tokens)
+	h.recordTokenUsage(c, result.Meta)
+
 	c.JSON(http.StatusOK, MDFlowConvertResponse{
-		MDFlow:   result.MDFlow,
-		Warnings: warnings,
-		Meta:     result.Meta,
-		Format:   req.Format,
-		Template: req.Template,
+		MDFlow:      result.MDFlow,
+		Warnings:    warnings,
+		Meta:        result.Meta,
+		Format:      req.Format,
+		Template:    req.Template,
+		NeedsReview: RequiresReview(result.Meta, warnings),
 	})
 }
 
@@ -294,12 +305,16 @@ func (h *ConvertHandler) ConvertXLSX(c *gin.Context) {
 
 	slog.Info("mdflow.ConvertXLSX ai", "ai_mode", result.Meta.AIMode, "ai_used", result.Meta.AIUsed, "ai_confidence", result.Meta.AIAvgConfidence)
 
+	// Track token usage for quota enforcement
+	h.recordTokenUsage(c, result.Meta)
+
 	c.JSON(http.StatusOK, MDFlowConvertResponse{
-		MDFlow:   result.MDFlow,
-		Warnings: result.Warnings,
-		Meta:     result.Meta,
-		Format:   format,
-		Template: template,
+		MDFlow:      result.MDFlow,
+		Warnings:    result.Warnings,
+		Meta:        result.Meta,
+		Format:      format,
+		Template:    template,
+		NeedsReview: RequiresReview(result.Meta, result.Warnings),
 	})
 }
 
@@ -384,12 +399,16 @@ func (h *ConvertHandler) ConvertTSV(c *gin.Context) {
 		return
 	}
 
+	// Track token usage for quota enforcement
+	h.recordTokenUsage(c, result.Meta)
+
 	c.JSON(http.StatusOK, MDFlowConvertResponse{
-		MDFlow:   result.MDFlow,
-		Warnings: result.Warnings,
-		Meta:     result.Meta,
-		Format:   format,
-		Template: template,
+		MDFlow:      result.MDFlow,
+		Warnings:    result.Warnings,
+		Meta:        result.Meta,
+		Format:      format,
+		Template:    template,
+		NeedsReview: RequiresReview(result.Meta, result.Warnings),
 	})
 }
 
@@ -474,6 +493,39 @@ func (h *ConvertHandler) GetXLSXSheets(c *gin.Context) {
 		Sheets:      sheets,
 		ActiveSheet: activeSheet,
 	})
+}
+
+// recordTokenUsage tracks conversion count and AI token usage for quota enforcement.
+// It also stores AI metadata in gin context so APITelemetryEvents middleware can include it.
+func (h *ConvertHandler) recordTokenUsage(c *gin.Context, meta converter.SpecDocMeta) {
+	// Store AI metadata in context for telemetry middleware
+	c.Set("ai_model", meta.AIModel)
+	c.Set("ai_estimated_cost_usd", meta.AIEstimatedCostUSD)
+	c.Set("ai_input_tokens", int64(meta.AIEstimatedInputTokens))
+	c.Set("ai_output_tokens", int64(meta.AIEstimatedOutputTokens))
+
+	if h.quotaHandler == nil {
+		slog.Warn("recordTokenUsage: quotaHandler is nil, skipping quota recording")
+		return
+	}
+
+	sessionID := c.GetString("session_id")
+	if sessionID == "" {
+		slog.Warn("recordTokenUsage: session_id is empty, skipping quota recording")
+		return
+	}
+
+	totalTokens := int64(meta.AIEstimatedInputTokens + meta.AIEstimatedOutputTokens)
+	slog.Info("recordTokenUsage",
+		"session_id", sessionID,
+		"input_tokens", meta.AIEstimatedInputTokens,
+		"output_tokens", meta.AIEstimatedOutputTokens,
+		"total_tokens", totalTokens,
+		"ai_used", meta.AIUsed,
+	)
+	if err := h.quotaHandler.RecordConversion(c.Request.Context(), sessionID, totalTokens); err != nil {
+		slog.Warn("failed to record conversion usage", "session_id", sessionID, "tokens", totalTokens, "error", err)
+	}
 }
 
 func hasValidationRules(rules *converter.ValidationRules) bool {

@@ -21,14 +21,22 @@ func RequestID() gin.HandlerFunc {
 		requestID := generateRequestID()
 		c.Writer.Header().Set(RequestIDHeader, requestID)
 		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), RequestIDContextKey, requestID))
-		
-		// Add request ID to structured logging
-		slog.With("request_id", requestID).Info("request started",
+
+		startedAt := time.Now()
+		logger := slog.With("request_id", requestID)
+		logger.Info("request started",
 			"method", c.Request.Method,
 			"path", c.Request.URL.Path,
 		)
-		
+
 		c.Next()
+
+		logger.Info("request completed",
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+			"status", c.Writer.Status(),
+			"duration_ms", time.Since(startedAt).Milliseconds(),
+		)
 	}
 }
 

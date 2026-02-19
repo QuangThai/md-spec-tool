@@ -3,12 +3,67 @@
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePublicShares } from "@/hooks/usePublicShares";
 import { motion } from "framer-motion";
-import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowRight, ExternalLink, Sparkles, Copy, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+interface CloneShare {
+  slug: string;
+  title: string;
+  template?: string;
+}
 
 export default function GalleryPageClient() {
   const { items, loading, error } = usePublicShares();
   const shareCount = items.length;
+  const router = useRouter();
+  const [cloneModal, setCloneModal] = useState<CloneShare | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [cloning, setCloning] = useState(false);
+  const [cloneError, setCloneError] = useState("");
+
+  const handleClone = async () => {
+    if (!cloneModal) return;
+    
+    setCloning(true);
+    setCloneError("");
+    
+    try {
+      const response = await fetch("/api/mdflow/clone-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_share_slug: cloneModal.slug,
+          new_title: newTitle || cloneModal.title,
+          source_template: cloneModal.template,
+        }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Clone failed (${response.status})`);
+      }
+      
+      const data = await response.json();
+      // Track clone event in telemetry
+      if (typeof window !== "undefined" && (window as any).gtag) {
+        (window as any).gtag("event", "template_cloned", {
+          source_slug: cloneModal.slug,
+          new_slug: data.slug,
+        });
+      }
+      
+      setCloneModal(null);
+      setNewTitle("");
+      // Redirect to new share
+      router.push(data.redirect_url);
+    } catch (err) {
+      setCloneError(err instanceof Error ? err.message : "Clone failed");
+    } finally {
+      setCloning(false);
+    }
+  };
 
   return (
     <div className="min-h-[70vh] space-y-8">
@@ -106,15 +161,29 @@ export default function GalleryPageClient() {
               <h3 className="text-sm font-bold text-white group-hover:text-white/90">
                 {item.title || "Untitled Spec"}
               </h3>
-              <div className="flex items-center justify-between mt-auto">
+              <div className="flex items-center justify-between mt-auto gap-2 flex-wrap">
                 <span className="text-[10px] text-white/40">Link-only</span>
-                <Link
-                  href={`/s/${item.slug}`}
-                  className="flex items-center gap-2 text-xs font-semibold text-accent-orange hover:text-accent-orange/90"
-                >
-                  View Spec
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setCloneModal({ slug: item.slug, title: item.title, template: item.template });
+                      setNewTitle("");
+                      setCloneError("");
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-accent-orange hover:text-accent-orange/90 transition-colors"
+                    title="Clone this template"
+                  >
+                    Clone
+                    <Copy className="w-3 h-3" />
+                  </button>
+                  <Link
+                    href={`/s/${item.slug}`}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-accent-orange hover:text-accent-orange/90"
+                  >
+                    View
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             </motion.div>
           ))}
@@ -133,6 +202,74 @@ export default function GalleryPageClient() {
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
+      )}
+
+      {/* Clone Modal */}
+      {cloneModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => !cloning && setCloneModal(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-black/80 border border-white/20 rounded-2xl p-6 max-w-md w-full space-y-4"
+          >
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-white">Clone Template</h2>
+              <p className="text-sm text-white/60">
+                Create a copy of "{cloneModal.title}" to edit in your studio
+              </p>
+            </div>
+
+            {cloneError && (
+              <div className="flex items-start gap-3 rounded-lg bg-red-500/15 border border-red-500/30 p-3">
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-red-300">{cloneError}</p>
+              </div>
+            )}
+
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder={cloneModal.title}
+              disabled={cloning}
+              className="w-full px-3 py-2 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder-white/40 focus:outline-none focus:border-accent-orange/50 focus:bg-white/12 disabled:opacity-50"
+            />
+
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={handleClone}
+                disabled={cloning}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-orange px-4 py-2.5 text-sm font-bold text-white hover:bg-accent-orange/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+              >
+                {cloning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Cloning...
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    Clone Now
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => !cloning && setCloneModal(null)}
+                disabled={cloning}
+                className="w-full rounded-lg bg-white/8 border border-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/12 disabled:opacity-50 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

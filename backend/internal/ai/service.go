@@ -29,6 +29,7 @@ type Service interface {
 	SummarizeDiff(ctx context.Context, req SummarizeDiffRequest) (*DiffSummary, error)
 	ValidateSemantic(ctx context.Context, req SemanticValidationRequest) (*SemanticValidationResult, error)
 	GetMode() string // Returns "on" when service is active
+	GetModel() string
 }
 
 // SummarizeDiffRequest is the input for diff summarization
@@ -72,25 +73,29 @@ type SemanticIssue struct {
 
 // Config holds service configuration
 type Config struct {
-	Model          string        // OpenAI model name (e.g., "gpt-4o-mini")
-	CacheTTL       time.Duration // Cache time-to-live
-	MaxCacheSize   int           // Maximum cache entries
-	RequestTimeout time.Duration // Timeout for individual requests
-	MaxRetries     int           // Number of retry attempts
-	APIKey         string        // OpenAI API key (required)
-	RetryBaseDelay time.Duration // Base delay between retries
-	DisableCache   bool          // When true (BYOK), skip cache to avoid cross-user pollution
+	Model               string        // OpenAI model name (e.g., "gpt-4o-mini")
+	PromptProfile       string        // Prompt profile: static_v3 (default) or legacy_v2
+	CacheTTL            time.Duration // Cache time-to-live
+	MaxCacheSize        int           // Maximum cache entries
+	RequestTimeout      time.Duration // Timeout for individual requests
+	MaxRetries          int           // Number of retry attempts
+	APIKey              string        // OpenAI API key (required)
+	RetryBaseDelay      time.Duration // Base delay between retries
+	DisableCache        bool          // When true (BYOK), skip cache to avoid cross-user pollution
+	MaxCompletionTokens int           // Guardrail: maximum completion tokens per request
 }
 
 // DefaultConfig returns default configuration
 func DefaultConfig() Config {
 	return Config{
-		Model:          "gpt-4o-mini",
-		CacheTTL:       1 * time.Hour,
-		MaxCacheSize:   1000,
-		RequestTimeout: 120 * time.Second,
-		MaxRetries:     3,
-		RetryBaseDelay: 1 * time.Second,
+		Model:               "gpt-4o-mini",
+		PromptProfile:       PromptProfileStaticV3,
+		CacheTTL:            1 * time.Hour,
+		MaxCacheSize:        1000,
+		RequestTimeout:      120 * time.Second,
+		MaxRetries:          3,
+		RetryBaseDelay:      1 * time.Second,
+		MaxCompletionTokens: 1200,
 	}
 }
 
@@ -102,11 +107,12 @@ type AnalyzePasteRequest struct {
 
 // ServiceImpl implements the Service interface
 type ServiceImpl struct {
-	client      *Client
-	cache       *Cache
-	validator   *Validator
-	model       string
-	disableCache bool // BYOK: skip cache to isolate per-user results
+	client        *Client
+	cache         *Cache
+	validator     *Validator
+	model         string
+	promptProfile string
+	disableCache  bool // BYOK: skip cache to isolate per-user results
 }
 
 // NewService creates a new AI service instance
@@ -117,11 +123,12 @@ func NewService(config Config) (*ServiceImpl, error) {
 	}
 
 	return &ServiceImpl{
-		client:       client,
-		cache:        NewCache(config.MaxCacheSize, config.CacheTTL),
-		validator:    NewValidator(),
-		model:        config.Model,
-		disableCache: config.DisableCache,
+		client:        client,
+		cache:         NewCache(config.MaxCacheSize, config.CacheTTL),
+		validator:     NewValidator(),
+		model:         config.Model,
+		promptProfile: NormalizePromptProfile(config.PromptProfile),
+		disableCache:  config.DisableCache,
 	}, nil
 }
 
@@ -130,12 +137,16 @@ func (s *ServiceImpl) GetMode() string {
 	return "on"
 }
 
+func (s *ServiceImpl) GetModel() string {
+	return s.model
+}
+
 // MapColumns maps source headers to canonical fields
 func (s *ServiceImpl) MapColumns(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, error) {
 	var cacheKey string
 	if !s.disableCache {
 		var err error
-		cacheKey, err = MakeCacheKey(CacheKeyScopeMapColumns, s.model, PromptVersionColumnMapping, SchemaVersionColumnMapping, req)
+		cacheKey, err = MakeCacheKey(CacheKeyScopeMapColumns, s.model, ColumnMappingPromptVersion(s.promptProfile), SchemaVersionColumnMapping, req)
 		if err == nil {
 			if cached, ok := s.cache.Get(cacheKey); ok {
 				return cached.(*ColumnMappingResult), nil
@@ -197,7 +208,7 @@ func (s *ServiceImpl) GetSuggestions(ctx context.Context, req SuggestionsRequest
 	var cacheKey string
 	if !s.disableCache {
 		var err error
-		cacheKey, err = MakeCacheKey(CacheKeyScopeSuggestions, s.model, PromptVersionSuggestions, SchemaVersionSuggestions, req)
+		cacheKey, err = MakeCacheKey(CacheKeyScopeSuggestions, s.model, SuggestionsPromptVersion(s.promptProfile), SchemaVersionSuggestions, req)
 		if err == nil {
 			if cached, ok := s.cache.Get(cacheKey); ok {
 				return cached.(*SuggestionsResult), nil

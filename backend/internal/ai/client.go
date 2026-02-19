@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/openai/openai-go/v3"
@@ -31,11 +32,12 @@ const (
 
 // Client wraps the OpenAI API with structured output support
 type Client struct {
-	client     openai.Client
-	model      string
-	config     Config
-	maxRetries int
-	retryDelay time.Duration
+	client        openai.Client
+	model         string
+	config        Config
+	promptProfile string
+	maxRetries    int
+	retryDelay    time.Duration
 }
 
 // NewClient creates a new OpenAI client
@@ -60,6 +62,10 @@ func NewClient(config Config) (*Client, error) {
 	if config.RetryBaseDelay <= 0 {
 		config.RetryBaseDelay = defaults.RetryBaseDelay
 	}
+	if config.PromptProfile == "" {
+		config.PromptProfile = os.Getenv("AI_PROMPT_PROFILE")
+	}
+	config.PromptProfile = NormalizePromptProfile(config.PromptProfile)
 
 	var clientOpts []option.RequestOption
 	clientOpts = append(clientOpts, option.WithAPIKey(apiKey))
@@ -67,17 +73,18 @@ func NewClient(config Config) (*Client, error) {
 	client := openai.NewClient(clientOpts...)
 
 	return &Client{
-		client:     client,
-		model:      config.Model,
-		config:     config,
-		maxRetries: config.MaxRetries,
-		retryDelay: config.RetryBaseDelay,
+		client:        client,
+		model:         config.Model,
+		config:        config,
+		promptProfile: config.PromptProfile,
+		maxRetries:    config.MaxRetries,
+		retryDelay:    config.RetryBaseDelay,
 	}, nil
 }
 
 // MapColumns performs column header mapping with structured output
 func (c *Client) MapColumns(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, error) {
-	userContent := formatMapColumnsPrompt(req)
+	userContent := formatMapColumnsPrompt(req, c.promptProfile)
 	result := &ColumnMappingResult{}
 
 	// Build JSON schema for structured output
@@ -99,7 +106,7 @@ func (c *Client) MapColumns(ctx context.Context, req MapColumnsRequest) (*Column
 // RefineMapping performs a refinement pass on column mappings using additional context
 func (c *Client) RefineMapping(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, error) {
 	// Build refinement prompt that emphasizes the refinement context
-	userContent := formatRefineMappingPrompt(req)
+	userContent := formatRefineMappingPrompt(req, c.promptProfile)
 	result := &ColumnMappingResult{}
 
 	// Build JSON schema for structured output
@@ -123,7 +130,7 @@ func (c *Client) RefineMapping(ctx context.Context, req MapColumnsRequest) (*Col
 
 // AnalyzePaste analyzes pasted content with structured output
 func (c *Client) AnalyzePaste(ctx context.Context, req AnalyzePasteRequest) (*PasteAnalysis, error) {
-	userContent := formatAnalyzePastePrompt(req)
+	userContent := formatAnalyzePastePrompt(req, c.promptProfile)
 	result := &PasteAnalysis{}
 
 	// Build JSON schema for structured output
@@ -184,8 +191,9 @@ func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent s
 			}
 
 			resp, err := c.client.Chat.Completions.New(reqCtx, openai.ChatCompletionNewParams{
-				Model:    openai.ChatModel(c.model),
-				Messages: messages,
+				Model:               openai.ChatModel(c.model),
+				Messages:            messages,
+				MaxCompletionTokens: openai.Int(int64(c.config.MaxCompletionTokens)),
 				ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
 					OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
 						JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
@@ -488,7 +496,14 @@ func (c *Client) buildPasteAnalysisSchema() interface{} {
 }
 
 // formatMapColumnsPrompt formats the user prompt for column mapping
-func formatMapColumnsPrompt(req MapColumnsRequest) string {
+func formatMapColumnsPrompt(req MapColumnsRequest, profile string) string {
+	if NormalizePromptProfile(profile) == PromptProfileLegacyV2 {
+		return formatMapColumnsPromptLegacy(req)
+	}
+	return formatMapColumnsPromptStatic(req)
+}
+
+func formatMapColumnsPromptLegacy(req MapColumnsRequest) string {
 	prompt := fmt.Sprintf(`Analyze the following spreadsheet headers and map them to canonical fields for software specifications.
 
 Headers: %v
@@ -539,7 +554,14 @@ Headers: %v
 }
 
 // formatRefineMappingPrompt formats the user prompt for refinement pass
-func formatRefineMappingPrompt(req MapColumnsRequest) string {
+func formatRefineMappingPrompt(req MapColumnsRequest, profile string) string {
+	if NormalizePromptProfile(profile) == PromptProfileLegacyV2 {
+		return formatRefineMappingPromptLegacy(req)
+	}
+	return formatRefineMappingPromptStatic(req)
+}
+
+func formatRefineMappingPromptLegacy(req MapColumnsRequest) string {
 	prompt := fmt.Sprintf(`This is a REFINEMENT PASS on a previous column mapping.
 
 Headers: %v
@@ -584,8 +606,83 @@ Headers: %v
 	return prompt
 }
 
+func formatMapColumnsPromptStatic(req MapColumnsRequest) string {
+	var b strings.Builder
+	b.WriteString("TASK: map spreadsheet columns to canonical fields for software specifications.\n")
+	b.WriteString("OUTPUT CONTRACT:\n")
+	b.WriteString("- Return strict JSON that matches ColumnMappingResult schema.\n")
+	b.WriteString("- Use 0-based column_index only.\n")
+	b.WriteString("- If confidence < 0.4, move field to extra_columns.\n")
+	b.WriteString("- Prefer extra_columns over risky mappings when ambiguous.\n")
+	b.WriteString("\nINPUT CONTEXT:\n")
+	b.WriteString(fmt.Sprintf("headers=%v\n", req.Headers))
+	if req.FileType != "" {
+		b.WriteString(fmt.Sprintf("file_type=%s\n", req.FileType))
+	}
+
+	sourceLang := req.SourceLang
+	if sourceLang == "" {
+		sourceLang = req.Language
+	}
+	if sourceLang != "" {
+		b.WriteString(fmt.Sprintf("source_lang=%s\n", sourceLang))
+	}
+	if req.SchemaHint != "" && req.SchemaHint != "auto" {
+		b.WriteString(fmt.Sprintf("schema_hint=%s\n", req.SchemaHint))
+	}
+
+	b.WriteString("\nSAMPLE_ROWS:\n")
+	if len(req.SampleRows) == 0 {
+		b.WriteString("- (none)\n")
+	} else {
+		for i, row := range req.SampleRows {
+			b.WriteString(fmt.Sprintf("- row_%d=%v\n", i+1, row))
+		}
+	}
+	return b.String()
+}
+
+func formatRefineMappingPromptStatic(req MapColumnsRequest) string {
+	var b strings.Builder
+	b.WriteString("TASK: refine a previous low-confidence column mapping.\n")
+	b.WriteString("OUTPUT CONTRACT:\n")
+	b.WriteString("- Return strict JSON that matches ColumnMappingResult schema.\n")
+	b.WriteString("- Re-evaluate all fields conservatively.\n")
+	b.WriteString("- If confidence < 0.4, move field to extra_columns.\n")
+
+	if req.RefinementContext != "" {
+		b.WriteString("\nREFINEMENT_CONTEXT:\n")
+		b.WriteString(req.RefinementContext)
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\nINPUT CONTEXT:\n")
+	b.WriteString(fmt.Sprintf("headers=%v\n", req.Headers))
+	sourceLang := req.SourceLang
+	if sourceLang == "" {
+		sourceLang = req.Language
+	}
+	if sourceLang != "" {
+		b.WriteString(fmt.Sprintf("source_lang=%s\n", sourceLang))
+	}
+	if req.SchemaHint != "" && req.SchemaHint != "auto" {
+		b.WriteString(fmt.Sprintf("schema_hint=%s\n", req.SchemaHint))
+	}
+
+	b.WriteString("\nSAMPLE_ROWS:\n")
+	if len(req.SampleRows) == 0 {
+		b.WriteString("- (none)\n")
+	} else {
+		for i, row := range req.SampleRows {
+			b.WriteString(fmt.Sprintf("- row_%d=%v\n", i+1, row))
+		}
+	}
+
+	return b.String()
+}
+
 // formatAnalyzePastePrompt formats the user prompt for paste analysis
-func formatAnalyzePastePrompt(req AnalyzePasteRequest) string {
+func formatAnalyzePastePrompt(req AnalyzePasteRequest, profile string) string {
 	content := req.Content
 	if len(content) > 2000 {
 		content = content[:2000] + "\n... (truncated)"
@@ -601,7 +698,7 @@ Return the analysis as JSON following the PasteAnalysis schema.`, content)
 
 // GetSuggestions analyzes spec content and returns improvement suggestions
 func (c *Client) GetSuggestions(ctx context.Context, req SuggestionsRequest) (*SuggestionsResult, error) {
-	userContent := formatSuggestionsPrompt(req)
+	userContent := formatSuggestionsPrompt(req, c.promptProfile)
 	result := &SuggestionsResult{}
 
 	// Build JSON schema for structured output
@@ -649,7 +746,14 @@ func (c *Client) GetSuggestions(ctx context.Context, req SuggestionsRequest) (*S
 }
 
 // formatSuggestionsPrompt formats the user prompt for suggestions
-func formatSuggestionsPrompt(req SuggestionsRequest) string {
+func formatSuggestionsPrompt(req SuggestionsRequest, profile string) string {
+	if NormalizePromptProfile(profile) == PromptProfileLegacyV2 {
+		return formatSuggestionsPromptLegacy(req)
+	}
+	return formatSuggestionsPromptStatic(req)
+}
+
+func formatSuggestionsPromptLegacy(req SuggestionsRequest) string {
 	content := req.SpecContent
 	if len(content) > MaxSuggestionsContentBytes {
 		content = content[:MaxSuggestionsContentBytes] + "\n... (truncated)"
@@ -665,6 +769,27 @@ Spec Content:
 
 Return the analysis as JSON with a "suggestions" array following the SuggestionsResult schema.`,
 		req.Template, req.RowCount, content)
+}
+
+func formatSuggestionsPromptStatic(req SuggestionsRequest) string {
+	content := req.SpecContent
+	if len(content) > MaxSuggestionsContentBytes {
+		content = content[:MaxSuggestionsContentBytes] + "\n... (truncated)"
+	}
+
+	return fmt.Sprintf(`TASK: review specification quality and return JSON suggestions.
+OUTPUT CONTRACT:
+- suggestions[].type must be one of: missing_field, vague_description, incomplete_steps, formatting, coverage
+- suggestions[].severity must be one of: info, warn, error
+- Keep suggestions concrete and actionable
+
+INPUT CONTEXT:
+template=%s
+row_count=%d
+
+SPEC_CONTENT:
+%s
+`, req.Template, req.RowCount, content)
 }
 
 // buildSuggestionsSchema builds the JSON schema for suggestions results
@@ -689,12 +814,17 @@ func (c *Client) buildSuggestionsSchema() interface{} {
 							"type": "string",
 							"enum": []string{"info", "warn", "error"},
 						},
-						"message":    map[string]interface{}{"type": "string"},
-						"row_ref":    map[string]interface{}{"type": "integer", "minimum": 1},
-						"field":      map[string]interface{}{"type": "string"},
+						"message": map[string]interface{}{"type": "string"},
+						"row_ref": map[string]interface{}{
+							"type":    []string{"integer", "null"},
+							"minimum": 1,
+						},
+						"field": map[string]interface{}{
+							"type": []string{"string", "null"},
+						},
 						"suggestion": map[string]interface{}{"type": "string"},
 					},
-					"required":             []string{"type", "severity", "message", "suggestion"},
+					"required":             []string{"type", "severity", "message", "row_ref", "field", "suggestion"},
 					"additionalProperties": false,
 				},
 			},

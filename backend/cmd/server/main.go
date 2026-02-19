@@ -13,6 +13,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/yourorg/md-spec-tool/internal/config"
 	httphandler "github.com/yourorg/md-spec-tool/internal/http"
+	"github.com/yourorg/md-spec-tool/internal/http/middleware"
 )
 
 func main() {
@@ -28,6 +29,8 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Info("Starting server", "host", cfg.Host, "port", cfg.Port, "ai_enabled", cfg.AIEnabled)
+
+	middleware.SetMaxTelemetryEvents(cfg.TelemetryMaxEvents)
 
 	// Setup router (returns router and cleanup function)
 	router, cleanup := httphandler.SetupRouterWithCleanup(cfg)

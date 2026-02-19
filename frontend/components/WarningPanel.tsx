@@ -55,10 +55,10 @@ const severityConfig = {
 // Category labels
 const categoryLabels: Record<string, string> = {
   input: "Input",
-  detect: "Detection",
+  detect: "Input Detection",
   header: "Header",
   mapping: "Mapping",
-  rows: "Rows",
+  rows: "Data Rows",
   render: "Render",
 };
 
@@ -301,10 +301,24 @@ export function WarningPanel({ warnings, onApplyFix }: WarningPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   // Filter out dismissed warnings
-  const visibleWarnings = useMemo(
-    () => warnings.filter((w) => !dismissedWarningCodes[w.code]),
-    [warnings, dismissedWarningCodes]
-  );
+  const visibleWarnings = useMemo(() => {
+    const severityRank: Record<string, number> = {
+      error: 0,
+      warn: 1,
+      info: 2,
+    };
+    return warnings
+      .filter((w) => !dismissedWarningCodes[w.code])
+      .sort((a, b) => {
+        const rankDiff =
+          (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99);
+        if (rankDiff !== 0) return rankDiff;
+        if (a.category !== b.category) {
+          return (a.category || "").localeCompare(b.category || "");
+        }
+        return (a.code || "").localeCompare(b.code || "");
+      });
+  }, [warnings, dismissedWarningCodes]);
 
   // Group by severity for summary
   const severityCounts = useMemo(() => {

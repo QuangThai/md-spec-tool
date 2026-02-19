@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/yourorg/md-spec-tool/internal/ai"
 	"github.com/yourorg/md-spec-tool/internal/converter"
 	"github.com/yourorg/md-spec-tool/internal/suggest"
 )
@@ -19,9 +20,11 @@ type AISuggestRequest struct {
 
 // AISuggestResponse represents the AI suggestions response
 type AISuggestResponse struct {
-	Suggestions []suggest.AISuggestion `json:"suggestions"`
-	Error       string                 `json:"error,omitempty"`
-	Configured  bool                   `json:"configured"`
+	Suggestions     []suggest.AISuggestion `json:"suggestions"`
+	Error           string                 `json:"error,omitempty"`
+	Configured      bool                   `json:"configured"`
+	AIModel         string                 `json:"ai_model,omitempty"`
+	AIPromptVersion string                 `json:"ai_prompt_version,omitempty"`
 }
 
 // GetAISuggestions handles POST /api/mdflow/ai/suggest
@@ -30,12 +33,19 @@ type AISuggestResponse struct {
 func (h *MDFlowHandler) GetAISuggestions(c *gin.Context) {
 	// Get suggester for this request (BYOK-aware)
 	suggester := h.getSuggesterForRequest(c)
+	aiService := h.getAIServiceForRequest(c)
+	aiModel := ""
+	if aiService != nil {
+		aiModel = aiService.GetModel()
+	}
 
 	if suggester == nil || !suggester.IsConfigured() {
 		c.JSON(http.StatusOK, AISuggestResponse{
-			Suggestions: []suggest.AISuggestion{},
-			Error:       "OpenAI API key not configured. Add your key in Studio settings.",
-			Configured:  false,
+			Suggestions:     []suggest.AISuggestion{},
+			Error:           "OpenAI API key not configured. Add your key in Studio settings.",
+			Configured:      false,
+			AIModel:         aiModel,
+			AIPromptVersion: ai.PromptVersionSuggestions,
 		})
 		return
 	}
@@ -90,15 +100,19 @@ func (h *MDFlowHandler) GetAISuggestions(c *gin.Context) {
 
 	if resp.Error != "" {
 		c.JSON(http.StatusOK, AISuggestResponse{
-			Suggestions: []suggest.AISuggestion{},
-			Error:       resp.Error,
-			Configured:  true,
+			Suggestions:     []suggest.AISuggestion{},
+			Error:           resp.Error,
+			Configured:      true,
+			AIModel:         aiModel,
+			AIPromptVersion: ai.PromptVersionSuggestions,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, AISuggestResponse{
-		Suggestions: resp.Suggestions,
-		Configured:  true,
+		Suggestions:     resp.Suggestions,
+		Configured:      true,
+		AIModel:         aiModel,
+		AIPromptVersion: ai.PromptVersionSuggestions,
 	})
 }

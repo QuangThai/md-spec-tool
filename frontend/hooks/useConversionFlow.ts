@@ -71,55 +71,55 @@ export function useConversionFlow({
     try {
       let result;
 
-        if (mode === "paste") {
-          const trimmedPaste = pasteText.trim();
-          if (isGoogleSheetsURL(trimmedPaste)) {
-            // Google Sheets URL
-            result = await convertGoogleSheetMutation.mutateAsync({
-              url: trimmedPaste,
-              template,
-              gid: selectedGid,
-              columnOverrides,
-            });
-          } else {
-            // Paste TSV/CSV
-            result = await convertPasteMutation.mutateAsync({
-              pasteText,
-              template,
-              columnOverrides,
-            });
-          }
-        } else if (mode === "xlsx" && file) {
-          result = await convertXLSXMutation.mutateAsync({
-            file,
-            sheetName: selectedSheet,
+      if (mode === "paste") {
+        const trimmedPaste = pasteText.trim();
+        if (isGoogleSheetsURL(trimmedPaste)) {
+          // Google Sheets URL
+          result = await convertGoogleSheetMutation.mutateAsync({
+            url: trimmedPaste,
             template,
-            columnOverrides,
-          });
-        } else if (mode === "tsv" && file) {
-          result = await convertTSVMutation.mutateAsync({
-            file,
-            template,
+            gid: selectedGid,
             columnOverrides,
           });
         } else {
-          setError("No input provided");
-          setLoading(false);
-          return;
-        }
-
-        if (result) {
-          setResult(result.mdflow, result.warnings || [], result.meta || null);
-
-          // Add to history
-          addToHistory({
-            mode,
-            inputPreview: mode === "paste" ? pasteText.substring(0, 100) : file?.name || "file",
+          // Paste TSV/CSV
+          result = await convertPasteMutation.mutateAsync({
+            pasteText,
             template,
-            output: result.mdflow,
-            meta: result.meta || null,
+            columnOverrides,
           });
         }
+      } else if (mode === "xlsx" && file) {
+        result = await convertXLSXMutation.mutateAsync({
+          file,
+          sheetName: selectedSheet,
+          template,
+          columnOverrides,
+        });
+      } else if (mode === "tsv" && file) {
+        result = await convertTSVMutation.mutateAsync({
+          file,
+          template,
+          columnOverrides,
+        });
+      } else {
+        setError("No input provided");
+        setLoading(false);
+        return;
+      }
+
+      if (result) {
+        setResult(result.mdflow, result.warnings || [], result.meta || null);
+
+        // Add to history
+        addToHistory({
+          mode,
+          inputPreview: mode === "paste" ? pasteText.substring(0, 100) : file?.name || "file",
+          template,
+          output: result.mdflow,
+          meta: result.meta || null,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversion failed");
     } finally {
@@ -128,7 +128,7 @@ export function useConversionFlow({
   }, [
     mode,
     pasteText,
-    file,
+    file?.name, // ✅ Use derived primitive instead of object
     selectedSheet,
     selectedGid,
     template,
@@ -136,10 +136,7 @@ export function useConversionFlow({
     setLoading,
     setError,
     addToHistory,
-    convertGoogleSheetMutation,
-    convertPasteMutation,
-    convertTSVMutation,
-    convertXLSXMutation,
+    // ✅ Removed mutation objects from deps - they're stable and called inside
   ]);
 
   const handleDiff = useCallback(

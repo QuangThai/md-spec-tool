@@ -164,6 +164,12 @@ export default function AppShell({ children }: AppShellProps) {
                 >
                   Docs
                 </Link>
+                <Link
+                  href="/dashboard"
+                  className="text-[10px] font-medium uppercase tracking-widest text-white/45 hover:text-white/90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/40 rounded-sm"
+                >
+                  Dashboard
+                </Link>
               </nav>
             </div>
 

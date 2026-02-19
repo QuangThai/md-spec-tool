@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-
-import AudioTranscribeStudio from "@/components/AudioTranscribeStudio";
+import { TranscribePageClient } from "./TranscribePageClient";
 
 export const metadata: Metadata = {
   title: "Transcribe | MDFlow Studio",
@@ -37,5 +36,5 @@ export const metadata: Metadata = {
 };
 
 export default function TranscribePage() {
-  return <AudioTranscribeStudio />;
+  return <TranscribePageClient />;
 }

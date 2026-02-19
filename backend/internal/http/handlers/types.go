@@ -7,20 +7,21 @@ type PasteConvertRequest struct {
 	PasteText       string                     `json:"paste_text" binding:"required"`
 	Template        string                     `json:"template"`
 	Format          string                     `json:"format"`
-	ColumnOverrides map[string]string           `json:"column_overrides,omitempty"`
+	ColumnOverrides map[string]string          `json:"column_overrides,omitempty"`
 	ValidationRules *converter.ValidationRules `json:"validation_rules,omitempty"`
 	// Phase 3: Convert options
 	IncludeMetadata *bool `json:"include_metadata,omitempty"` // default true when nil
-	NumberRows      *bool `json:"number_rows,omitempty"`     // default false when nil
+	NumberRows      *bool `json:"number_rows,omitempty"`      // default false when nil
 }
 
 // Response types for conversion endpoints
 type MDFlowConvertResponse struct {
-	MDFlow   string                `json:"mdflow"`
-	Warnings []converter.Warning   `json:"warnings"`
-	Meta     converter.SpecDocMeta `json:"meta"`
-	Format   string                `json:"format"`
-	Template string                `json:"template"`
+	MDFlow      string                `json:"mdflow"`
+	Warnings    []converter.Warning   `json:"warnings"`
+	Meta        converter.SpecDocMeta `json:"meta"`
+	Format      string                `json:"format"`
+	Template    string                `json:"template"`
+	NeedsReview bool                  `json:"needs_review"`
 }
 
 type InputAnalysisResponse struct {

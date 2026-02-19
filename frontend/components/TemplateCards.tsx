@@ -90,14 +90,14 @@ export const TemplateCards = memo(function TemplateCards({ selected, onSelect, c
           <motion.button
             key={format}
             type="button"
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.03, y: -3 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => onSelect(format)}
             className={`
-              relative group text-left p-4 rounded-xl border transition-all cursor-pointer overflow-hidden
+              relative group text-left p-4 rounded-xl border transition-all duration-300 cursor-pointer overflow-hidden
               ${isSelected
-                ? "bg-accent-orange/10 border-accent-orange/40 shadow-lg shadow-accent-orange/10"
-                : "bg-white/5 border-white/10 hover:bg-white/8 hover:border-white/20"
+                ? "bg-accent-orange/10 border-accent-orange/50 shadow-lg shadow-accent-orange/20 scale-[1.01]"
+                : "bg-white/5 border-white/10 hover:bg-white/8 hover:border-accent-orange/30 hover:shadow-md hover:shadow-accent-orange/10"
               }
             `}
           >
@@ -129,15 +129,19 @@ export const TemplateCards = memo(function TemplateCards({ selected, onSelect, c
             </div>
 
             {/* Preview */}
-            <div className={`
-              mt-3 p-2 rounded-lg bg-black/30 border border-white/5
-              font-mono text-[8px] leading-relaxed overflow-hidden
-              ${isSelected ? "text-white/70" : "text-white/50"}
-            `}>
+            <motion.div
+              className={`
+                mt-3 p-2 rounded-lg bg-black/30 border border-white/5
+                font-mono text-[8px] leading-relaxed overflow-hidden transition-all duration-300
+                ${isSelected ? "text-white/70 border-accent-orange/20 bg-black/50" : "text-white/50 group-hover:border-white/10"}
+              `}
+              animate={{ opacity: isSelected ? 1 : 0.8 }}
+              transition={{ duration: 0.3 }}
+            >
               <pre className="whitespace-pre-wrap line-clamp-6">
                 {meta.preview}
               </pre>
-            </div>
+            </motion.div>
 
             {/* Hover gradient */}
             <div className={`

@@ -2,6 +2,7 @@ package converter
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/yourorg/md-spec-tool/internal/ai"
@@ -15,12 +16,17 @@ const (
 
 // AIMappingMeta captures AI mapping summary for metadata
 type AIMappingMeta struct {
-	Mode            string
-	Used            bool
-	Degraded        bool
-	AvgConfidence   float64
-	MappedColumns   int
-	UnmappedColumns int
+	Mode                  string
+	Used                  bool
+	Degraded              bool
+	Model                 string
+	PromptVersion         string
+	AvgConfidence         float64
+	MappedColumns         int
+	UnmappedColumns       int
+	EstimatedInputTokens  int
+	EstimatedOutputTokens int
+	EstimatedCostUSD      float64
 }
 
 func (c *Converter) resolveColumnMapping(ctx context.Context, headers []string, dataRows [][]string, format string) (ColumnMap, []string, []Warning, *AIMappingMeta) {
@@ -58,6 +64,13 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 	}
 
 	meta.Mode = "on"
+	meta.PromptVersion = ai.PromptVersionColumnMapping
+	meta.Model = c.aiService.GetModel()
+	if meta.Model != "" {
+		// Log prompt/version/model for traceability and eval comparisons.
+		// This is intentionally concise to avoid noisy logs.
+		slog.Info("ai.mapping_profile", "model", meta.Model, "prompt_version", meta.PromptVersion)
+	}
 
 	cleanHeaders := normalizeHeaders(headers)
 	sampleRows := buildSampleRows(dataRows, aiSampleRows)
@@ -89,6 +102,15 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 	meta.AvgConfidence = result.Meta.AvgConfidence
 	meta.MappedColumns = result.Meta.MappedColumns
 	meta.UnmappedColumns = result.Meta.UnmappedColumns
+	inputBuilder := strings.Builder{}
+	inputBuilder.WriteString(strings.Join(cleanHeaders, "\t"))
+	for _, row := range sampleRows {
+		inputBuilder.WriteString("\n")
+		inputBuilder.WriteString(strings.Join(row, "\t"))
+	}
+	meta.EstimatedInputTokens = roughTokenEstimate(inputBuilder.String())
+	meta.EstimatedOutputTokens = max(150, meta.MappedColumns*60)
+	meta.EstimatedCostUSD = estimateAIMappingCostUSD(meta.Model, meta.EstimatedInputTokens, meta.EstimatedOutputTokens)
 
 	colMap, unmapped, mappingWarnings := aiMappingToColumnMap(headers, result)
 
@@ -419,9 +441,14 @@ func applyAIMeta(meta *SpecDocMeta, aiMeta *AIMappingMeta) {
 	meta.AIMode = aiMeta.Mode
 	meta.AIUsed = aiMeta.Used
 	meta.AIDegraded = aiMeta.Degraded
+	meta.AIModel = aiMeta.Model
+	meta.AIPromptVersion = aiMeta.PromptVersion
 	meta.AIAvgConfidence = aiMeta.AvgConfidence
 	meta.AIMappedColumns = aiMeta.MappedColumns
 	meta.AIUnmappedColumns = aiMeta.UnmappedColumns
+	meta.AIEstimatedInputTokens = aiMeta.EstimatedInputTokens
+	meta.AIEstimatedOutputTokens = aiMeta.EstimatedOutputTokens
+	meta.AIEstimatedCostUSD = aiMeta.EstimatedCostUSD
 }
 
 func applyAIMetaToTableMeta(meta *TableMeta, aiMeta *AIMappingMeta) {
@@ -431,9 +458,14 @@ func applyAIMetaToTableMeta(meta *TableMeta, aiMeta *AIMappingMeta) {
 	meta.AIMode = aiMeta.Mode
 	meta.AIUsed = aiMeta.Used
 	meta.AIDegraded = aiMeta.Degraded
+	meta.AIModel = aiMeta.Model
+	meta.AIPromptVersion = aiMeta.PromptVersion
 	meta.AIAvgConfidence = aiMeta.AvgConfidence
 	meta.AIMappedColumns = aiMeta.MappedColumns
 	meta.AIUnmappedColumns = aiMeta.UnmappedColumns
+	meta.AIEstimatedInputTokens = aiMeta.EstimatedInputTokens
+	meta.AIEstimatedOutputTokens = aiMeta.EstimatedOutputTokens
+	meta.AIEstimatedCostUSD = aiMeta.EstimatedCostUSD
 }
 
 func preferAIMapping(candidate *AIMappingMeta, current *AIMappingMeta) bool {

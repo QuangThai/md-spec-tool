@@ -8,6 +8,7 @@ import {
   getAISuggestions,
   getGoogleSheetSheets,
   getMDFlowTemplates,
+  getTelemetryDashboard,
   getTemplateContent,
   getTemplateInfo,
   getXLSXSheets,
@@ -38,6 +39,15 @@ export function useMDFlowTemplatesQuery() {
       });
       return sorted;
     },
+  });
+}
+
+export function useTelemetryDashboardQuery(hours: number = 24, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ["telemetry-dashboard", hours],
+    queryFn: async () => unwrap(await getTelemetryDashboard(hours)),
+    enabled,
+    refetchInterval: 15 * 1000,
   });
 }
 

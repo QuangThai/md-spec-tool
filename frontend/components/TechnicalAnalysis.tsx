@@ -28,6 +28,14 @@ interface TechnicalAnalysisProps {
       mapped_ratio: number;
       core_field_coverage?: Record<string, boolean>;
     };
+    ai_mode?: string;
+    ai_used?: boolean;
+    ai_degraded?: boolean;
+    ai_model?: string;
+    ai_prompt_version?: string;
+    ai_estimated_input_tokens?: number;
+    ai_estimated_output_tokens?: number;
+    ai_estimated_cost_usd?: number;
   } | null;
   warnings: MDFlowWarning[];
   mdflowOutput: string | null;
@@ -35,6 +43,7 @@ interface TechnicalAnalysisProps {
   aiSuggestionsLoading: boolean;
   aiSuggestionsError: string | null;
   aiConfigured: boolean | null;
+  onRetryAISuggestions?: () => void;
 }
 
 /**
@@ -49,8 +58,16 @@ export function TechnicalAnalysis({
   aiSuggestionsLoading,
   aiSuggestionsError,
   aiConfigured,
+  onRetryAISuggestions,
 }: TechnicalAnalysisProps) {
   const qualityReport = meta?.quality_report;
+  const hasAIMetadata = Boolean(
+    meta?.ai_model ||
+      meta?.ai_prompt_version ||
+      meta?.ai_estimated_input_tokens ||
+      meta?.ai_estimated_output_tokens ||
+      meta?.ai_estimated_cost_usd
+  );
   const coveredCoreFields = qualityReport?.core_field_coverage
     ? Object.values(qualityReport.core_field_coverage).filter(Boolean).length
     : 0;
@@ -173,6 +190,45 @@ export function TechnicalAnalysis({
             </div>
           )}
 
+          {hasAIMetadata && (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">
+                  AI Profile
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-white/70">
+                  {meta?.ai_model || "unknown model"}
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Prompt</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    {meta?.ai_prompt_version || "n/a"}
+                  </div>
+                </div>
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Input Tokens</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    {meta?.ai_estimated_input_tokens ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Output Tokens</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    {meta?.ai_estimated_output_tokens ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-md border border-white/10 px-2 py-1.5 bg-black/20">
+                  <div className="text-[8px] uppercase tracking-wider text-white/45">Rough Cost</div>
+                  <div className="text-[11px] font-mono font-bold text-white/90">
+                    ${Number(meta?.ai_estimated_cost_usd ?? 0).toFixed(5)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* AI Suggestions Panel */}
           {(aiSuggestions.length > 0 || aiSuggestionsLoading || aiSuggestionsError) && (
             <AISuggestionsPanel
@@ -180,6 +236,7 @@ export function TechnicalAnalysis({
               loading={aiSuggestionsLoading}
               error={aiSuggestionsError}
               configured={aiConfigured}
+              onRetry={onRetryAISuggestions}
             />
           )}
         </motion.div>

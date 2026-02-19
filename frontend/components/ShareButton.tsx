@@ -10,13 +10,18 @@ import { Tooltip } from "./ui/Tooltip";
 interface ShareButtonProps {
   mdflowOutput: string;
   template: string;
+  disabledReason?: string;
 }
 
 /**
  * ShareButton - Generates and copies shareable URLs
  * Shows tooltip with copy status
  */
-export function ShareButton({ mdflowOutput, template }: ShareButtonProps) {
+export function ShareButton({
+  mdflowOutput,
+  template,
+  disabledReason,
+}: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const resetTimerRef = useRef<number | null>(null);
@@ -36,7 +41,7 @@ export function ShareButton({ mdflowOutput, template }: ShareButtonProps) {
   };
 
   const isTooLong = isShareDataTooLong(shareData);
-  const isDisabled = !mdflowOutput || isTooLong;
+  const isDisabled = !mdflowOutput || isTooLong || Boolean(disabledReason);
 
   const handleShare = useCallback(async () => {
     if (isDisabled) return;
@@ -63,7 +68,9 @@ export function ShareButton({ mdflowOutput, template }: ShareButtonProps) {
     }
   }, [shareData, isDisabled]);
 
-  const tooltipText = isTooLong
+  const tooltipText = disabledReason
+    ? disabledReason
+    : isTooLong
     ? "Too large"
     : copied
     ? "Copied!"

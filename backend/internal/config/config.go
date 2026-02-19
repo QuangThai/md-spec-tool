@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -29,22 +30,34 @@ const (
 	DefaultShareUpdateRateLimit  = 20
 	DefaultShareCommentRateLimit = 20
 	DefaultRateLimitWindow       = time.Minute
+	DefaultPreviewRateLimit      = 60
+	DefaultConvertRateLimit      = 60
+	DefaultAISuggestRateLimit    = 30
+	DefaultTrustedProxies        = "127.0.0.1,::1"
 
 	// AI defaults
-	DefaultAIRequestTimeout = 30 * time.Second
-	DefaultAIMaxRetries     = 3
-	DefaultAICacheTTL       = 1 * time.Hour
-	DefaultAIMaxCacheSize   = 1000
-	DefaultAIRetryBaseDelay = 1 * time.Second
+	DefaultAIRequestTimeout   = 30 * time.Second
+	DefaultAIMaxRetries       = 3
+	DefaultAICacheTTL         = 1 * time.Hour
+	DefaultAIMaxCacheSize     = 1000
+	DefaultAIRetryBaseDelay   = 1 * time.Second
+	DefaultAISuggestTimeout   = 45 * time.Second
+	DefaultAIPreviewModel     = ""
+	DefaultAIConvertModel     = ""
+	DefaultAISuggestModel     = ""
+	DefaultAIPromptProfile    = "static_v3"
+	DefaultAIPreviewMaxTokens = 600
+	DefaultAIConvertMaxTokens = 1200
+	DefaultAISuggestMaxTokens = 900
 
 	// AI preview defaults (reduced for fast response when skip_ai=false)
 	DefaultAIPreviewTimeout    = 10 * time.Second
 	DefaultAIPreviewMaxRetries = 1
 
 	// BYOK cache defaults
-	DefaultBYOKCacheTTL        = 5 * time.Minute
-	DefaultBYOKCleanupTicker   = 1 * time.Minute
-	DefaultBYOKMaxEntries      = 1000
+	DefaultBYOKCacheTTL      = 5 * time.Minute
+	DefaultBYOKCleanupTicker = 1 * time.Minute
+	DefaultBYOKMaxEntries    = 1000
 
 	// Spec validation defaults
 	DefaultSpecStrictMode          = true
@@ -74,17 +87,29 @@ type Config struct {
 	ShareCreateRateLimit  int
 	ShareUpdateRateLimit  int
 	ShareCommentRateLimit int
+	PreviewRateLimit      int
+	ConvertRateLimit      int
+	AISuggestRateLimit    int
 	RateLimitWindow       time.Duration
+	TrustedProxies        []string
 
 	// AI configuration
-	OpenAIAPIKey     string
-	OpenAIModel      string
-	AIEnabled        bool // Auto-enabled when OPENAI_API_KEY is set
-	AIRequestTimeout time.Duration
-	AIMaxRetries     int
-	AICacheTTL       time.Duration
-	AIMaxCacheSize   int
-	AIRetryBaseDelay time.Duration
+	OpenAIAPIKey       string
+	OpenAIModel        string
+	OpenAIPreviewModel string
+	OpenAIConvertModel string
+	OpenAISuggestModel string
+	AIPromptProfile    string
+	AIEnabled          bool // Auto-enabled when OPENAI_API_KEY is set
+	AIRequestTimeout   time.Duration
+	AISuggestTimeout   time.Duration
+	AIMaxRetries       int
+	AICacheTTL         time.Duration
+	AIMaxCacheSize     int
+	AIRetryBaseDelay   time.Duration
+	AIPreviewMaxTokens int
+	AIConvertMaxTokens int
+	AISuggestMaxTokens int
 
 	// AI preview configuration (reduced timeout/retries for when skip_ai=false on preview)
 	AIPreviewTimeout    time.Duration
@@ -94,6 +119,9 @@ type Config struct {
 	BYOKCacheTTL      time.Duration
 	BYOKCleanupTicker time.Duration
 	BYOKMaxEntries    int
+
+	// Telemetry
+	TelemetryMaxEvents int
 
 	// Storage
 	ShareStorePath string
@@ -142,17 +170,29 @@ func LoadConfig() *Config {
 		ShareCreateRateLimit:  getEnvInt("SHARE_CREATE_RATE_LIMIT", DefaultShareCreateRateLimit),
 		ShareUpdateRateLimit:  getEnvInt("SHARE_UPDATE_RATE_LIMIT", DefaultShareUpdateRateLimit),
 		ShareCommentRateLimit: getEnvInt("SHARE_COMMENT_RATE_LIMIT", DefaultShareCommentRateLimit),
+		PreviewRateLimit:      getEnvInt("PREVIEW_RATE_LIMIT", DefaultPreviewRateLimit),
+		ConvertRateLimit:      getEnvInt("CONVERT_RATE_LIMIT", DefaultConvertRateLimit),
+		AISuggestRateLimit:    getEnvInt("AI_SUGGEST_RATE_LIMIT", DefaultAISuggestRateLimit),
 		RateLimitWindow:       getEnvDuration("RATE_LIMIT_WINDOW", DefaultRateLimitWindow),
+		TrustedProxies:        splitCSV(getEnv("TRUSTED_PROXIES", DefaultTrustedProxies)),
 
 		// AI configuration
-		OpenAIAPIKey:     openAIAPIKey,
-		OpenAIModel:      getEnv("OPENAI_MODEL", DefaultOpenAIModel),
-		AIEnabled:        aiEnabled,
-		AIRequestTimeout: getEnvDuration("AI_REQUEST_TIMEOUT", DefaultAIRequestTimeout),
-		AIMaxRetries:     getEnvInt("AI_MAX_RETRIES", DefaultAIMaxRetries),
-		AICacheTTL:       getEnvDuration("AI_CACHE_TTL", DefaultAICacheTTL),
-		AIMaxCacheSize:   getEnvInt("AI_MAX_CACHE_SIZE", DefaultAIMaxCacheSize),
-		AIRetryBaseDelay: getEnvDuration("AI_RETRY_BASE_DELAY", DefaultAIRetryBaseDelay),
+		OpenAIAPIKey:       openAIAPIKey,
+		OpenAIModel:        getEnv("OPENAI_MODEL", DefaultOpenAIModel),
+		OpenAIPreviewModel: getEnv("OPENAI_MODEL_PREVIEW", DefaultAIPreviewModel),
+		OpenAIConvertModel: getEnv("OPENAI_MODEL_CONVERT", DefaultAIConvertModel),
+		OpenAISuggestModel: getEnv("OPENAI_MODEL_SUGGEST", DefaultAISuggestModel),
+		AIPromptProfile:    getEnv("AI_PROMPT_PROFILE", DefaultAIPromptProfile),
+		AIEnabled:          aiEnabled,
+		AIRequestTimeout:   getEnvDuration("AI_REQUEST_TIMEOUT", DefaultAIRequestTimeout),
+		AISuggestTimeout:   getEnvDuration("AI_SUGGEST_TIMEOUT", DefaultAISuggestTimeout),
+		AIMaxRetries:       getEnvInt("AI_MAX_RETRIES", DefaultAIMaxRetries),
+		AICacheTTL:         getEnvDuration("AI_CACHE_TTL", DefaultAICacheTTL),
+		AIMaxCacheSize:     getEnvInt("AI_MAX_CACHE_SIZE", DefaultAIMaxCacheSize),
+		AIRetryBaseDelay:   getEnvDuration("AI_RETRY_BASE_DELAY", DefaultAIRetryBaseDelay),
+		AIPreviewMaxTokens: getEnvInt("AI_PREVIEW_MAX_TOKENS", DefaultAIPreviewMaxTokens),
+		AIConvertMaxTokens: getEnvInt("AI_CONVERT_MAX_TOKENS", DefaultAIConvertMaxTokens),
+		AISuggestMaxTokens: getEnvInt("AI_SUGGEST_MAX_TOKENS", DefaultAISuggestMaxTokens),
 
 		// AI preview configuration
 		AIPreviewTimeout:    getEnvDuration("AI_PREVIEW_TIMEOUT", DefaultAIPreviewTimeout),
@@ -162,6 +202,9 @@ func LoadConfig() *Config {
 		BYOKCacheTTL:      getEnvDuration("BYOK_CACHE_TTL", DefaultBYOKCacheTTL),
 		BYOKCleanupTicker: getEnvDuration("BYOK_CLEANUP_TICKER", DefaultBYOKCleanupTicker),
 		BYOKMaxEntries:    getEnvInt("BYOK_MAX_ENTRIES", DefaultBYOKMaxEntries),
+
+		// Telemetry
+		TelemetryMaxEvents: getEnvInt("TELEMETRY_MAX_EVENTS", 10000),
 
 		// Storage
 		ShareStorePath: getEnv("SHARE_STORE_PATH", ""),
@@ -201,11 +244,35 @@ func ValidateConfig(cfg *Config) error {
 	if cfg.ShareCreateRateLimit <= 0 || cfg.ShareUpdateRateLimit <= 0 || cfg.ShareCommentRateLimit <= 0 {
 		return fmt.Errorf("share rate limits must be positive")
 	}
+	if cfg.PreviewRateLimit <= 0 || cfg.ConvertRateLimit <= 0 || cfg.AISuggestRateLimit <= 0 {
+		return fmt.Errorf("preview/convert/ai_suggest rate limits must be positive")
+	}
 	if cfg.SpecMinHeaderConfidence < 0 || cfg.SpecMinHeaderConfidence > 100 {
 		return fmt.Errorf("SPEC_MIN_HEADER_CONFIDENCE must be in range 0..100")
 	}
 	if cfg.SpecMaxRowLossRatio < 0 || cfg.SpecMaxRowLossRatio > 1 {
 		return fmt.Errorf("SPEC_MAX_ROW_LOSS_RATIO must be in range 0..1")
+	}
+	if cfg.AIPreviewMaxTokens <= 0 || cfg.AIConvertMaxTokens <= 0 || cfg.AISuggestMaxTokens <= 0 {
+		return fmt.Errorf("AI_*_MAX_TOKENS values must be positive")
+	}
+	if cfg.AISuggestTimeout <= 0 {
+		return fmt.Errorf("AI_SUGGEST_TIMEOUT must be positive")
+	}
+	if len(cfg.TrustedProxies) == 0 {
+		return fmt.Errorf("TRUSTED_PROXIES must have at least one entry")
+	}
+	for _, proxy := range cfg.TrustedProxies {
+		if proxy == "" {
+			return fmt.Errorf("TRUSTED_PROXIES must not contain empty entries")
+		}
+		if net.ParseIP(proxy) != nil {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(proxy); err == nil {
+			continue
+		}
+		return fmt.Errorf("TRUSTED_PROXIES entry %q must be a valid IP or CIDR", proxy)
 	}
 	return nil
 }

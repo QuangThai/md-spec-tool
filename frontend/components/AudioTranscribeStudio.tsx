@@ -16,7 +16,6 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import WaveSurfer from "wavesurfer.js";
 
 // Style for scrollbar (scoped to component)
 const scrollbarStyles = `
@@ -38,13 +37,108 @@ const scrollbarStyles = `
 
 type TranscriptMode = "sentences" | "paragraphs";
 type SplitSource = "sentence" | "paragraph" | "custom";
+type WaveEvent = "ready" | "audioprocess" | "interaction" | "finish" | "error";
+
+interface WaveController {
+  load: (url: string) => void;
+  on: (event: WaveEvent, callback: () => void) => void;
+  playPause: () => void;
+  isPlaying: () => boolean;
+  pause: () => void;
+  play: (start?: number, end?: number) => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  zoom: (value: number) => void;
+  destroy: () => void;
+}
+
+function createWaveController(): WaveController {
+  const audio = new Audio();
+  const listeners: Record<WaveEvent, Array<() => void>> = {
+    ready: [],
+    audioprocess: [],
+    interaction: [],
+    finish: [],
+    error: [],
+  };
+
+  let playing = false;
+  let segmentEnd: number | null = null;
+
+  const emit = (event: WaveEvent) => {
+    for (const callback of listeners[event]) {
+      callback();
+    }
+  };
+
+  audio.addEventListener("canplay", () => emit("ready"));
+  audio.addEventListener("timeupdate", () => {
+    emit("audioprocess");
+    emit("interaction");
+    if (segmentEnd !== null && audio.currentTime >= segmentEnd) {
+      audio.pause();
+      playing = false;
+      segmentEnd = null;
+    }
+  });
+  audio.addEventListener("ended", () => {
+    playing = false;
+    segmentEnd = null;
+    emit("finish");
+  });
+  audio.addEventListener("error", () => emit("error"));
+
+  return {
+    load: (url: string) => {
+      audio.src = url;
+      audio.load();
+    },
+    on: (event, callback) => {
+      listeners[event].push(callback);
+    },
+    playPause: () => {
+      if (audio.paused) {
+        void audio.play();
+        playing = true;
+      } else {
+        audio.pause();
+        playing = false;
+      }
+    },
+    isPlaying: () => playing && !audio.paused,
+    pause: () => {
+      audio.pause();
+      playing = false;
+      segmentEnd = null;
+    },
+    play: (start, end) => {
+      if (typeof start === "number" && !Number.isNaN(start)) {
+        audio.currentTime = Math.max(0, start);
+      }
+      segmentEnd = typeof end === "number" && !Number.isNaN(end) ? end : null;
+      void audio.play();
+      playing = true;
+    },
+    getCurrentTime: () => audio.currentTime || 0,
+    getDuration: () => audio.duration || 0,
+    zoom: () => {
+      // no-op for native audio fallback
+    },
+    destroy: () => {
+      audio.pause();
+      audio.src = "";
+      segmentEnd = null;
+      playing = false;
+    },
+  };
+}
 
 const DEFAULT_ZOOM = 100;
 const MIN_SPLIT_GAP = 0.2;
 
 export default function AudioTranscribeStudio() {
   const waveformRef = useRef<HTMLDivElement | null>(null);
-  const waveSurferRef = useRef<WaveSurfer | null>(null);
+  const waveSurferRef = useRef<WaveController | null>(null);
   const playingSegmentEndRef = useRef<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -85,17 +179,7 @@ export default function AudioTranscribeStudio() {
   useEffect(() => {
     if (!audioUrl || !waveformRef.current || !previewSupported) return;
 
-    const waveSurfer = WaveSurfer.create({
-      container: waveformRef.current,
-      waveColor: "#666666",
-      progressColor: "#f27b2f",
-      cursorColor: "#f27b2f",
-      barWidth: 2,
-      barGap: 2,
-      height: 120,
-      normalize: true,
-      backend: "MediaElement",
-    });
+    const waveSurfer = createWaveController();
 
     waveSurfer.load(audioUrl);
     waveSurfer.on("ready", () => {

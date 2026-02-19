@@ -212,9 +212,15 @@ export class HttpClient {
         if (err.code) {
           message += ` (${err.code})`;
         }
-        const validationReason = err.details?.validation_reason;
-        if (typeof validationReason === 'string' && validationReason) {
-          message += ` [${validationReason}]`;
+        if (err.validationReason) {
+          message += ` [${err.validationReason}]`;
+        }
+        if (err.requestId) {
+          message += ` request_id=${err.requestId}`;
+        }
+        const detailsValidationReason = err.details?.validation_reason;
+        if (typeof detailsValidationReason === 'string' && detailsValidationReason && !err.validationReason) {
+          message += ` [${detailsValidationReason}]`;
         }
         return { error: message };
       }
@@ -255,6 +261,16 @@ export const nextApiClient = new HttpClient({
 backendClient.addRequestInterceptor((config) => {
   if (typeof window === 'undefined') return config;
   try {
+    // Add session ID header (for quota tracking)
+    const { getOrCreateSessionID } = require('./telemetry');
+    const sessionId = getOrCreateSessionID();
+    if (sessionId) {
+      const headers = (config.headers || {}) as Record<string, string>;
+      headers['X-Session-ID'] = sessionId;
+      config.headers = headers;
+    }
+
+    // Add OpenAI API Key header (for BYOK)
     const stored = localStorage.getItem('mdflow-openai-key');
     if (stored) {
       const parsed = JSON.parse(stored);

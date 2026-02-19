@@ -163,6 +163,10 @@ func (m *mockAIService) GetMode() string {
 	return "mock"
 }
 
+func (m *mockAIService) GetModel() string {
+	return "mock-model"
+}
+
 func (m *mockAIService) SummarizeDiff(ctx context.Context, req SummarizeDiffRequest) (*DiffSummary, error) {
 	return &DiffSummary{
 		Summary:    "Mock summary",

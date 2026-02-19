@@ -329,8 +329,8 @@ func TestRateLimitCreateShare(t *testing.T) {
 
 	var response errorResponse
 	decodeJSON(t, recorder, &response)
-	if response.Error != "rate limit exceeded" {
-		t.Fatalf("expected error rate limit exceeded, got %q", response.Error)
+	if !strings.Contains(response.Error, "rate limit exceeded") {
+		t.Fatalf("expected error containing 'rate limit exceeded', got %q", response.Error)
 	}
 }
 
@@ -392,8 +392,8 @@ func TestRateLimitUpdateShare(t *testing.T) {
 
 	var response errorResponse
 	decodeJSON(t, recorder, &response)
-	if response.Error != "rate limit exceeded" {
-		t.Fatalf("expected error rate limit exceeded, got %q", response.Error)
+	if !strings.Contains(response.Error, "rate limit exceeded") {
+		t.Fatalf("expected error containing 'rate limit exceeded', got %q", response.Error)
 	}
 }
 

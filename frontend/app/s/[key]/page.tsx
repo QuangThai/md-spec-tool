@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import ShareSlugPageClient from "./ShareSlugPageClient";
 
 type PageParams = {
-  params: {
+  params: Promise<{
     key: string;
-  };
+  }>;
 };
 
-export function generateMetadata({ params }: PageParams): Metadata {
-  const canonical = `/s/${params.key}`;
+export async function generateMetadata({ params }: PageParams): Promise<Metadata> {
+  const { key } = await params;
+  const canonical = `/s/${key}`;
 
   return {
     title: "Shared Spec | MDFlow Studio",
