@@ -1,7 +1,15 @@
 import { buildReviewRequiredColumns, countRemainingReviews } from "@/lib/reviewGate";
 import { emitTelemetryEvent } from "@/lib/telemetry";
 import { toast } from "@/components/ui/Toast";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 interface UseReviewGateParams {
   inputSource: "paste" | "xlsx" | "gsheet" | "tsv";
@@ -28,7 +36,7 @@ interface UseReviewGateReturn {
   handleColumnOverride: (column: string, field: string) => void;
   open: (columns: string[]) => void;
   clear: () => void;
-  setReviewedColumns: (value: Record<string, boolean>) => void;
+  setReviewedColumns: Dispatch<SetStateAction<Record<string, boolean>>>;
 }
 
 export function useReviewGate({

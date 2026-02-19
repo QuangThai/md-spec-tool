@@ -28,6 +28,9 @@ export function useDiffSnapshots() {
   }, [snapshotA, snapshotB]);
 
   const compareSnapshots = useCallback(async () => {
+    if (diffMDFlowMutation.isPending) {
+      return;
+    }
     const diff = await diffMDFlowMutation.mutateAsync({
       before: snapshotA,
       after: snapshotB,
@@ -51,6 +54,7 @@ export function useDiffSnapshots() {
     snapshotA,
     snapshotB,
     currentDiff,
+    compareLoading: diffMDFlowMutation.isPending,
     saveSnapshot,
     compareSnapshots,
     clearSnapshots,

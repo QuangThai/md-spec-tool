@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run"
+    "test": "vitest run --exclude e2e/**",
+    "test:e2e": "playwright test"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +33,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/jszip": "^3.4.0",
     "@types/node": "^22.10.5",

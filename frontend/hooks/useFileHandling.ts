@@ -14,7 +14,7 @@ interface UseFileHandlingProps {
   setSelectedSheet: (sheet: string) => void;
 }
 
-interface UseFileHandlingReturn {
+export interface UseFileHandlingReturn {
   dragOver: boolean;
   setDragOver: (over: boolean) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
