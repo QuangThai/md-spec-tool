@@ -1,38 +1,41 @@
-import {
-  useGetXLSXSheetsMutation,
-  usePreviewTSVMutation,
-  usePreviewXLSXMutation,
-} from "@/lib/mdflowQueries";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
+import { useGetXLSXSheetsMutation } from "@/lib/mdflowQueries";
+import { PreviewResponse } from "@/lib/types";
 
-interface FileHandlingProps {
-  setFile: (file: File) => void;
+interface UseFileHandlingProps {
+  setLastFailedAction: (action: "preview" | "convert" | "other" | null) => void;
+  mode: "paste" | "xlsx" | "tsv";
+  file: File | null;
+  setFile: (file: File | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setPreview: (preview: PreviewResponse | null) => void;
   setSheets: (sheets: string[]) => void;
   setSelectedSheet: (sheet: string) => void;
-  setPreview: (preview: any) => void;
-  setShowPreview: (show: boolean) => void;
-  template?: string;
 }
 
-/**
- * Custom hook for handling file uploads and processing
- * Detects file type and fetches appropriate preview
- */
+interface UseFileHandlingReturn {
+  dragOver: boolean;
+  setDragOver: (over: boolean) => void;
+  handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+  onDrop: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+}
+
 export function useFileHandling({
+  setLastFailedAction,
+  mode,
+  file,
   setFile,
   setLoading,
   setError,
+  setPreview,
   setSheets,
   setSelectedSheet,
-  setPreview,
-  setShowPreview,
-  template,
-}: FileHandlingProps) {
+}: UseFileHandlingProps): UseFileHandlingReturn {
+  const [dragOver, setDragOver] = useState(false);
   const getSheetsMutation = useGetXLSXSheetsMutation();
-  const previewTSVMutation = usePreviewTSVMutation(template);
-  const previewXLSXMutation = usePreviewXLSXMutation(template);
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -42,31 +45,23 @@ export function useFileHandling({
       setFile(selectedFile);
       setLoading(true);
       setError(null);
+      setLastFailedAction(null);
       setPreview(null);
 
-      try {
-        // Handle TSV files
-        if (/\.tsv$/i.test(selectedFile.name)) {
-          const previewResult = await previewTSVMutation.mutateAsync(selectedFile);
-          setPreview(previewResult);
-          setShowPreview(true);
-          return;
-        }
+      if (/\.tsv$/i.test(selectedFile.name)) {
+        setLoading(false);
+        return;
+      }
 
-        // Handle XLSX files
+      try {
         const result = await getSheetsMutation.mutateAsync(selectedFile);
         setSheets(result.sheets);
         setSelectedSheet(result.active_sheet);
-
-        // Fetch XLSX preview for the active sheet
-        const previewResult = await previewXLSXMutation.mutateAsync({
-          file: selectedFile,
-          sheetName: result.active_sheet,
-        });
-        setPreview(previewResult);
-        setShowPreview(true);
       } catch (error) {
-        setError(error instanceof Error ? error.message : "File processing failed");
+        setError(
+          error instanceof Error ? error.message : "Failed to read sheets"
+        );
+        setLastFailedAction("other");
       } finally {
         setLoading(false);
       }
@@ -75,15 +70,82 @@ export function useFileHandling({
       setFile,
       setLoading,
       setError,
+      setLastFailedAction,
       setSheets,
       setSelectedSheet,
       setPreview,
-      setShowPreview,
       getSheetsMutation,
-      previewTSVMutation,
-      previewXLSXMutation,
     ]
   );
 
-  return { handleFileChange };
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const f = e.dataTransfer.files?.[0];
+      if (!f) return;
+
+      if (mode === "tsv" && /\.tsv$/i.test(f.name)) {
+        setFile(f);
+        setError(null);
+        setLastFailedAction(null);
+        setPreview(null);
+        setLoading(true);
+        setLoading(false);
+        return;
+      }
+
+      if (mode === "xlsx" && /\.xlsx$/i.test(f.name)) {
+        setFile(f);
+        setLoading(true);
+        setError(null);
+        setLastFailedAction(null);
+        setPreview(null);
+        getSheetsMutation
+          .mutateAsync(f)
+          .then((result) => {
+            setSheets(result.sheets);
+            setSelectedSheet(result.active_sheet);
+          })
+          .catch((error) => {
+            setError(
+              error instanceof Error ? error.message : "Failed to read sheets"
+            );
+            setLastFailedAction("other");
+          })
+          .finally(() => {
+            setLoading(false);
+          });
+      }
+    },
+    [
+      mode,
+      setFile,
+      setLoading,
+      setError,
+      setLastFailedAction,
+      setSheets,
+      setSelectedSheet,
+      setPreview,
+      getSheetsMutation,
+    ]
+  );
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
+
+  const onDragLeave = useCallback(() => {
+    setDragOver(false);
+  }, []);
+
+  return {
+    dragOver,
+    setDragOver,
+    handleFileChange,
+    onDrop,
+    onDragOver,
+    onDragLeave,
+  };
 }

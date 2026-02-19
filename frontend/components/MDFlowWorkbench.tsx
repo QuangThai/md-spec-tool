@@ -1,22 +1,14 @@
 "use client";
 
-import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { useDiffSnapshots } from "@/hooks/useDiffSnapshots";
+import { useOutputActions } from "@/hooks/useOutputActions";
+import { useReviewGate } from "@/hooks/useReviewGate";
+import { useGoogleSheetInput } from "@/hooks/useGoogleSheetInput";
+import { useWorkbenchPreview } from "@/hooks/useWorkbenchPreview";
+import { useFileHandling } from "@/hooks/useFileHandling";
+import { useWorkbenchConversion } from "@/hooks/useWorkbenchConversion";
 import { isGoogleSheetsURL } from "@/lib/mdflowApi";
-import {
-  useAISuggestionsMutation,
-  useConvertGoogleSheetMutation,
-  useConvertPasteMutation,
-  useConvertTSVMutation,
-  useConvertXLSXMutation,
-  useDiffMDFlowMutation,
-  useGetGoogleSheetSheetsMutation,
-  useGetXLSXSheetsMutation,
-  useMDFlowTemplatesQuery,
-  usePreviewGoogleSheetQuery,
-  usePreviewPasteQuery,
-  usePreviewTSVQuery,
-  usePreviewXLSXQuery,
-} from "@/lib/mdflowQueries";
+import { useMDFlowTemplatesQuery } from "@/lib/mdflowQueries";
 import {
   useHistoryStore,
   useMDFlowActions,
@@ -24,16 +16,10 @@ import {
   useOpenAIKeyStore,
   type MDFlowState,
 } from "@/lib/mdflowStore";
-import { createShare } from "@/lib/shareApi";
 import { emitTelemetryEvent } from "@/lib/telemetry";
 import { mapErrorToUserFacing } from "@/lib/errorUtils";
-import {
-  buildReviewRequiredColumns,
-  canConfirmReview,
-  countRemainingReviews,
-} from "@/lib/reviewGate";
+import { buildReviewRequiredColumns, canConfirmReview } from "@/lib/reviewGate";
 import { ConversionRecord } from "@/lib/types";
-import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { isMac, useKeyboardShortcuts } from "@/lib/useKeyboardShortcuts";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -182,92 +168,85 @@ export default function MDFlowWorkbench() {
   const addToHistory = useHistoryStore((state) => state.addToHistory);
   const history = useHistoryStore((state) => state.history);
 
-  const [copied, setCopied] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [showDiff, setShowDiff] = useState(false);
-  // Two-slot snapshots for Compare: A = "before", B = "after". Save saves current output to the next empty slot.
-  const [snapshotA, setSnapshotA] = useState<string>("");
-  const [snapshotB, setSnapshotB] = useState<string>("");
-  const [currentDiff, setCurrentDiff] = useState<any>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [showValidationConfigurator, setShowValidationConfigurator] =
     useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [gsheetLoading, setGsheetLoading] = useState(false);
-  const [creatingShare, setCreatingShare] = useState(false);
-  const [shareTitle, setShareTitle] = useState("");
-  const [shareSlug, setShareSlug] = useState("");
-  const [shareVisibility, setShareVisibility] = useState<"public" | "private">(
-    "public"
-  );
-  const [shareAllowComments, setShareAllowComments] = useState(true);
-  const [showShareOptions, setShowShareOptions] = useState(false);
-  const [shareSlugError, setShareSlugError] = useState<string | null>(null);
-  const shareOptionsRef = useRef<HTMLDivElement>(null);
   const [debouncedPasteText, setDebouncedPasteText] = useState("");
-  const [gsheetRange, setGsheetRange] = useState("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [numberRows, setNumberRows] = useState(false);
   const [lastFailedAction, setLastFailedAction] = useState<"preview" | "convert" | "other" | null>(null);
-  const [requiresReviewApproval, setRequiresReviewApproval] = useState(false);
-  const [reviewApproved, setReviewApproved] = useState(false);
-  const [reviewRequiredColumns, setReviewRequiredColumns] = useState<string[]>([]);
-  const [reviewedColumns, setReviewedColumns] = useState<Record<string, boolean>>({});
   const studioOpenedTrackedRef = useRef(false);
-  const latestInputSignatureRef = useRef("");
-  const previewStartedAtRef = useRef<number | null>(null);
-  const previewAttemptRef = useRef(false);
   const openaiKey = useOpenAIKeyStore((s) => s.apiKey);
   const setOpenaiKey = useOpenAIKeyStore((s) => s.setApiKey);
   const clearOpenaiKey = useOpenAIKeyStore((s) => s.clearApiKey);
-  const googleAuth = useGoogleAuth();
-
-  useBodyScrollLock(showDiff);
 
   const { data: templateList = [] } = useMDFlowTemplatesQuery();
   const templates = templateList;
-  const getSheetsMutation = useGetXLSXSheetsMutation();
-  const { mutateAsync: fetchGoogleSheetTabs } =
-    useGetGoogleSheetSheetsMutation();
-  const convertPasteMutation = useConvertPasteMutation();
-  const convertXLSXMutation = useConvertXLSXMutation();
-  const convertTSVMutation = useConvertTSVMutation();
-  const convertGoogleSheetMutation = useConvertGoogleSheetMutation();
-  const diffMDFlowMutation = useDiffMDFlowMutation();
-  const aiSuggestionsMutation = useAISuggestionsMutation();
+
+  // ── Hooks ──
+  const diff = useDiffSnapshots();
+  const {
+    gsheetLoading,
+    gsheetRange,
+    setGsheetRange,
+    gsheetRangeValue,
+    googleAuth,
+  } = useGoogleSheetInput({
+    debouncedPasteText,
+    setLastFailedAction,
+    mode,
+    gsheetTabs,
+    selectedGid,
+    setGsheetTabs,
+    setSelectedGid,
+    setError,
+  });
+
+  const {
+    dragOver,
+    setDragOver,
+    handleFileChange,
+    onDrop,
+    onDragOver,
+    onDragLeave,
+  } = useFileHandling({
+    setLastFailedAction,
+    mode,
+    file,
+    setFile,
+    setLoading,
+    setError,
+    setPreview,
+    setSheets,
+    setSelectedSheet,
+  });
 
   const isGsheetUrl = isGoogleSheetsURL(debouncedPasteText.trim());
   const isInputGsheetUrl = isGoogleSheetsURL(pasteText.trim());
   const inputSource: "paste" | "xlsx" | "gsheet" | "tsv" =
     mode === "paste" ? (isInputGsheetUrl ? "gsheet" : "paste") : mode;
+
+  const review = useReviewGate({
+    inputSource,
+    format,
+    mode: mode as "paste" | "xlsx" | "tsv",
+    pasteText,
+    file,
+    isInputGsheetUrl,
+    setColumnOverride,
+  });
+
   const isTableFormat = format === "table";
-  const reviewGateReason =
-    requiresReviewApproval && !reviewApproved
-      ? "Review mapping first"
-      : undefined;
-  const reviewRemainingCount = useMemo(
-    () => countRemainingReviews(reviewRequiredColumns, reviewedColumns),
-    [reviewRequiredColumns, reviewedColumns]
-  );
   const mappedAppError = useMemo(
     () => (error ? mapErrorToUserFacing(error) : null),
     [error]
   );
   const changedOutputOptionsCount = (includeMetadata ? 0 : 1) + (numberRows ? 1 : 0);
-  const gsheetRangeValue = useMemo(() => {
-    const trimmed = gsheetRange.trim();
-    if (!trimmed) return "";
-    if (trimmed.includes("!")) return trimmed;
-    const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
-    const title = selectedTab?.title?.trim();
-    if (!title) return "";
-    return `${title}!${trimmed}`;
-  }, [gsheetRange, gsheetTabs, selectedGid]);
 
   useEffect(() => {
     if (!isTableFormat && numberRows) {
@@ -275,43 +254,63 @@ export default function MDFlowWorkbench() {
     }
   }, [isTableFormat, numberRows]);
 
-  const previewPasteQuery = usePreviewPasteQuery(
+  const {
+    previewQueries,
+    activePreviewError,
+    handleRetryPreview,
+    gsheetPreviewSlice,
+  } = useWorkbenchPreview({
     debouncedPasteText,
-    mode === "paste" && debouncedPasteText.trim().length > 0 && !isGsheetUrl,
-    format
-  );
-  const previewTSVQuery = usePreviewTSVQuery(file, mode === "tsv", format);
-  const previewXLSXQuery = usePreviewXLSXQuery(
+    isGsheetUrl,
+    gsheetRangeValue,
+    setLastFailedAction,
+    inputSource,
+    format,
+    mode,
     file,
     selectedSheet,
-    mode === "xlsx",
-    format
-  );
-  const previewGoogleSheetQuery = usePreviewGoogleSheetQuery(
-    debouncedPasteText.trim(),
     selectedGid,
-    mode === "paste" && isGsheetUrl && gsheetTabs.length > 0 && Boolean(selectedGid),
-    format,
-    gsheetRangeValue
-  );
-  const activePreviewError = useMemo(() => {
-    if (mode === "paste" && isGsheetUrl) return previewGoogleSheetQuery.error;
-    if (mode === "paste") return previewPasteQuery.error;
-    if (mode === "xlsx") return previewXLSXQuery.error;
-    return previewTSVQuery.error;
-  }, [
-    isGsheetUrl,
-    mode,
-    previewGoogleSheetQuery.error,
-    previewPasteQuery.error,
-    previewTSVQuery.error,
-    previewXLSXQuery.error,
-  ]);
-  useEffect(() => {
-    if (activePreviewError) {
-      setLastFailedAction("preview");
-    }
-  }, [activePreviewError]);
+    gsheetTabs,
+    setPreview,
+    setPreviewLoading,
+    setShowPreview,
+  });
+
+  const previewPasteQuery = previewQueries.pasteQuery;
+  const previewTSVQuery = previewQueries.tsvQuery;
+  const previewXLSXQuery = previewQueries.xlsxQuery;
+  const previewGoogleSheetQuery = previewQueries.googleSheetQuery;
+
+  const { handleConvert, handleGetAISuggestions, showFeedback, setShowFeedback } =
+    useWorkbenchConversion({
+      setLastFailedAction,
+      gsheetPreviewSlice,
+      gsheetRangeValue,
+      reviewApi: review,
+      includeMetadata,
+      numberRows,
+      inputSource,
+      mode,
+      pasteText,
+      file,
+      selectedSheet,
+      selectedGid,
+      format,
+      columnOverrides,
+      preview,
+      gsheetTabs,
+      mdflowOutput,
+      setResult,
+      setLoading,
+      setError,
+      setShowPreview,
+      addToHistory,
+      aiSuggestionsLoading,
+      setAISuggestionsLoading,
+      setAISuggestionsError,
+      setAISuggestions,
+      clearAISuggestions,
+    });
 
   // Reset store when leaving Studio so data is not shown when user comes back
   useEffect(() => {
@@ -344,675 +343,7 @@ export default function MDFlowWorkbench() {
     return () => clearTimeout(timer);
   }, [pasteText, mode]);
 
-  useEffect(() => {
-    let signature = "";
-    if (mode === "paste" && pasteText.trim()) {
-      signature = `${mode}:${isInputGsheetUrl ? "gsheet" : "paste"}:${pasteText.trim().slice(0, 50)}`;
-    } else if ((mode === "xlsx" || mode === "tsv") && file) {
-      signature = `${mode}:${file.name}:${file.size}`;
-    }
-
-    if (!signature || signature === latestInputSignatureRef.current) {
-      return;
-    }
-    latestInputSignatureRef.current = signature;
-    setRequiresReviewApproval(false);
-    setReviewApproved(false);
-    setReviewRequiredColumns([]);
-    setReviewedColumns({});
-
-    emitTelemetryEvent("input_provided", {
-      status: "success",
-      input_source: inputSource,
-      template_type: format,
-    });
-  }, [mode, pasteText, file, isInputGsheetUrl, format, inputSource]);
-
-  const completeReview = useCallback(() => {
-    setReviewApproved(true);
-    emitTelemetryEvent("review_mapping_completed", {
-      status: "success",
-      input_source: inputSource,
-      template_type: format,
-      reviewed_columns: reviewRequiredColumns.length,
-    });
-    toast.success("Review confirmed", "Sharing, export, and copy are now enabled");
-  }, [format, inputSource, reviewRequiredColumns.length]);
-
-  const handleColumnOverride = useCallback(
-    (column: string, field: string) => {
-      setColumnOverride(column, field);
-      if (!requiresReviewApproval) return;
-      if (!reviewRequiredColumns.includes(column)) return;
-      setReviewedColumns((prev) => ({ ...prev, [column]: true }));
-    },
-    [setColumnOverride, requiresReviewApproval, reviewRequiredColumns]
-  );
-
-  useEffect(() => {
-    if (mode !== "paste") {
-      setGsheetTabs([]);
-      setSelectedGid("");
-      setGsheetRange("");
-      return;
-    }
-
-    const trimmed = debouncedPasteText.trim();
-    if (!trimmed || !isGoogleSheetsURL(trimmed)) {
-      setGsheetTabs([]);
-      setSelectedGid("");
-      setGsheetRange("");
-      return;
-    }
-
-    let cancelled = false;
-    const loadTabs = async () => {
-      setGsheetLoading(true);
-      setError(null);
-      setLastFailedAction(null);
-      try {
-        const result = await fetchGoogleSheetTabs({
-          url: trimmed,
-        });
-        if (cancelled) return;
-        setGsheetTabs(result.sheets);
-        setSelectedGid(result.active_gid);
-      } catch (error) {
-        if (cancelled) return;
-        setGsheetTabs([]);
-        setSelectedGid("");
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to read Google Sheets tabs";
-        if (!message.toLowerCase().includes("not configured")) {
-          setError(message);
-          setLastFailedAction("preview");
-        }
-      } finally {
-        if (!cancelled) {
-          setGsheetLoading(false);
-        }
-      }
-    };
-
-    loadTabs();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    debouncedPasteText,
-    mode,
-    googleAuth.connected,
-    fetchGoogleSheetTabs,
-    setError,
-    setGsheetTabs,
-    setSelectedGid,
-  ]);
-
-  useEffect(() => {
-    if (mode !== "paste") return;
-    if (!debouncedPasteText.trim()) {
-      setPreview(null);
-      setShowPreview(false);
-      return;
-    }
-    if (isGsheetUrl) {
-      if (previewGoogleSheetQuery.data) {
-        setPreview(previewGoogleSheetQuery.data);
-        setShowPreview(true);
-      } else {
-        setPreview(null);
-        setShowPreview(false);
-      }
-      return;
-    }
-    if (previewPasteQuery.data) {
-      setPreview(previewPasteQuery.data);
-      setShowPreview(true);
-    }
-  }, [
-    debouncedPasteText,
-    mode,
-    isGsheetUrl,
-    previewPasteQuery.data,
-    previewGoogleSheetQuery.data,
-    setPreview,
-    setShowPreview,
-  ]);
-
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFile = e.target.files?.[0];
-      if (!selectedFile) return;
-
-      setFile(selectedFile);
-      setLoading(true);
-      setError(null);
-      setLastFailedAction(null);
-      setPreview(null);
-
-      if (/\.tsv$/i.test(selectedFile.name)) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const result = await getSheetsMutation.mutateAsync(selectedFile);
-        setSheets(result.sheets);
-        setSelectedSheet(result.active_sheet);
-      } catch (error) {
-        setError(
-          error instanceof Error ? error.message : "Failed to read sheets"
-        );
-        setLastFailedAction("other");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [
-      setFile,
-      setLoading,
-      setError,
-      setLastFailedAction,
-      setSheets,
-      setSelectedSheet,
-      setPreview,
-      getSheetsMutation,
-    ]
-  );
-
-  useEffect(() => {
-    if (mode === "xlsx" && previewXLSXQuery.data) {
-      setPreview(previewXLSXQuery.data);
-      setShowPreview(true);
-    }
-  }, [mode, previewXLSXQuery.data, setPreview, setShowPreview]);
-
-  useEffect(() => {
-    if (mode === "tsv" && previewTSVQuery.data) {
-      setPreview(previewTSVQuery.data);
-      setShowPreview(true);
-    }
-  }, [mode, previewTSVQuery.data, setPreview, setShowPreview]);
-
-  useEffect(() => {
-    if (googleAuth.error) {
-      toast.error("Google connection failed", googleAuth.error);
-    }
-  }, [googleAuth.error]);
-
-  // Track previous connected state to detect successful connection
-  const prevConnectedRef = useRef(googleAuth.connected);
-  useEffect(() => {
-    if (!prevConnectedRef.current && googleAuth.connected) {
-      // Just connected - clear any existing error and show success
-      setError(null);
-      setLastFailedAction(null);
-      toast.success("Google connected", "You can now access private sheets");
-    }
-    prevConnectedRef.current = googleAuth.connected;
-  }, [googleAuth.connected, setError, setLastFailedAction]);
-
-  useEffect(() => {
-    const isLoading =
-      (mode === "paste" && previewPasteQuery.isFetching) ||
-      (mode === "paste" && isGsheetUrl && previewGoogleSheetQuery.isFetching) ||
-      (mode === "xlsx" && previewXLSXQuery.isFetching) ||
-      (mode === "tsv" && previewTSVQuery.isFetching);
-    setPreviewLoading(isLoading);
-
-    if (isLoading && !previewAttemptRef.current) {
-      previewAttemptRef.current = true;
-      previewStartedAtRef.current = Date.now();
-      emitTelemetryEvent("preview_started", {
-        status: "success",
-        input_source: inputSource,
-        template_type: format,
-      });
-      return;
-    }
-
-    if (!isLoading && previewAttemptRef.current) {
-      previewAttemptRef.current = false;
-      const durationMs = previewStartedAtRef.current
-        ? Date.now() - previewStartedAtRef.current
-        : undefined;
-      previewStartedAtRef.current = null;
-
-      const activePreviewData =
-        mode === "paste" && isGsheetUrl
-          ? previewGoogleSheetQuery.data
-          : mode === "paste"
-            ? previewPasteQuery.data
-            : mode === "xlsx"
-              ? previewXLSXQuery.data
-              : previewTSVQuery.data;
-
-      const activePreviewError =
-        mode === "paste" && isGsheetUrl
-          ? previewGoogleSheetQuery.error
-          : mode === "paste"
-            ? previewPasteQuery.error
-            : mode === "xlsx"
-              ? previewXLSXQuery.error
-              : previewTSVQuery.error;
-
-      if (activePreviewError) {
-        const errorMessage =
-          activePreviewError instanceof Error
-            ? activePreviewError.message
-            : "preview_failed";
-        emitTelemetryEvent("preview_failed", {
-          status: "error",
-          input_source: inputSource,
-          template_type: format,
-          duration_ms: durationMs,
-          error_code: errorMessage,
-        });
-      } else if (activePreviewData) {
-        const confidence = activePreviewData.confidence ?? 0;
-        const lowConfidenceColumns =
-          activePreviewData.mapping_quality?.low_confidence_columns?.length ?? 0;
-        emitTelemetryEvent("preview_succeeded", {
-          status: "success",
-          input_source: inputSource,
-          template_type: format,
-          duration_ms: durationMs,
-          confidence_score: confidence,
-          warning_count: activePreviewData.unmapped_columns?.length ?? 0,
-          needs_review: confidence < 50 || lowConfidenceColumns > 0,
-        });
-      }
-    }
-  }, [
-    mode,
-    isGsheetUrl,
-    inputSource,
-    format,
-    previewPasteQuery.isFetching,
-    previewGoogleSheetQuery.isFetching,
-    previewTSVQuery.isFetching,
-    previewXLSXQuery.isFetching,
-    previewPasteQuery.data,
-    previewGoogleSheetQuery.data,
-    previewXLSXQuery.data,
-    previewTSVQuery.data,
-    previewPasteQuery.error,
-    previewGoogleSheetQuery.error,
-    previewXLSXQuery.error,
-    previewTSVQuery.error,
-    setPreviewLoading,
-  ]);
-
-  const handleConvert = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setLastFailedAction(null);
-    const startedAt = Date.now();
-    emitTelemetryEvent("convert_started", {
-      status: "success",
-      input_source: inputSource,
-      template_type: format,
-    });
-
-    try {
-      let result;
-      let inputPreview = "";
-      if (mode === "paste") {
-        if (!pasteText.trim()) {
-          setError("Missing source data");
-          setLastFailedAction("convert");
-          return;
-        }
-
-        // Check if it's a Google Sheets URL
-        if (isGoogleSheetsURL(pasteText.trim())) {
-          const previewSelectedBlockId = previewGoogleSheetQuery.data?.selected_block_id;
-          const previewColumnMapping = previewGoogleSheetQuery.data?.column_mapping || {};
-          const previewColumnConfidence =
-            previewGoogleSheetQuery.data?.mapping_quality?.column_confidence || {};
-          const trustedPreviewMapping =
-            (previewGoogleSheetQuery.data?.confidence ?? 0) >= 50
-              ? Object.fromEntries(
-                Object.entries(previewColumnMapping).filter(([header, mappedField]) => {
-                  if (!header || !mappedField) return false;
-                  const score = previewColumnConfidence[header];
-                  return typeof score !== "number" || score >= 0.7;
-                })
-              )
-              : {};
-          const effectiveColumnOverrides = {
-            ...trustedPreviewMapping,
-            ...columnOverrides,
-          };
-          // Note: format must correspond to a valid template registered in the backend
-          // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
-          result = await convertGoogleSheetMutation.mutateAsync({
-            url: pasteText.trim(),
-            template: format,
-            gid: selectedGid,
-            format,
-            range: gsheetRangeValue || undefined,
-            selectedBlockId: previewSelectedBlockId,
-            columnOverrides: effectiveColumnOverrides,
-            includeMetadata,
-            numberRows,
-          });
-          const selectedTab = gsheetTabs.find((tab) => tab.gid === selectedGid);
-          const tabLabel = selectedTab?.title || selectedGid;
-          inputPreview = tabLabel
-            ? `Google Sheet: ${pasteText.trim().slice(0, 60)}... (${tabLabel})`
-            : `Google Sheet: ${pasteText.trim().slice(0, 60)}...`;
-        } else {
-          // Note: format must correspond to a valid template registered in the backend
-          // (e.g., "spec" or "table"). Ensure selectedTemplate/format is synced with backend.
-          result = await convertPasteMutation.mutateAsync({
-            pasteText,
-            template: format,
-            format,
-            columnOverrides,
-            includeMetadata,
-            numberRows,
-          });
-          inputPreview =
-            pasteText.slice(0, 200) + (pasteText.length > 200 ? "..." : "");
-        }
-      } else if (mode === "xlsx") {
-        if (!file) {
-          setError("No file uploaded");
-          setLastFailedAction("convert");
-          return;
-        }
-        result = await convertXLSXMutation.mutateAsync({
-          file,
-          sheetName: selectedSheet,
-          template: format,
-          format,
-          columnOverrides,
-          includeMetadata,
-          numberRows,
-        });
-        inputPreview = `${file.name}${selectedSheet ? ` (${selectedSheet})` : ""
-          }`;
-      } else {
-        if (!file) {
-          setError("No file uploaded");
-          setLastFailedAction("convert");
-          return;
-        }
-        result = await convertTSVMutation.mutateAsync({
-          file,
-          template: format,
-          format,
-          columnOverrides,
-          includeMetadata,
-          numberRows,
-        });
-        inputPreview = file.name;
-      }
-
-      if (result) {
-        setResult(result.mdflow, result.warnings, result.meta);
-        // Add to history (use format as display template name)
-        addToHistory({
-          mode,
-          template: format,
-          inputPreview,
-          output: result.mdflow,
-          meta: result.meta,
-        });
-        toast.success(
-          "Conversion complete",
-          `${result.meta?.total_rows || 0} rows processed`
-        );
-        if (result.needs_review) {
-          const uniqueColumns = buildReviewRequiredColumns(preview ?? null);
-          setRequiresReviewApproval(true);
-          setReviewApproved(false);
-          setReviewRequiredColumns(uniqueColumns);
-          setReviewedColumns({});
-          setShowPreview(true);
-          emitTelemetryEvent("review_mapping_opened", {
-            status: "success",
-            input_source: inputSource,
-            template_type: format,
-            pending_columns: uniqueColumns.length,
-          });
-          toast.error(
-            "Review recommended",
-            "Low-confidence mapping detected. Please review preview before sharing."
-          );
-        } else {
-          setRequiresReviewApproval(false);
-          setReviewApproved(false);
-          setReviewRequiredColumns([]);
-          setReviewedColumns({});
-        }
-        emitTelemetryEvent("convert_succeeded", {
-          status: "success",
-          input_source: inputSource,
-          template_type: format,
-          duration_ms: Date.now() - startedAt,
-          warning_count: result.warnings?.length ?? 0,
-          total_rows: result.meta?.total_rows ?? 0,
-          confidence_score: Math.round((result.meta?.quality_report?.header_confidence ?? 0)),
-          needs_review: Boolean(result.needs_review),
-          ai_mode: result.meta?.ai_mode ?? "off",
-          ai_used: result.meta?.ai_used ?? false,
-          ai_model: result.meta?.ai_model ?? "",
-          ai_prompt_version: result.meta?.ai_prompt_version ?? "",
-          ai_estimated_cost_usd: result.meta?.ai_estimated_cost_usd ?? 0,
-          ai_input_tokens: result.meta?.ai_estimated_input_tokens ?? 0,
-          ai_output_tokens: result.meta?.ai_estimated_output_tokens ?? 0,
-        });
-        setTimeout(() => setShowFeedback(true), 2000);
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Conversion failed";
-      setError(errorMessage);
-      setLastFailedAction("convert");
-      toast.error("Conversion failed", errorMessage);
-      emitTelemetryEvent("convert_failed", {
-        status: "error",
-        input_source: inputSource,
-        template_type: format,
-        duration_ms: Date.now() - startedAt,
-        error_code: errorMessage,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    mode,
-    pasteText,
-    file,
-    selectedSheet,
-    selectedGid,
-    format,
-    columnOverrides,
-    includeMetadata,
-    numberRows,
-    gsheetRangeValue,
-    previewGoogleSheetQuery.data?.selected_block_id,
-    previewGoogleSheetQuery.data?.column_mapping,
-    previewGoogleSheetQuery.data?.confidence,
-    previewGoogleSheetQuery.data?.mapping_quality?.column_confidence,
-    preview?.mapping_quality?.low_confidence_columns,
-    setLoading,
-    setError,
-    setLastFailedAction,
-    setResult,
-    setShowPreview,
-    setRequiresReviewApproval,
-    setReviewApproved,
-    setReviewRequiredColumns,
-    setReviewedColumns,
-    inputSource,
-    addToHistory,
-    gsheetTabs,
-    convertGoogleSheetMutation,
-    convertPasteMutation,
-    convertTSVMutation,
-    convertXLSXMutation,
-  ]);
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(mdflowOutput);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [mdflowOutput]);
-
-  const handleDownload = useCallback(() => {
-    const blob = new Blob([mdflowOutput], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "spec.mdflow.md";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [mdflowOutput]);
-
-  const handleCreateShare = useCallback(async () => {
-    if (!mdflowOutput || creatingShare) return;
-
-    const trimmedSlug = shareSlug.trim();
-    if (trimmedSlug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)) {
-      setShareSlugError(
-        "Slug must be lowercase letters, numbers, and hyphens only"
-      );
-      return;
-    }
-
-    setShareSlugError(null);
-
-    setCreatingShare(true);
-    const result = await createShare({
-      mdflow: mdflowOutput,
-      template: format,
-      title: shareTitle.trim(),
-      slug: shareSlug.trim() || undefined,
-      is_public: shareVisibility === "public",
-      allow_comments: shareAllowComments,
-      permission: shareAllowComments ? "comment" : "view",
-    });
-
-    if (result.error || !result.data) {
-      if (result.error?.toLowerCase().includes("slug")) {
-        setShareSlugError(result.error);
-      }
-      toast.error(
-        "Share failed",
-        result.error || "Unable to create share link"
-      );
-      emitTelemetryEvent("share_created_ui", {
-        status: "error",
-        input_source: "share",
-        template_type: format,
-        error_code: result.error || "share_failed",
-      });
-      setCreatingShare(false);
-      return;
-    }
-
-    const shareUrl = `${window.location.origin}/s/${result.data.slug || result.data.token
-      }`;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success("Share link copied", "Public link ready to share");
-    } catch (error) {
-      toast.error("Copy failed", "Could not copy share link");
-    }
-    setCreatingShare(false);
-    setShowShareOptions(false);
-    emitTelemetryEvent("share_created_ui", {
-      status: "success",
-      input_source: "share",
-      template_type: format,
-      share_visibility: shareVisibility,
-      allow_comments: shareAllowComments,
-    });
-  }, [
-    creatingShare,
-    mdflowOutput,
-    format,
-    shareTitle,
-    shareSlug,
-    shareVisibility,
-    shareAllowComments,
-  ]);
-
-  useEffect(() => {
-    if (!showShareOptions) return;
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!shareOptionsRef.current) return;
-      if (!shareOptionsRef.current.contains(event.target as Node)) {
-        setShowShareOptions(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showShareOptions]);
-
-  const handleGetAISuggestions = useCallback(async () => {
-    if (!pasteText.trim() || aiSuggestionsLoading) return;
-
-    setAISuggestionsLoading(true);
-    setAISuggestionsError(null);
-    clearAISuggestions();
-
-    try {
-      const result = await aiSuggestionsMutation.mutateAsync({
-        pasteText,
-        template: format,
-      });
-      setAISuggestions(result.suggestions, result.configured);
-      if (result.error) {
-        setAISuggestionsError(result.error);
-      }
-    } catch (error) {
-      setAISuggestionsError(
-        error instanceof Error ? error.message : "Failed to get suggestions"
-      );
-    } finally {
-      setAISuggestionsLoading(false);
-    }
-  }, [
-    pasteText,
-    format,
-    aiSuggestionsLoading,
-    setAISuggestionsLoading,
-    setAISuggestionsError,
-    setAISuggestions,
-    clearAISuggestions,
-    aiSuggestionsMutation,
-  ]);
-
-  const handleRetryPreview = useCallback(async () => {
-    if (mode === "paste" && isGsheetUrl) {
-      await previewGoogleSheetQuery.refetch();
-      return;
-    }
-    if (mode === "paste") {
-      await previewPasteQuery.refetch();
-      return;
-    }
-    if (mode === "xlsx") {
-      await previewXLSXQuery.refetch();
-      return;
-    }
-    await previewTSVQuery.refetch();
-  }, [
-    isGsheetUrl,
-    mode,
-    previewGoogleSheetQuery,
-    previewPasteQuery,
-    previewTSVQuery,
-    previewXLSXQuery,
-  ]);
+  const output = useOutputActions(mdflowOutput);
 
   const handleRetryFailedAction = useCallback(async () => {
     if (lastFailedAction === "convert") {
@@ -1030,13 +361,13 @@ export default function MDFlowWorkbench() {
     convert: handleConvert,
     copy: () => {
       if (mdflowOutput) {
-        handleCopy();
+        output.handleCopy();
         toast.success("Copied to clipboard");
       }
     },
     export: () => {
       if (mdflowOutput) {
-        handleDownload();
+        output.handleDownload();
         toast.success("Downloaded spec.mdflow.md");
       }
     },
@@ -1045,64 +376,11 @@ export default function MDFlowWorkbench() {
     escape: () => {
       if (showCommandPalette) setShowCommandPalette(false);
       else if (showHistory) setShowHistory(false);
-      else if (showDiff) setShowDiff(false);
+      else if (diff.showDiff) diff.setShowDiff(false);
       else if (showTemplateEditor) setShowTemplateEditor(false);
       else if (showValidationConfigurator) setShowValidationConfigurator(false);
     },
   });
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      const f = e.dataTransfer.files?.[0];
-      if (!f) return;
-
-      if (mode === "tsv" && /\.tsv$/i.test(f.name)) {
-        setFile(f);
-        setError(null);
-        setLastFailedAction(null);
-        setPreview(null);
-        setLoading(true);
-        setLoading(false);
-        return;
-      }
-
-      if (mode === "xlsx" && /\.xlsx$/i.test(f.name)) {
-        setFile(f);
-        setLoading(true);
-        setError(null);
-        setLastFailedAction(null);
-        setPreview(null);
-        getSheetsMutation
-          .mutateAsync(f)
-          .then((result) => {
-            setSheets(result.sheets);
-            setSelectedSheet(result.active_sheet);
-          })
-          .catch((error) => {
-            setError(
-              error instanceof Error ? error.message : "Failed to read sheets"
-            );
-            setLastFailedAction("other");
-          })
-          .finally(() => {
-            setLoading(false);
-          });
-      }
-    },
-    [
-      mode,
-      setFile,
-      setLoading,
-      setError,
-      setLastFailedAction,
-      setSheets,
-      setSelectedSheet,
-      setPreview,
-      getSheetsMutation,
-    ]
-  );
 
   return (
     <motion.div
@@ -1306,7 +584,7 @@ export default function MDFlowWorkbench() {
                   )}
                 </AnimatePresence>
 
-                {requiresReviewApproval && !reviewApproved && (
+                {review.state.requiresReviewApproval && !review.state.reviewApproved && (
                   <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-accent-gold/30 bg-accent-gold/10 px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-accent-gold/90">
@@ -1315,23 +593,23 @@ export default function MDFlowWorkbench() {
                       <p className="text-[10px] text-white/70">
                         Low-confidence mapping detected. Confirm review before sharing, exporting, or copying output.
                       </p>
-                      {reviewRequiredColumns.length > 0 && (
+                      {review.state.reviewRequiredColumns.length > 0 && (
                         <div className="mt-2 space-y-1">
                           <p className="text-[9px] uppercase tracking-wider text-white/60">
-                            Review Columns ({reviewRequiredColumns.length})
+                            Review Columns ({review.state.reviewRequiredColumns.length})
                           </p>
                           <div className="flex flex-wrap gap-1.5">
-                            {reviewRequiredColumns.map((column) => {
-                              const checked = Boolean(reviewedColumns[column]);
+                            {review.state.reviewRequiredColumns.map((column) => {
+                              const checked = Boolean(review.state.reviewedColumns[column]);
                               return (
                                 <button
                                   key={column}
                                   type="button"
                                   onClick={() =>
-                                    setReviewedColumns((prev) => ({
-                                      ...prev,
+                                    review.setReviewedColumns({
+                                      ...review.state.reviewedColumns,
                                       [column]: !checked,
-                                    }))
+                                    })
                                   }
                                   className={`rounded-md border px-2 py-1 text-[9px] font-bold uppercase tracking-wider transition-colors ${
                                     checked
@@ -1345,19 +623,19 @@ export default function MDFlowWorkbench() {
                             })}
                           </div>
                           <p className="text-[9px] text-white/55">
-                            {reviewRemainingCount} column(s) remaining
+                           {review.reviewRemainingCount} column(s) remaining
                           </p>
                         </div>
                       )}
                     </div>
                     <div className="shrink-0 flex flex-col gap-1.5">
-                      {reviewRequiredColumns.length > 0 && (
+                      {review.state.reviewRequiredColumns.length > 0 && (
                         <button
                           type="button"
                           onClick={() =>
-                            setReviewedColumns(
+                            review.setReviewedColumns(
                               Object.fromEntries(
-                                reviewRequiredColumns.map((column) => [column, true])
+                                review.state.reviewRequiredColumns.map((column) => [column, true])
                               )
                             )
                           }
@@ -1368,10 +646,10 @@ export default function MDFlowWorkbench() {
                       )}
                       <button
                         type="button"
-                        onClick={completeReview}
-                        disabled={!canConfirmReview(reviewRequiredColumns, reviewedColumns)}
+                        onClick={review.completeReview}
+                        disabled={!canConfirmReview(review.state.reviewRequiredColumns, review.state.reviewedColumns)}
                         className={`rounded-lg border px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider transition-colors ${
-                          !canConfirmReview(reviewRequiredColumns, reviewedColumns)
+                          !canConfirmReview(review.state.reviewRequiredColumns, review.state.reviewedColumns)
                             ? "border-white/15 bg-white/5 text-white/35 cursor-not-allowed"
                             : "border-accent-gold/40 bg-accent-gold/20 text-white hover:bg-accent-gold/30"
                         }`}
@@ -1521,9 +799,9 @@ export default function MDFlowWorkbench() {
                               <PreviewTable
                                 preview={preview}
                                 columnOverrides={columnOverrides}
-                                onColumnOverride={handleColumnOverride}
-                                needsReview={requiresReviewApproval}
-                                reviewApproved={reviewApproved}
+                                onColumnOverride={review.handleColumnOverride}
+                                needsReview={review.state.requiresReviewApproval}
+                                reviewApproved={review.state.reviewApproved}
                                 sourceUrl={isGoogleSheetsURL(pasteText.trim()) ? pasteText.trim() : undefined}
                                 onSelectBlockRange={
                                   isGoogleSheetsURL(pasteText.trim())
@@ -1571,11 +849,8 @@ export default function MDFlowWorkbench() {
                     >
                       {/* File drop zone - centered when no file, shrink when file uploaded */}
                       <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setDragOver(true);
-                        }}
-                        onDragLeave={() => setDragOver(false)}
+                        onDragOver={onDragOver}
+                        onDragLeave={onDragLeave}
                         onDrop={onDrop}
                         className={`
                           relative rounded-2xl border-2 border-dashed transition-all duration-300 cursor-pointer w-full shrink-0
@@ -1702,9 +977,9 @@ export default function MDFlowWorkbench() {
                                   <PreviewTable
                                     preview={preview}
                                     columnOverrides={columnOverrides}
-                                    onColumnOverride={handleColumnOverride}
-                                    needsReview={requiresReviewApproval}
-                                    reviewApproved={reviewApproved}
+                                    onColumnOverride={review.handleColumnOverride}
+                                    needsReview={review.state.requiresReviewApproval}
+                                    reviewApproved={review.state.reviewApproved}
                                     onSelectBlockRange={
                                       isGoogleSheetsURL(pasteText.trim())
                                         ? (range) => setGsheetRange(range)
@@ -1817,12 +1092,12 @@ export default function MDFlowWorkbench() {
                   <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-white/70">
                     Output
                   </span>
-                  {requiresReviewApproval && !reviewApproved && (
+                  {review.state.requiresReviewApproval && !review.state.reviewApproved && (
                     <span className="text-[8px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-accent-gold/20 border border-accent-gold/30 text-accent-gold/80">
                       Needs Review
                     </span>
                   )}
-                  {requiresReviewApproval && reviewApproved && (
+                  {review.state.requiresReviewApproval && review.state.reviewApproved && (
                     <span className="text-[8px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-green-500/20 border border-green-500/30 text-green-300">
                       Reviewed
                     </span>
@@ -1835,24 +1110,24 @@ export default function MDFlowWorkbench() {
                 </div>
                 {/* Action buttons - always visible, disabled when no output */}
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <Tooltip content={reviewGateReason ?? (copied ? "Copied!" : "Copy")}>
+                  <Tooltip content={review.reviewGateReason ?? (output.copied ? "Copied!" : "Copy")}>
                     <button
                       type="button"
-                      onClick={handleCopy}
-                      disabled={!mdflowOutput || Boolean(reviewGateReason)}
+                      onClick={output.handleCopy}
+                      disabled={!mdflowOutput || Boolean(review.reviewGateReason)}
                       className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
                         ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
                         : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
                         }`}
                     >
-                      {copied ? (
+                      {output.copied ? (
                         <Check className="w-3.5 h-3.5 text-accent-orange" />
                       ) : (
                         <Copy className="w-3.5 h-3.5" />
                       )}
                     </button>
                   </Tooltip>
-                  {snapshotA && (
+                  {diff.snapshotA && (
                     <span
                       className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-rose-500/20 text-rose-300/90 border border-rose-500/30"
                       title="Version A saved"
@@ -1860,7 +1135,7 @@ export default function MDFlowWorkbench() {
                       A ✓
                     </span>
                   )}
-                  {snapshotB && (
+                  {diff.snapshotB && (
                     <span
                       className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-500/20 text-emerald-300/90 border border-emerald-500/30"
                       title="Version B saved"
@@ -1870,29 +1145,16 @@ export default function MDFlowWorkbench() {
                   )}
                   <Tooltip
                     content={
-                      !snapshotA
+                      !diff.snapshotA
                         ? "Save as Version A (before)"
-                        : !snapshotB
+                        : !diff.snapshotB
                           ? "Save as Version B (after)"
                           : "Overwrite Version B"
                     }
                   >
                     <button
                       type="button"
-                      onClick={() => {
-                        if (mdflowOutput) {
-                          if (!snapshotA) {
-                            setSnapshotA(mdflowOutput);
-                            toast.success("Version A saved", "Run with new input, save again");
-                          } else if (!snapshotB) {
-                            setSnapshotB(mdflowOutput);
-                            toast.success("Version B saved", "Ready to compare");
-                          } else {
-                            setSnapshotB(mdflowOutput);
-                            toast.success("Version B updated");
-                          }
-                        }
-                      }}
+                      onClick={() => diff.saveSnapshot(mdflowOutput)}
                       disabled={!mdflowOutput}
                       className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
                         ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
@@ -1902,30 +1164,12 @@ export default function MDFlowWorkbench() {
                       <Save className="w-3.5 h-3.5" />
                     </button>
                   </Tooltip>
-                  {snapshotA && snapshotB && (
+                  {diff.snapshotA && diff.snapshotB && (
                     <>
                       <Tooltip content="Compare (2 versions)">
                         <button
                           type="button"
-                          onClick={async () => {
-                            const diff = await diffMDFlowMutation.mutateAsync({
-                              before: snapshotA,
-                              after: snapshotB,
-                            });
-                            setCurrentDiff(diff);
-                            setShowDiff(true);
-                            if (
-                              diff &&
-                              !diff.hunks?.length &&
-                              diff.added_lines === 0 &&
-                              diff.removed_lines === 0
-                            ) {
-                              toast.info(
-                                "No changes detected",
-                                "Versions may be identical"
-                              );
-                            }
-                          }}
+                          onClick={() => diff.compareSnapshots()}
                           className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
                         >
                           <GitCompare className="w-3.5 h-3.5" />
@@ -1934,11 +1178,7 @@ export default function MDFlowWorkbench() {
                       <Tooltip content="Clear snapshots">
                         <button
                           type="button"
-                          onClick={() => {
-                            setSnapshotA("");
-                            setSnapshotB("");
-                            toast.success("Snapshots cleared");
-                          }}
+                          onClick={() => diff.clearSnapshots()}
                           className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
@@ -1946,10 +1186,10 @@ export default function MDFlowWorkbench() {
                       </Tooltip>
                     </>
                   )}
-                  <Tooltip content={reviewGateReason ?? "Export"}>
+                  <Tooltip content={review.reviewGateReason ?? "Export"}>
                     <button
                       type="button"
-                      disabled={!mdflowOutput || Boolean(reviewGateReason)}
+                      disabled={!mdflowOutput || Boolean(review.reviewGateReason)}
                       className={`p-1.5 sm:p-2 rounded-lg border transition-all ${mdflowOutput
                         ? "bg-accent-orange/90 hover:bg-accent-orange border-accent-orange/50 text-white"
                         : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
@@ -1974,7 +1214,7 @@ export default function MDFlowWorkbench() {
                   <ShareButton
                     mdflowOutput={mdflowOutput}
                     template={format}
-                    disabledReason={reviewGateReason}
+                    disabledReason={review.reviewGateReason}
                   />
                   {history.length > 0 && (
                     <Tooltip content="History">
@@ -2042,12 +1282,12 @@ export default function MDFlowWorkbench() {
 
       {/* Diff Viewer Modal */}
       <AnimatePresence>
-        {showDiff && currentDiff && (
+        {diff.showDiff && diff.currentDiff && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setShowDiff(false)}
+            onClick={() => diff.setShowDiff(false)}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           >
             <motion.div
@@ -2064,7 +1304,7 @@ export default function MDFlowWorkbench() {
                   </span>
                 </div>
                 <button
-                  onClick={() => setShowDiff(false)}
+                  onClick={() => diff.setShowDiff(false)}
                   className="p-2 h-auto -mr-2 rounded-md hover:bg-white/20 transition-colors cursor-pointer text-white/60 hover:text-white"
                   aria-label="Close"
                 >
@@ -2072,7 +1312,7 @@ export default function MDFlowWorkbench() {
                 </button>
               </div>
               <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-                <DiffViewer diff={currentDiff} />
+                <DiffViewer diff={diff.currentDiff} />
               </div>
             </motion.div>
           </motion.div>
@@ -2118,22 +1358,22 @@ export default function MDFlowWorkbench() {
         onOpenChange={setShowCommandPalette}
         onConvert={handleConvert}
         onCopy={() => {
-          if (reviewGateReason) {
-            toast.error("Review required", reviewGateReason);
+          if (review.reviewGateReason) {
+            toast.error("Review required", review.reviewGateReason);
             return;
           }
           if (mdflowOutput) {
-            handleCopy();
+            output.handleCopy();
             toast.success("Copied to clipboard");
           }
         }}
         onExport={() => {
-          if (reviewGateReason) {
-            toast.error("Review required", reviewGateReason);
+          if (review.reviewGateReason) {
+            toast.error("Review required", review.reviewGateReason);
             return;
           }
           if (mdflowOutput) {
-            handleDownload();
+            output.handleDownload();
             toast.success("Downloaded spec.mdflow.md");
           }
         }}
