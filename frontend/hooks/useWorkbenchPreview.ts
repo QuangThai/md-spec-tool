@@ -6,7 +6,7 @@ import {
   usePreviewGoogleSheetQuery,
 } from "@/lib/mdflowQueries";
 import { emitTelemetryEvent } from "@/lib/telemetry";
-import type { PreviewResponse } from "@/lib/types";
+import { useMDFlowActions, useMDFlowStore } from "@/lib/mdflowStore";
 
 export interface UseWorkbenchPreviewProps {
   debouncedPasteText: string;
@@ -15,14 +15,6 @@ export interface UseWorkbenchPreviewProps {
   setLastFailedAction: (action: "preview" | "convert" | "other" | null) => void;
   inputSource: "paste" | "xlsx" | "gsheet" | "tsv";
   format: string;
-  mode: "paste" | "xlsx" | "tsv";
-  file: File | null;
-  selectedSheet: string;
-  selectedGid: string;
-  gsheetTabs: Array<{ gid: string; title: string }>;
-  setPreview: (preview: PreviewResponse | null) => void;
-  setPreviewLoading: (loading: boolean) => void;
-  setShowPreview: (show: boolean) => void;
 }
 
 export interface GsheetPreviewSlice {
@@ -30,15 +22,15 @@ export interface GsheetPreviewSlice {
   trustedMapping: Record<string, string>;
 }
 
+const EMPTY_TRUSTED_MAPPING: Record<string, string> = {};
+const EMPTY_GSHEET_PREVIEW_SLICE: GsheetPreviewSlice = {
+  selectedBlockId: undefined,
+  trustedMapping: EMPTY_TRUSTED_MAPPING,
+};
+
 export interface UseWorkbenchPreviewReturn {
-  previewQueries: {
-    pasteQuery: ReturnType<typeof usePreviewPasteQuery>;
-    tsvQuery: ReturnType<typeof usePreviewTSVQuery>;
-    xlsxQuery: ReturnType<typeof usePreviewXLSXQuery>;
-    googleSheetQuery: ReturnType<typeof usePreviewGoogleSheetQuery>;
-  };
-  activePreviewError: Error | null;
-  handleRetryPreview: () => Promise<void>;
+  handleRetryPreview: () => void;
+  refetchGoogleSheetPreview: () => void;
   gsheetPreviewSlice: GsheetPreviewSlice;
 }
 
@@ -49,18 +41,19 @@ export const useWorkbenchPreview = ({
   setLastFailedAction,
   inputSource,
   format,
-  mode,
-  file,
-  selectedSheet,
-  selectedGid,
-  gsheetTabs,
-  setPreview,
-  setPreviewLoading,
-  setShowPreview,
 }: UseWorkbenchPreviewProps): UseWorkbenchPreviewReturn => {
+  const mode = useMDFlowStore((state) => state.mode);
+  const file = useMDFlowStore((state) => state.file);
+  const selectedSheet = useMDFlowStore((state) => state.selectedSheet);
+  const selectedGid = useMDFlowStore((state) => state.selectedGid);
+  const gsheetTabs = useMDFlowStore((state) => state.gsheetTabs);
+  const { setPreview, setPreviewLoading, setShowPreview, setError } =
+    useMDFlowActions();
+
   // Refs for telemetry tracking
   const previewStartedAtRef = useRef<number | null>(null);
   const previewAttemptRef = useRef(false);
+  const previewQueryErrorRef = useRef(false);
 
   // Query hooks
   const pasteQuery = usePreviewPasteQuery(
@@ -104,9 +97,21 @@ export const useWorkbenchPreview = ({
   // Effect: Track preview errors
   useEffect(() => {
     if (activePreviewError) {
+      const message =
+        activePreviewError instanceof Error
+          ? activePreviewError.message
+          : "Preview failed";
+      setError(message);
+      previewQueryErrorRef.current = true;
       setLastFailedAction("preview");
+      return;
     }
-  }, [activePreviewError, setLastFailedAction]);
+    if (previewQueryErrorRef.current) {
+      previewQueryErrorRef.current = false;
+      setError(null);
+      setLastFailedAction(null);
+    }
+  }, [activePreviewError, setError, setLastFailedAction]);
 
   // Effect: Sync preview data to store (paste mode)
   useEffect(() => {
@@ -252,10 +257,7 @@ export const useWorkbenchPreview = ({
   // Compute gsheet preview slice (memoized for conversion hook)
   const gsheetPreviewSlice = useMemo(() => {
     if (!googleSheetQuery.data) {
-      return {
-        selectedBlockId: undefined,
-        trustedMapping: {},
-      };
+      return EMPTY_GSHEET_PREVIEW_SLICE;
     }
 
     const previewSelectedBlockId = googleSheetQuery.data.selected_block_id;
@@ -281,7 +283,7 @@ export const useWorkbenchPreview = ({
   }, [googleSheetQuery.data]);
 
   // Retry handler
-  const handleRetryPreview = useCallback(async () => {
+  const handleRetryPreview = useCallback(() => {
     // Trigger refetch based on current mode
     if (mode === "paste" && isGsheetUrl) {
       googleSheetQuery.refetch?.();
@@ -294,15 +296,13 @@ export const useWorkbenchPreview = ({
     }
   }, [mode, isGsheetUrl, googleSheetQuery, pasteQuery, xlsxQuery, tsvQuery]);
 
+  const refetchGoogleSheetPreview = useCallback(() => {
+    googleSheetQuery.refetch?.();
+  }, [googleSheetQuery]);
+
   return {
-    previewQueries: {
-      pasteQuery,
-      tsvQuery,
-      xlsxQuery,
-      googleSheetQuery,
-    },
-    activePreviewError,
     handleRetryPreview,
+    refetchGoogleSheetPreview,
     gsheetPreviewSlice,
   };
 };

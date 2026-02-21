@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 import { useGetGoogleSheetSheetsMutation } from "@/lib/mdflowQueries";
 import { isGoogleSheetsURL } from "@/lib/mdflowApi";
 import { toast } from "@/components/ui/Toast";
+import { useMDFlowActions, useMDFlowStore } from "@/lib/mdflowStore";
 
 export interface UseGoogleSheetInputReturn {
   gsheetLoading: boolean;
@@ -15,24 +16,17 @@ export interface UseGoogleSheetInputReturn {
 interface UseGoogleSheetInputParams {
   debouncedPasteText: string;
   setLastFailedAction: (action: "preview" | "convert" | "other" | null) => void;
-  mode: "paste" | "xlsx" | "tsv";
-  gsheetTabs: { title: string; gid: string }[];
-  selectedGid: string;
-  setGsheetTabs: (tabs: { title: string; gid: string }[]) => void;
-  setSelectedGid: (gid: string) => void;
-  setError: (error: string | null) => void;
 }
 
 export function useGoogleSheetInput({
   debouncedPasteText,
   setLastFailedAction,
-  mode,
-  gsheetTabs,
-  selectedGid,
-  setGsheetTabs,
-  setSelectedGid,
-  setError,
 }: UseGoogleSheetInputParams): UseGoogleSheetInputReturn {
+  const mode = useMDFlowStore((state) => state.mode);
+  const gsheetTabs = useMDFlowStore((state) => state.gsheetTabs);
+  const selectedGid = useMDFlowStore((state) => state.selectedGid);
+  const { setGsheetTabs, setSelectedGid, setError } = useMDFlowActions();
+
   const [gsheetLoading, setGsheetLoading] = useState(false);
   const [gsheetRange, setGsheetRange] = useState("");
 

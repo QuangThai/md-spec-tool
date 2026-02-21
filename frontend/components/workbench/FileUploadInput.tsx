@@ -164,51 +164,53 @@ export const FileUploadInput = memo(function FileUploadInput({
       ) : null}
 
       {/* File Preview Table - takes remaining space */}
-      <AnimatePresence>
-        {tablePreview ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex-1 min-h-0 flex flex-col"
-          >
-            <div className="flex items-center justify-between mb-2 shrink-0">
-              <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider">
-                Data Preview
-              </span>
-              <button
-                type="button"
-                onClick={onTogglePreview}
-                className="flex items-center gap-1.5 text-[10px] text-accent-orange/70 hover:text-accent-orange transition-colors cursor-pointer font-bold uppercase"
-              >
-                {showPreview ? (
-                  <EyeOff className="w-3.5 h-3.5" />
-                ) : (
-                  <Eye className="w-3.5 h-3.5" />
-                )}
-                {showPreview ? "Hide" : "Show"}
-              </button>
-            </div>
-            {showPreview ? (
-              <div className="flex-1 min-h-0 overflow-auto custom-scrollbar rounded-lg border border-white/10">
-                <PreviewTable
-                  preview={tablePreview}
-                  columnOverrides={columnOverrides}
-                  onColumnOverride={onColumnOverride}
-                  needsReview={requiresReviewApproval}
-                  reviewApproved={reviewApproved}
-                />
+      <div data-tour="preview-table">
+        <AnimatePresence>
+          {tablePreview ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-2 shrink-0">
+                <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider">
+                  Data Preview
+                </span>
+                <button
+                  type="button"
+                  onClick={onTogglePreview}
+                  className="flex items-center gap-1.5 text-[10px] text-accent-orange/70 hover:text-accent-orange transition-colors cursor-pointer font-bold uppercase"
+                >
+                  {showPreview ? (
+                    <EyeOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Eye className="w-3.5 h-3.5" />
+                  )}
+                  {showPreview ? "Hide" : "Show"}
+                </button>
               </div>
-            ) : null}
-            {previewLoading ? (
-              <div className="flex items-center gap-2 text-[10px] text-accent-orange/60 mt-2 shrink-0">
-                <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
-                Loading preview...
-              </div>
-            ) : null}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+              {showPreview ? (
+                <div className="flex-1 min-h-0 overflow-auto custom-scrollbar rounded-lg border border-white/10">
+                  <PreviewTable
+                    preview={tablePreview}
+                    columnOverrides={columnOverrides}
+                    onColumnOverride={onColumnOverride}
+                    needsReview={requiresReviewApproval}
+                    reviewApproved={reviewApproved}
+                  />
+                </div>
+              ) : null}
+              {previewLoading ? (
+                <div className="flex items-center gap-2 text-[10px] text-accent-orange/60 mt-2 shrink-0">
+                  <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
+                  Loading preview...
+                </div>
+              ) : null}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 });

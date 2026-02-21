@@ -1,22 +1,13 @@
 import { useCallback, useState } from "react";
 import { useGetXLSXSheetsMutation } from "@/lib/mdflowQueries";
-import { PreviewResponse } from "@/lib/types";
+import { useMDFlowActions, useMDFlowStore } from "@/lib/mdflowStore";
 
 interface UseFileHandlingProps {
   setLastFailedAction: (action: "preview" | "convert" | "other" | null) => void;
-  mode: "paste" | "xlsx" | "tsv";
-  file: File | null;
-  setFile: (file: File | null) => void;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  setPreview: (preview: PreviewResponse | null) => void;
-  setSheets: (sheets: string[]) => void;
-  setSelectedSheet: (sheet: string) => void;
 }
 
 export interface UseFileHandlingReturn {
   dragOver: boolean;
-  setDragOver: (over: boolean) => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   onDrop: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -25,15 +16,17 @@ export interface UseFileHandlingReturn {
 
 export function useFileHandling({
   setLastFailedAction,
-  mode,
-  file,
-  setFile,
-  setLoading,
-  setError,
-  setPreview,
-  setSheets,
-  setSelectedSheet,
 }: UseFileHandlingProps): UseFileHandlingReturn {
+  const mode = useMDFlowStore((state) => state.mode);
+  const {
+    setFile,
+    setLoading,
+    setError,
+    setPreview,
+    setSheets,
+    setSelectedSheet,
+  } = useMDFlowActions();
+
   const [dragOver, setDragOver] = useState(false);
   const getSheetsMutation = useGetXLSXSheetsMutation();
 
@@ -142,7 +135,6 @@ export function useFileHandling({
 
   return {
     dragOver,
-    setDragOver,
     handleFileChange,
     onDrop,
     onDragOver,

@@ -8,7 +8,6 @@ import { ErrorBanner } from "./ErrorBanner";
 import { PasteInput } from "./PasteInput";
 import { FileUploadInput } from "./FileUploadInput";
 import { WorkbenchFooter } from "./WorkbenchFooter";
-import { canConfirmReview } from "@/lib/reviewGate";
 import type { PreviewResponse, OutputFormat } from "@/lib/types";
 
 const ApiKeyPanel = dynamic(
@@ -82,6 +81,7 @@ export interface SourcePanelProps {
   reviewRequiredColumns: string[];
   reviewedColumns: Record<string, boolean>;
   reviewRemainingCount: number;
+  canConfirmReview: boolean;
   onToggleReviewColumn: (column: string) => void;
   onMarkAllReviewed: () => void;
   onCompleteReview: () => void;
@@ -89,11 +89,31 @@ export interface SourcePanelProps {
   reviewApproved: boolean;
 
   // Google Sheets
-   googleSheetInput: any;
-   isInputGsheetUrl: boolean;
+  googleSheetInput: {
+    gsheetLoading: boolean;
+    gsheetRange: string;
+    setGsheetRange: (value: string) => void;
+    setSelectedGid: (value: string) => void;
+    googleAuth: {
+      connected: boolean;
+      loading: boolean;
+      login: () => void;
+      logout: () => void;
+    };
+    gsheetTabs: Array<{ title: string; gid: string }>;
+    selectedGid: string;
+    onRefetchGsheetPreview: () => void;
+  };
+  isInputGsheetUrl: boolean;
 
-   // File handling
-   fileHandling: any;
+  // File handling
+  fileHandling: {
+    dragOver: boolean;
+    handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
+    onDrop: (e: React.DragEvent) => void;
+    onDragOver: (e: React.DragEvent) => void;
+    onDragLeave: () => void;
+  };
 
   // Loading
   loading: boolean;
@@ -138,6 +158,7 @@ export const SourcePanel = memo(function SourcePanel({
   reviewRequiredColumns,
   reviewedColumns,
   reviewRemainingCount,
+  canConfirmReview,
   onToggleReviewColumn,
   onMarkAllReviewed,
   onCompleteReview,
@@ -217,7 +238,7 @@ export const SourcePanel = memo(function SourcePanel({
                   }}
                   onMarkAll={onMarkAllReviewed}
                   onConfirmReview={onCompleteReview}
-                  canConfirm={canConfirmReview(reviewRequiredColumns, reviewedColumns)}
+                  canConfirm={canConfirmReview}
                 />
               ) : null}
 
@@ -228,8 +249,8 @@ export const SourcePanel = memo(function SourcePanel({
                   pasteText={pasteText}
                   onPasteTextChange={onPasteTextChange}
                   isInputGsheetUrl={isInputGsheetUrl}
-                  gsheetTabs={googleSheetInput.googleSheetInput?.gsheetTabs ?? EMPTY_GSHEET_TABS}
-                  selectedGid={googleSheetInput.googleSheetInput?.selectedGid || ""}
+                  gsheetTabs={googleSheetInput.gsheetTabs ?? EMPTY_GSHEET_TABS}
+                  selectedGid={googleSheetInput.selectedGid}
                   onSelectGid={googleSheetInput.setSelectedGid}
                   gsheetLoading={googleSheetInput.gsheetLoading}
                   gsheetRange={googleSheetInput.gsheetRange}
@@ -243,9 +264,7 @@ export const SourcePanel = memo(function SourcePanel({
                   onColumnOverride={onColumnOverride}
                   requiresReviewApproval={requiresReviewApproval}
                   reviewApproved={reviewApproved}
-                  onRefetchGsheetPreview={() => {
-                    // Refetch will be triggered by hook
-                  }}
+                  onRefetchGsheetPreview={googleSheetInput.onRefetchGsheetPreview}
                 />
               ) : (
                 <FileUploadInput
@@ -276,7 +295,7 @@ export const SourcePanel = memo(function SourcePanel({
           {/* Footer with format and run button */}
           <WorkbenchFooter
             format={format}
-            onFormatChange={(v) => onFormatChange(v as any)}
+            onFormatChange={onFormatChange}
             onConvert={onConvert}
             loading={loading}
             disabled={false}

@@ -10,7 +10,8 @@ import { emitTelemetryEvent } from "@/lib/telemetry";
 import { buildReviewRequiredColumns } from "@/lib/reviewGate";
 import { isGoogleSheetsURL } from "@/lib/mdflowApi";
 import { toast } from "@/components/ui/Toast";
-import type { MDFlowWarning, MDFlowMeta, ConversionRecord, AISuggestion, PreviewResponse } from "@/lib/types";
+import { useHistoryStore, useMDFlowActions, useMDFlowStore } from "@/lib/mdflowStore";
+import { useShallow } from "zustand/react/shallow";
 
 interface UseWorkbenchConversionProps {
   setLastFailedAction: (action: "preview" | "convert" | "other" | null) => void;
@@ -26,26 +27,6 @@ interface UseWorkbenchConversionProps {
   includeMetadata: boolean;
   numberRows: boolean;
   inputSource: "paste" | "xlsx" | "gsheet" | "tsv";
-  mode: "paste" | "xlsx" | "tsv";
-  pasteText: string;
-  file: File | null;
-  selectedSheet: string;
-  selectedGid: string;
-  format: string;
-  columnOverrides: Record<string, string>;
-  preview: PreviewResponse | null;
-  gsheetTabs: Array<{ gid: string; title: string }>;
-  mdflowOutput: string;
-  setResult: (output: string, warnings: MDFlowWarning[], meta: MDFlowMeta) => void;
-  setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
-  setShowPreview: (show: boolean) => void;
-  addToHistory: (record: Omit<ConversionRecord, "id" | "timestamp">) => void;
-  aiSuggestionsLoading: boolean;
-  setAISuggestionsLoading: (loading: boolean) => void;
-  setAISuggestionsError: (error: string | null) => void;
-  setAISuggestions: (suggestions: AISuggestion[], configured: boolean) => void;
-  clearAISuggestions: () => void;
 }
 
 interface UseWorkbenchConversionReturn {
@@ -66,6 +47,10 @@ export function useWorkbenchConversion(
     includeMetadata,
     numberRows,
     inputSource,
+  } = props;
+  const { open: openReviewGate, clear: clearReviewGate } = reviewApi;
+
+  const {
     mode,
     pasteText,
     file,
@@ -75,18 +60,34 @@ export function useWorkbenchConversion(
     columnOverrides,
     preview,
     gsheetTabs,
-    mdflowOutput,
+    aiSuggestionsLoading,
+  } = useMDFlowStore(
+    useShallow((state) => ({
+      mode: state.mode,
+      pasteText: state.pasteText,
+      file: state.file,
+      selectedSheet: state.selectedSheet,
+      selectedGid: state.selectedGid,
+      format: state.format,
+      columnOverrides: state.columnOverrides,
+      preview: state.preview,
+      gsheetTabs: state.gsheetTabs,
+      aiSuggestionsLoading: state.aiSuggestionsLoading,
+    }))
+  );
+
+  const {
     setResult,
     setLoading,
     setError,
     setShowPreview,
-    addToHistory,
-    aiSuggestionsLoading,
     setAISuggestionsLoading,
     setAISuggestionsError,
     setAISuggestions,
     clearAISuggestions,
-  } = props;
+  } = useMDFlowActions();
+
+  const addToHistory = useHistoryStore((state) => state.addToHistory);
 
   const [showFeedback, setShowFeedback] = useState(false);
 
@@ -201,7 +202,7 @@ export function useWorkbenchConversion(
         );
         if (result.needs_review) {
           const uniqueColumns = buildReviewRequiredColumns(preview ?? null);
-          reviewApi.open(uniqueColumns);
+          openReviewGate(uniqueColumns);
           setShowPreview(true);
           emitTelemetryEvent("review_mapping_opened", {
             status: "success",
@@ -214,7 +215,7 @@ export function useWorkbenchConversion(
             "Low-confidence mapping detected. Please review preview before sharing."
           );
         } else {
-          reviewApi.clear();
+          clearReviewGate();
         }
         emitTelemetryEvent("convert_succeeded", {
           status: "success",
@@ -272,7 +273,8 @@ export function useWorkbenchConversion(
     setLastFailedAction,
     setResult,
     setShowPreview,
-    reviewApi,
+    openReviewGate,
+    clearReviewGate,
     inputSource,
     addToHistory,
     gsheetTabs,

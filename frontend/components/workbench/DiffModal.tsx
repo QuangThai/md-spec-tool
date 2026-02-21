@@ -4,10 +4,11 @@ import React, { memo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { DiffViewer } from "@/components/DiffViewer";
+import type { DiffResponse } from "@/lib/diffTypes";
 
 export interface DiffModalProps {
   showDiff: boolean;
-  currentDiff: any;
+  currentDiff: DiffResponse | null;
   onClose: () => void;
 }
 

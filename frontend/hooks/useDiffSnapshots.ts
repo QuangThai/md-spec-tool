@@ -2,12 +2,13 @@ import { useState, useCallback } from "react";
 import { useDiffMDFlowMutation } from "@/lib/mdflowQueries";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { toast } from "@/components/ui/Toast";
+import type { DiffResponse } from "@/lib/diffTypes";
 
 export function useDiffSnapshots() {
   const [showDiff, setShowDiff] = useState(false);
   const [snapshotA, setSnapshotA] = useState("");
   const [snapshotB, setSnapshotB] = useState("");
-  const [currentDiff, setCurrentDiff] = useState<any>(null);
+  const [currentDiff, setCurrentDiff] = useState<DiffResponse | null>(null);
 
   useBodyScrollLock(showDiff);
 

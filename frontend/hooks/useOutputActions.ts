@@ -1,31 +1,26 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useMDFlowStore } from "@/lib/mdflowStore";
 
 interface UseOutputActionsReturn {
   copied: boolean;
-  setCopied: (value: boolean) => void;
   handleCopy: () => void;
   handleDownload: () => void;
 }
 
-/**
- * Hook for managing output actions: copying to clipboard and downloading
- * @param mdflowOutput - The markdown output content to copy/download
- * @returns Object containing copied state and action handlers
- */
-export function useOutputActions(
-  mdflowOutput: string
-): UseOutputActionsReturn {
+export function useOutputActions(): UseOutputActionsReturn {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
+    const mdflowOutput = useMDFlowStore.getState().mdflowOutput;
     navigator.clipboard.writeText(mdflowOutput);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [mdflowOutput]);
+  }, []);
 
   const handleDownload = useCallback(() => {
+    const mdflowOutput = useMDFlowStore.getState().mdflowOutput;
     const blob = new Blob([mdflowOutput], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -35,11 +30,10 @@ export function useOutputActions(
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [mdflowOutput]);
+  }, []);
 
   return {
     copied,
-    setCopied,
     handleCopy,
     handleDownload,
   };

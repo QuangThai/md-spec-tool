@@ -1,6 +1,7 @@
-import { buildReviewRequiredColumns, countRemainingReviews } from "@/lib/reviewGate";
+import { countRemainingReviews } from "@/lib/reviewGate";
 import { emitTelemetryEvent } from "@/lib/telemetry";
 import { toast } from "@/components/ui/Toast";
+import { useMDFlowActions } from "@/lib/mdflowStore";
 import {
   useCallback,
   useEffect,
@@ -18,18 +19,13 @@ interface UseReviewGateParams {
   pasteText: string;
   file: File | null;
   isInputGsheetUrl: boolean;
-  setColumnOverride: (column: string, field: string) => void;
 }
 
-interface ReviewGateState {
+interface UseReviewGateReturn {
   requiresReviewApproval: boolean;
   reviewApproved: boolean;
   reviewRequiredColumns: string[];
   reviewedColumns: Record<string, boolean>;
-}
-
-interface UseReviewGateReturn {
-  state: ReviewGateState;
   reviewGateReason: string | undefined;
   reviewRemainingCount: number;
   completeReview: () => void;
@@ -46,8 +42,8 @@ export function useReviewGate({
   pasteText,
   file,
   isInputGsheetUrl,
-  setColumnOverride,
 }: UseReviewGateParams): UseReviewGateReturn {
+  const { setColumnOverride } = useMDFlowActions();
   const [requiresReviewApproval, setRequiresReviewApproval] = useState(false);
   const [reviewApproved, setReviewApproved] = useState(false);
   const [reviewRequiredColumns, setReviewRequiredColumns] = useState<string[]>([]);
@@ -130,12 +126,10 @@ export function useReviewGate({
   );
 
   return {
-    state: {
-      requiresReviewApproval,
-      reviewApproved,
-      reviewRequiredColumns,
-      reviewedColumns,
-    },
+    requiresReviewApproval,
+    reviewApproved,
+    reviewRequiredColumns,
+    reviewedColumns,
     reviewGateReason,
     reviewRemainingCount,
     completeReview,

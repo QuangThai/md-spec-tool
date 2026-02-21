@@ -40,8 +40,8 @@ export const WorkbenchFooter = memo(function WorkbenchFooter({
       <div className="flex items-center gap-2 sm:gap-3" data-tour="template-selector">
         {/* Template dropdown - collapsible on mobile */}
          <div className="flex-1 min-w-48">
-           <TemplateCards selected={format} onSelect={(f) => onFormatChange(f as any)} compact />
-         </div>
+           <TemplateCards selected={format} onSelect={onFormatChange} compact />
+          </div>
 
         {/* Run button */}
         <div className="shrink-0" data-tour="run-button">

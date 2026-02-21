@@ -197,45 +197,48 @@ export const PasteInput = memo(function PasteInput({
       ) : null}
 
       {/* Preview Table - Collapsible */}
-      <AnimatePresence>
-        {showPreview && tablePreview ? (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-3 shrink-0 max-h-[30vh] overflow-auto custom-scrollbar"
-          >
-            <PreviewTable
-              preview={tablePreview}
-              columnOverrides={columnOverrides}
-              onColumnOverride={onColumnOverride}
-              needsReview={requiresReviewApproval}
-              reviewApproved={reviewApproved}
-              sourceUrl={isGoogleSheetUrl ? trimmedPasteText : undefined}
-              onSelectBlockRange={
-                isGoogleSheetUrl ? (range) => onGsheetRangeChange(range) : undefined
-              }
-            />
-          </motion.div>
-        ) : null}
-        {markdownPreview ? (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="mb-3 shrink-0"
-          >
-            <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 flex items-center gap-2">
-              <FileText className="w-3.5 h-3.5 text-blue-400/80 shrink-0" />
-              <span className="text-[9px] font-bold text-blue-400/90 uppercase tracking-wider">
-                Markdown detected - passthrough mode
-              </span>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <div data-tour="preview-table">
+        <AnimatePresence>
+          {showPreview && tablePreview ? (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-3 shrink-0 max-h-[30vh] overflow-auto custom-scrollbar"
+            >
+              <PreviewTable
+                preview={tablePreview}
+                columnOverrides={columnOverrides}
+                onColumnOverride={onColumnOverride}
+                needsReview={requiresReviewApproval}
+                reviewApproved={reviewApproved}
+                sourceUrl={isGoogleSheetUrl ? trimmedPasteText : undefined}
+                onSelectBlockRange={
+                  isGoogleSheetUrl ? (range) => onGsheetRangeChange(range) : undefined
+                }
+              />
+            </motion.div>
+          ) : null}
+          {markdownPreview ? (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-3 shrink-0"
+            >
+              <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 flex items-center gap-2">
+                <FileText className="w-3.5 h-3.5 text-blue-400/80 shrink-0" />
+                <span className="text-[9px] font-bold text-blue-400/90 uppercase tracking-wider">
+                  Markdown detected - passthrough mode
+                </span>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
 
       <textarea
+        data-tour="paste-area"
         value={pasteText}
         onChange={(e) => onPasteTextChange(e.target.value)}
         placeholder="Paste your table data here (TSV, CSV, or Google Sheets URL)…"
