@@ -6,11 +6,13 @@ import { Select } from '@/components/ui/Select';
 interface FormatSelectorProps {
   value: OutputFormat;
   onChange: (format: OutputFormat) => void;
+  id?: string;
 }
 
-export function FormatSelector({ value, onChange }: FormatSelectorProps) {
+export function FormatSelector({ value, onChange, id }: FormatSelectorProps) {
   return (
     <Select
+      id={id}
       value={value}
       onValueChange={(v) => onChange(v as OutputFormat)}
       options={[

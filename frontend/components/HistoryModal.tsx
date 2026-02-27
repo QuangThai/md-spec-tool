@@ -4,7 +4,7 @@ import { ConversionRecord } from "@/lib/types";
 import { useOnboardingStore } from "@/lib/onboardingStore";
 import { SHORTCUTS, formatShortcut } from "@/lib/useKeyboardShortcuts";
 import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import { BookOpen, Check, Clock, Command, Copy, History, Keyboard, X } from "lucide-react";
 import { useCallback, useState } from "react";
 
@@ -32,20 +32,21 @@ export default function HistoryModal({
   );
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={onClose}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[70vh] flex flex-col overflow-hidden"
+    <LazyMotion features={domAnimation}>
+      <m.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overscroll-contain"
       >
+        <m.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-black/80 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[70vh] flex flex-col overflow-hidden overscroll-contain"
+        >
         <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-white/10 bg-white/3 shrink-0">
           <div className="flex items-center gap-3">
             <History className="w-4 h-4 text-accent-orange" />
@@ -86,7 +87,7 @@ export default function HistoryModal({
             </div>
           ) : (
             history.map((record, idx) => (
-              <motion.div
+              <m.div
                 key={record.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -111,12 +112,12 @@ export default function HistoryModal({
                   <div className="relative z-10">
                     <div className="flex items-center justify-between gap-4 mb-3">
                       <div className="flex items-center gap-2.5 flex-wrap">
-                        <motion.span
+                        <m.span
                           whileHover={{ scale: 1.05 }}
                           className="text-[9px] font-black uppercase tracking-[0.15em] px-2.5 py-1.5 h-6 rounded-lg bg-linear-to-r from-accent-orange/20 to-accent-orange/10 border border-accent-orange/30 text-accent-orange shadow-[0_0_8px_rgba(242,123,47,0.15)] flex items-center leading-none whitespace-nowrap"
                         >
                           {record.mode}
-                        </motion.span>
+                        </m.span>
 
                         {/* Premium Template Badge */}
                         <div className="relative">
@@ -131,7 +132,7 @@ export default function HistoryModal({
                         <span className="text-[9px] text-white/30 font-mono">
                           {new Date(record.timestamp).toLocaleString()}
                         </span>
-                        <motion.button
+                        <m.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={(e) => handleCopy(record, e)}
@@ -143,7 +144,7 @@ export default function HistoryModal({
                           ) : (
                             <Copy className="w-3.5 h-3.5" />
                           )}
-                        </motion.button>
+                        </m.button>
                       </div>
                     </div>
 
@@ -158,12 +159,13 @@ export default function HistoryModal({
                     </div>
                   </div>
                 </div>
-              </motion.div>
+              </m.div>
             ))
           )}
         </div>
-      </motion.div>
-    </motion.div>
+        </m.div>
+      </m.div>
+    </LazyMotion>
   );
 }
 
@@ -203,12 +205,13 @@ export function KeyboardShortcutsTooltip() {
 
       <AnimatePresence>
         {show && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            className="absolute bottom-full right-0 mb-2 w-52 rounded-xl bg-black/90 backdrop-blur-xl border border-white/20 shadow-2xl overflow-hidden"
-          >
+          <LazyMotion features={domAnimation}>
+            <m.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              className="absolute bottom-full right-0 mb-2 w-52 rounded-xl bg-black/90 backdrop-blur-xl border border-white/20 shadow-2xl overflow-hidden"
+            >
             <div className="px-3 py-2 border-b border-white/10 bg-white/5">
               <span className="text-[9px] font-black uppercase tracking-widest text-white/60">
                 Shortcuts
@@ -236,7 +239,8 @@ export function KeyboardShortcutsTooltip() {
                 Restart Tour
               </button>
             </div>
-          </motion.div>
+            </m.div>
+          </LazyMotion>
         )}
       </AnimatePresence>
     </div>

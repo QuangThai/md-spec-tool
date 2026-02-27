@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, HTMLMotionProps } from 'framer-motion';
+import { HTMLMotionProps, LazyMotion, domAnimation, m } from 'framer-motion';
 import { RefreshCcw } from 'lucide-react';
 import React, { forwardRef } from 'react';
 
@@ -15,23 +15,25 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
 }
 
 const CheckIcon = ({ animate }: { animate: boolean }) => (
-  <motion.svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <motion.path
-      d="M5 12l5 5L19 7"
-      initial={{ pathLength: 0 }}
-      animate={{ pathLength: animate ? 1 : 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-    />
-  </motion.svg>
+  <LazyMotion features={domAnimation}>
+    <m.svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <m.path
+        d="M5 12l5 5L19 7"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: animate ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+      />
+    </m.svg>
+  </LazyMotion>
 );
 
 const variantStyles = {
@@ -72,8 +74,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       inline-flex items-center justify-center
       font-bold uppercase tracking-wider
       rounded-lg
-      transition-all duration-200
-      focus:outline-none focus:ring-2 focus:ring-accent-orange focus:ring-offset-2 focus:ring-offset-black
+      transition-[transform,box-shadow,background-color,border-color] duration-200
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange focus-visible:ring-offset-2 focus-visible:ring-offset-black
       ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
     `;
 
@@ -90,19 +92,21 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const iconElement = renderIcon();
 
     return (
-      <motion.button
-        ref={ref}
-        disabled={isDisabled}
-        className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
-        whileHover={isDisabled ? undefined : { scale: 1.02 }}
-        whileTap={isDisabled ? undefined : { scale: 0.97 }}
-        transition={{ duration: 0.2 }}
-        {...props}
-      >
-        {iconElement && iconPosition === 'left' && iconElement}
-        {children}
-        {iconElement && iconPosition === 'right' && iconElement}
-      </motion.button>
+      <LazyMotion features={domAnimation}>
+        <m.button
+          ref={ref}
+          disabled={isDisabled}
+          className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+          whileHover={isDisabled ? undefined : { scale: 1.02 }}
+          whileTap={isDisabled ? undefined : { scale: 0.97 }}
+          transition={{ duration: 0.2 }}
+          {...props}
+        >
+          {iconElement && iconPosition === 'left' && iconElement}
+          {children}
+          {iconElement && iconPosition === 'right' && iconElement}
+        </m.button>
+      </LazyMotion>
     );
   }
 );

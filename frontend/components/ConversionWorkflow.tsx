@@ -53,14 +53,20 @@ export function ConversionWorkflow({ onConvert }: ConversionWorkflowProps) {
     <div className="space-y-4">
       {/* Format Selection */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Output Format</label>
-        <FormatSelector value={format} onChange={setFormat} />
+        <label htmlFor="conversion-output-format" className="text-sm font-medium">
+          Output Format
+        </label>
+        <FormatSelector
+          id="conversion-output-format"
+          value={format}
+          onChange={setFormat}
+        />
       </div>
 
       {/* Convert Button */}
       <Button onClick={handleConvert} disabled={loading} className="w-full">
         {loading && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-        {loading ? 'Converting...' : 'Convert'}
+        {loading ? 'Converting…' : 'Convert'}
       </Button>
 
       {/* Error Display */}

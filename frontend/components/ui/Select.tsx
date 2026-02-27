@@ -13,6 +13,7 @@ interface SelectProps {
   side?: "top" | "bottom";
   size?: "default" | "compact";
   "aria-label"?: string;
+  id?: string;
 }
 
 export function Select({
@@ -24,6 +25,7 @@ export function Select({
   side = "bottom",
   size = "default",
   "aria-label": ariaLabel,
+  id,
 }: SelectProps) {
   const selectedOption = options.find((opt) => opt.value === value);
   const isCompact = size === "compact";
@@ -31,8 +33,10 @@ export function Select({
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
       <SelectPrimitive.Trigger
+        id={id}
         className={cn(
-          "inline-flex min-w-[120px] items-center justify-between border border-white/10 bg-black/40 text-white transition-all duration-200 outline-none hover:bg-white/5 focus:border-accent-orange/50 focus:ring-4 focus:ring-accent-orange/10",
+          "inline-flex min-w-[120px] items-center justify-between border border-white/10 bg-black/40 text-white outline-none hover:bg-white/5 focus-visible:border-accent-orange/50 focus-visible:ring-4 focus-visible:ring-accent-orange/10",
+          "transition-[background-color,border-color,box-shadow] duration-200",
           isCompact
             ? "h-7 rounded-lg px-2.5 text-[10px] font-semibold tracking-normal"
             : "h-12 rounded-xl px-6 py-4 text-[11px] font-bold uppercase tracking-wider",
@@ -74,7 +78,7 @@ export function Select({
                 key={option.value}
                 value={option.value}
                 className={cn(
-                  "relative flex w-full cursor-pointer items-center justify-between rounded-md text-left transition-colors duration-150 outline-none data-highlighted:bg-white/10 data-highlighted:text-white",
+                  "relative flex w-full cursor-pointer items-center justify-between rounded-md text-left transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/30 data-highlighted:bg-white/10 data-highlighted:text-white",
                   isCompact
                     ? "px-3 py-2 text-[10px] font-semibold tracking-normal"
                     : "px-5 py-3 text-[10px] font-bold uppercase tracking-widest",

@@ -39,7 +39,7 @@ function ShareButtonV2({
   shareSlugError,
 }: ShareButtonV2Props) {
   return (
-    <Tooltip content={creatingShare ? "Sharing..." : "Share"}>
+    <Tooltip content={creatingShare ? "Sharing…" : "Share"}>
       <div className="relative" ref={shareOptionsRef}>
         <button
           type="button"
@@ -61,28 +61,38 @@ function ShareButtonV2({
           <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-white/10 bg-black/90 backdrop-blur-xl p-3 shadow-2xl">
             <div className="space-y-3 text-[10px] text-white/70">
               <div>
-                <label className="block text-[9px] uppercase tracking-widest text-white/40 mb-1">
+                <label
+                  htmlFor="share-title-input"
+                  className="block text-[9px] uppercase tracking-widest text-white/40 mb-1"
+                >
                   Title
                 </label>
                 <input
+                  id="share-title-input"
                   value={shareTitle}
                   onChange={(event) => setShareTitle(event.target.value)}
-                  placeholder="Optional title"
-                  className="w-full rounded-md bg-white/5 border border-white/10 px-2 py-1.5 text-[10px] text-white/80 focus:outline-none focus:border-accent-orange/40"
+                  placeholder="Optional title…"
+                  aria-label="Share title (optional)"
+                  className="w-full rounded-md bg-white/5 border border-white/10 px-2 py-1.5 text-[10px] text-white/80 focus:outline-none focus-visible:border-accent-orange/40 focus-visible:ring-2 focus-visible:ring-accent-orange/20"
                 />
               </div>
               <div>
-                <label className="block text-[9px] uppercase tracking-widest text-white/40 mb-1">
+                <label
+                  htmlFor="share-slug-input"
+                  className="block text-[9px] uppercase tracking-widest text-white/40 mb-1"
+                >
                   Custom Slug
                 </label>
                 <input
+                  id="share-slug-input"
                   value={shareSlug}
                   onChange={(event) => setShareSlug(event.target.value)}
-                  placeholder="my-spec"
-                  className={`w-full rounded-md bg-white/5 border px-2 py-1.5 text-[10px] text-white/80 focus:outline-none ${
+                  placeholder="my-spec…"
+                  aria-label="Custom slug"
+                  className={`w-full rounded-md bg-white/5 border px-2 py-1.5 text-[10px] text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/20 ${
                     shareSlugError
                       ? "border-red-400/60"
-                      : "border-white/10 focus:border-accent-orange/40"
+                      : "border-white/10 focus-visible:border-accent-orange/40"
                   }`}
                 />
                 {shareSlugError && (
@@ -92,10 +102,14 @@ function ShareButtonV2({
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <label className="text-[9px] uppercase tracking-widest text-white/40">
+                <label
+                  htmlFor="share-visibility-select"
+                  className="text-[9px] uppercase tracking-widest text-white/40"
+                >
                   Visibility
                 </label>
                 <Select
+                  id="share-visibility-select"
                   value={shareVisibility}
                   onValueChange={(value) =>
                     setShareVisibility(value === "public" ? "public" : "private")
@@ -110,11 +124,15 @@ function ShareButtonV2({
                 />
               </div>
               <div className="flex items-center justify-between">
-                <label className="text-[9px] uppercase tracking-widest text-white/40">
+                <span
+                  id="share-comments-label"
+                  className="text-[9px] uppercase tracking-widest text-white/40"
+                >
                   Comments
-                </label>
+                </span>
                 <button
                   type="button"
+                  aria-labelledby="share-comments-label"
                   onClick={() =>
                     setShareAllowComments((prev) => !prev as boolean)
                   }
@@ -133,7 +151,7 @@ function ShareButtonV2({
                 disabled={creatingShare}
                 className="w-full mt-1 px-3 py-2 rounded-lg bg-accent-orange hover:bg-accent-orange/90 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-50"
               >
-                {creatingShare ? "Sharing..." : "Create Share Link"}
+                {creatingShare ? "Sharing…" : "Create Share Link"}
               </button>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { Skeleton } from "@/components/ui/Skeleton";
 import { usePublicShares } from "@/hooks/usePublicShares";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { ArrowRight, ExternalLink, Sparkles, Copy, Loader2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -142,14 +142,15 @@ export default function GalleryPageClient() {
         </div>
       ) : items.length ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((item, idx) => (
-            <motion.div
-              key={`${item.slug}-${idx}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.03 }}
-              className="group rounded-2xl border border-white/10 bg-white/4 p-4 flex flex-col gap-4 hover:border-white/20 hover:bg-white/6 transition-all"
-            >
+          <LazyMotion features={domAnimation}>
+            {items.map((item, idx) => (
+              <m.div
+                key={item.slug}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03 }}
+                className="group rounded-2xl border border-white/10 bg-white/4 p-4 flex flex-col gap-4 hover:border-white/20 hover:bg-white/6 transition-all"
+              >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest text-white/40">
                   {item.template || "spec"}
@@ -185,8 +186,9 @@ export default function GalleryPageClient() {
                   </Link>
                 </div>
               </div>
-            </motion.div>
-          ))}
+              </m.div>
+            ))}
+          </LazyMotion>
         </div>
       ) : (
         <div className="rounded-2xl border border-white/10 bg-white/4 p-6 text-center space-y-3">
@@ -206,19 +208,20 @@ export default function GalleryPageClient() {
 
       {/* Clone Modal */}
       {cloneModal && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => !cloning && setCloneModal(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-black/80 border border-white/20 rounded-2xl p-6 max-w-md w-full space-y-4"
+        <LazyMotion features={domAnimation}>
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !cloning && setCloneModal(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           >
+            <m.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-black/80 border border-white/20 rounded-2xl p-6 max-w-md w-full space-y-4"
+            >
             <div className="space-y-1">
               <h2 className="text-lg font-bold text-white">Clone Template</h2>
               <p className="text-sm text-white/60">
@@ -228,7 +231,7 @@ export default function GalleryPageClient() {
 
             {cloneError && (
               <div className="flex items-start gap-3 rounded-lg bg-red-500/15 border border-red-500/30 p-3">
-                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-red-300">{cloneError}</p>
               </div>
             )}
@@ -239,19 +242,20 @@ export default function GalleryPageClient() {
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder={cloneModal.title}
               disabled={cloning}
-              className="w-full px-3 py-2 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder-white/40 focus:outline-none focus:border-accent-orange/50 focus:bg-white/12 disabled:opacity-50"
+              aria-label="Clone title"
+              className="w-full px-3 py-2 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder-white/40 focus:outline-none focus-visible:border-accent-orange/50 focus-visible:bg-white/12 focus-visible:ring-2 focus-visible:ring-accent-orange/20 disabled:opacity-50"
             />
 
             <div className="space-y-2 pt-2">
               <button
                 onClick={handleClone}
                 disabled={cloning}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-orange px-4 py-2.5 text-sm font-bold text-white hover:bg-accent-orange/90 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-orange px-4 py-2.5 text-sm font-bold text-white hover:bg-accent-orange/90 disabled:opacity-60 disabled:cursor-not-allowed transition-[background-color,opacity]"
               >
                 {cloning ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Cloning...
+                    Cloning…
                   </>
                 ) : (
                   <>
@@ -263,13 +267,14 @@ export default function GalleryPageClient() {
               <button
                 onClick={() => !cloning && setCloneModal(null)}
                 disabled={cloning}
-                className="w-full rounded-lg bg-white/8 border border-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/12 disabled:opacity-50 transition-all"
+                className="w-full rounded-lg bg-white/8 border border-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/12 disabled:opacity-50 transition-[background-color]"
               >
                 Cancel
               </button>
             </div>
-          </motion.div>
-        </motion.div>
+            </m.div>
+          </m.div>
+        </LazyMotion>
       )}
     </div>
   );

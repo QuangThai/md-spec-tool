@@ -1,7 +1,7 @@
 "use client";
 
 import { TemplateCards } from "@/components/TemplateCards";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { ArrowLeft, Boxes, FileSpreadsheet, Layers, Zap } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -14,7 +14,7 @@ const BatchProcessor = dynamic(
     ssr: false,
     loading: () => (
       <div className="h-48 flex items-center justify-center">
-        <div className="animate-pulse text-white/40 text-sm">Loading...</div>
+        <div className="animate-pulse text-white/40 text-sm">Loading…</div>
       </div>
     ),
   }
@@ -100,8 +100,8 @@ const TipsSection = memo(function TipsSection() {
         Tips
       </h3>
       <ul className="space-y-2 text-[11px] text-blue-400/70">
-        {TIPS.map((tip, index) => (
-          <li key={index} className="flex items-start gap-2">
+        {TIPS.map((tip) => (
+          <li key={tip} className="flex items-start gap-2">
             <span className="text-blue-400">•</span>
             {tip}
           </li>
@@ -165,47 +165,56 @@ export default function BatchPageClient() {
       <PageHeader />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-        <motion.div
-          variants={STAGGER_CONFIG.container}
-          initial="initial"
-          animate="animate"
-          className="space-y-8"
-        >
-          <motion.div variants={STAGGER_CONFIG.item}>
-            <HeroSection />
-          </motion.div>
+        <LazyMotion features={domAnimation}>
+          <m.div
+            variants={STAGGER_CONFIG.container}
+            initial="initial"
+            animate="animate"
+            className="space-y-8"
+          >
+            <m.div variants={STAGGER_CONFIG.item}>
+              <HeroSection />
+            </m.div>
 
-          <motion.div variants={STAGGER_CONFIG.item}>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {FEATURES.map((feature, index) => (
-                <FeatureCard key={index} {...feature} />
-              ))}
-            </div>
-          </motion.div>
+            <m.div variants={STAGGER_CONFIG.item}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {FEATURES.map((feature) => (
+                  <FeatureCard key={feature.title} {...feature} />
+                ))}
+              </div>
+            </m.div>
 
-          <motion.div variants={STAGGER_CONFIG.item}>
-            <div className="rounded-2xl border border-white/10 bg-white/2 p-6">
-              <label className="text-[10px] font-black uppercase tracking-widest text-white/50 block mb-4">
-                Output Format
-              </label>
-              <TemplateCards
-                selected={format}
-                onSelect={setFormat}
-                compact
-              />
-            </div>
-          </motion.div>
+            <m.div variants={STAGGER_CONFIG.item}>
+              <div
+                className="rounded-2xl border border-white/10 bg-white/2 p-6"
+                role="group"
+                aria-labelledby="batch-output-format-label"
+              >
+                <span
+                  id="batch-output-format-label"
+                  className="text-[10px] font-black uppercase tracking-widest text-white/50 block mb-4"
+                >
+                  Output Format
+                </span>
+                <TemplateCards
+                  selected={format}
+                  onSelect={setFormat}
+                  compact
+                />
+              </div>
+            </m.div>
 
-          <motion.div variants={STAGGER_CONFIG.item}>
-            <div className="rounded-2xl border border-white/10 bg-white/2 p-6">
-              <BatchProcessor format={format} />
-            </div>
-          </motion.div>
+            <m.div variants={STAGGER_CONFIG.item}>
+              <div className="rounded-2xl border border-white/10 bg-white/2 p-6">
+                <BatchProcessor format={format} />
+              </div>
+            </m.div>
 
-          <motion.div variants={STAGGER_CONFIG.item}>
-            <TipsSection />
-          </motion.div>
-        </motion.div>
+            <m.div variants={STAGGER_CONFIG.item}>
+              <TipsSection />
+            </m.div>
+          </m.div>
+        </LazyMotion>
       </main>
     </div>
   );

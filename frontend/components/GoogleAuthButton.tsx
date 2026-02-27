@@ -16,7 +16,7 @@ export function GoogleAuthButton() {
         <button
           onClick={logout}
           disabled={loading}
-          className="ml-2 p-1.5 hover:bg-white/10 rounded transition disabled:opacity-50 flex-shrink-0"
+          className="ml-2 p-1.5 hover:bg-white/10 rounded transition disabled:opacity-50 shrink-0"
           title="Disconnect Google Account"
           aria-label="Disconnect Google Account"
         >
@@ -47,7 +47,7 @@ export function GoogleAuthButton() {
       onClick={login}
       disabled={loading}
       className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 hover:border-white/20 transition disabled:opacity-50 text-sm text-white font-medium"
-      aria-label={loading ? "Connecting to Google Account..." : "Connect Google Account"}
+      aria-label={loading ? "Connecting to Google Account…" : "Connect Google Account"}
     >
       {loading ? (
         <>

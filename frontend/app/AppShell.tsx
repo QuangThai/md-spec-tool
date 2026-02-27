@@ -1,14 +1,8 @@
 import AppHeader from "@/components/AppHeader";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { JsonLdScript } from "@/components/JsonLdScript";
 import Link from "next/link";
 import React from "react";
-
-const organizationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "MDFlow Studio",
-  url: "https://md-spec-tool.vercel.app",
-};
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -17,12 +11,7 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   return (
     <ErrorBoundary>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(organizationJsonLd),
-        }}
-      />
+      <JsonLdScript />
       {/* Advanced Ambient Glows */}
       <div className="aurora-bg">
         <div className="aurora-blob left-[-10%] top-[-10%] h-[800px] w-[800px] bg-accent-orange/15 animate-pulse-soft" />
@@ -31,7 +20,7 @@ export default function AppShell({ children }: AppShellProps) {
       </div>
 
       <AppHeader />
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-0 pt-8 sm:pt-10 lg:pt-12 min-h-[80vh]">
+      <main id="main" className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-0 pt-8 sm:pt-10 lg:pt-12 min-h-[80vh] scroll-mt-20" tabIndex={-1}>
         {children}
       </main>
 

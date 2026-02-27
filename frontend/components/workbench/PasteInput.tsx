@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import {
   AlertCircle,
   Check,
@@ -75,14 +75,15 @@ export const PasteInput = memo(function PasteInput({
     preview !== null && preview.input_type === "markdown" ? preview : null;
 
   return (
-    <motion.div
-      key="paste"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="h-full flex flex-col min-h-0"
-    >
+    <LazyMotion features={domAnimation}>
+      <m.div
+        key="paste"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="h-full flex flex-col min-h-0"
+      >
       {/* Compact status bar */}
       <div className="flex flex-wrap items-center gap-2 text-[9px] uppercase font-bold text-muted/50 mb-2 shrink-0">
         {isGoogleSheetUrl ? (
@@ -108,7 +109,7 @@ export const PasteInput = memo(function PasteInput({
         {previewLoading ? (
           <span className="flex items-center gap-1 text-accent-orange/60">
             <RefreshCcw className="w-3 h-3 animate-spin" />
-            Analyzing...
+            Analyzing…
           </span>
         ) : null}
         {isGoogleSheetUrl && gsheetTabs.length > 0 ? (
@@ -124,7 +125,7 @@ export const PasteInput = memo(function PasteInput({
         {isGoogleSheetUrl && gsheetLoading ? (
           <span className="flex items-center gap-1 text-blue-400/70">
             <RefreshCcw className="w-3 h-3 animate-spin" />
-            Loading sheets...
+            Loading sheets…
           </span>
         ) : null}
       </div>
@@ -146,13 +147,16 @@ export const PasteInput = memo(function PasteInput({
       ) : null}
       {isGoogleSheetUrl ? (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[9px] text-white/60 uppercase font-bold tracking-wider">
-          <label className="text-white/50">Range</label>
+          <label htmlFor="gsheet-range-input" className="text-white/50">Range</label>
           <input
+            id="gsheet-range-input"
+            name="gsheetRange"
+            autoComplete="off"
             type="text"
             value={gsheetRange}
             onChange={(e) => onGsheetRangeChange(e.target.value)}
-            placeholder="A1:F200 or Sheet1!A1:F200"
-            className="h-7 px-2 rounded-md bg-black/40 border border-white/10 text-[10px] text-white/80 placeholder-white/30 focus:outline-none focus:border-accent-orange/40"
+            placeholder="A1:F200 or Sheet1!A1:F200…"
+            className="h-7 px-2 rounded-md bg-black/40 border border-white/10 text-[10px] text-white/80 placeholder-white/30 focus:outline-none focus-visible:border-accent-orange/40 focus-visible:ring-2 focus-visible:ring-accent-orange/20"
           />
         </div>
       ) : null}
@@ -200,7 +204,7 @@ export const PasteInput = memo(function PasteInput({
       <div data-tour="preview-table">
         <AnimatePresence>
           {showPreview && tablePreview ? (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -217,10 +221,10 @@ export const PasteInput = memo(function PasteInput({
                   isGoogleSheetUrl ? (range) => onGsheetRangeChange(range) : undefined
                 }
               />
-            </motion.div>
+            </m.div>
           ) : null}
           {markdownPreview ? (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -232,7 +236,7 @@ export const PasteInput = memo(function PasteInput({
                   Markdown detected - passthrough mode
                 </span>
               </div>
-            </motion.div>
+            </m.div>
           ) : null}
         </AnimatePresence>
       </div>
@@ -245,7 +249,8 @@ export const PasteInput = memo(function PasteInput({
         className="input flex-1 font-mono text-[12px] leading-relaxed resize-none border-white/5 bg-black/30 focus:bg-black/40 focus:border-accent-orange/30 custom-scrollbar min-h-30 rounded-lg"
         aria-label="Paste TSV or CSV data"
       />
-    </motion.div>
+      </m.div>
+    </LazyMotion>
   );
 });
 

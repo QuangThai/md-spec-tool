@@ -1,7 +1,7 @@
 "use client";
 
 import { emitTelemetryEvent } from "@/lib/telemetry";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import { X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
@@ -55,14 +55,15 @@ export function ConversionFeedback({
   return (
     <AnimatePresence>
       {shouldRender ? (
-        <motion.div
-          key="conversion-feedback"
-          initial={{ opacity: 0, y: 40, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          transition={SPRING_TRANSITION}
-          className="fixed bottom-6 right-6 z-50 w-80 rounded-2xl border border-white/10 bg-linear-to-br from-white/8 to-white/3 p-5 shadow-[0_18px_60px_-35px_rgba(242,123,47,0.4)] backdrop-blur-xl"
-        >
+        <LazyMotion features={domAnimation}>
+          <m.div
+            key="conversion-feedback"
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={SPRING_TRANSITION}
+            className="fixed bottom-6 right-6 z-50 w-80 rounded-2xl border border-white/10 bg-linear-to-br from-white/8 to-white/3 p-5 shadow-[0_18px_60px_-35px_rgba(242,123,47,0.4)] backdrop-blur-xl"
+          >
           {/* Close button */}
           <button
             onClick={handleDismiss}
@@ -82,7 +83,7 @@ export function ConversionFeedback({
               <button
                 key={value}
                 onClick={() => setSelectedRating(value)}
-                className={`flex-1 rounded-full border px-3 py-2 text-sm transition-all ${
+                className={`flex-1 rounded-full border px-3 py-2 text-sm transition-[border-color,background-color,box-shadow] ${
                   selectedRating === value
                     ? "border-orange-400/40 bg-accent-orange/15 text-orange-100 shadow-[0_0_12px_-3px_rgba(242,123,47,0.35)]"
                     : "border-white/10 bg-white/4 text-white/70 hover:border-white/20 hover:bg-white/8"
@@ -96,7 +97,7 @@ export function ConversionFeedback({
 
           {/* Comment area (shown after rating) */}
           {selectedRating ? (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               transition={{ duration: 0.2 }}
@@ -104,9 +105,10 @@ export function ConversionFeedback({
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value.slice(0, 200))}
-                placeholder="Any additional feedback? (optional)"
+                placeholder="Any additional feedback? (optional)…"
                 rows={2}
-                className="mb-3 w-full resize-none rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-sm text-white/90 placeholder-white/30 outline-none transition-colors focus:border-white/20 focus:bg-white/6"
+                aria-label="Additional feedback (optional)"
+                className="mb-3 w-full resize-none rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-sm text-white/90 placeholder-white/30 outline-none transition-colors focus-visible:border-white/20 focus-visible:bg-white/6 focus-visible:ring-2 focus-visible:ring-accent-orange/20"
               />
               <div className="flex items-center justify-between">
                 <span className="text-xs text-white/30">
@@ -114,14 +116,15 @@ export function ConversionFeedback({
                 </span>
                 <button
                   onClick={handleSubmit}
-                  className="rounded-lg bg-accent-orange/15 px-4 py-1.5 text-sm font-medium text-orange-100 transition-all hover:bg-accent-orange/25 hover:shadow-[0_0_16px_-4px_rgba(242,123,47,0.4)]"
+                  className="rounded-lg bg-accent-orange/15 px-4 py-1.5 text-sm font-medium text-orange-100 transition-[background-color,box-shadow] hover:bg-accent-orange/25 hover:shadow-[0_0_16px_-4px_rgba(242,123,47,0.4)]"
                 >
                   Submit
                 </button>
               </div>
-            </motion.div>
+            </m.div>
           ) : null}
-        </motion.div>
+          </m.div>
+        </LazyMotion>
       ) : null}
     </AnimatePresence>
   );

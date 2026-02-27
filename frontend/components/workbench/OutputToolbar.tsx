@@ -98,7 +98,7 @@ export const OutputToolbar = memo(function OutputToolbar({
             aria-label="Copy output"
             onClick={onCopy}
             disabled={!mdflowOutput || Boolean(reviewGateReason)}
-            className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
+            className={`p-1.5 sm:p-2 rounded-lg border transition-[background-color,border-color,color] duration-200 ${
               mdflowOutput
                 ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
                 : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
@@ -141,7 +141,7 @@ export const OutputToolbar = memo(function OutputToolbar({
             aria-label="Save snapshot"
             onClick={onSaveSnapshot}
             disabled={!mdflowOutput}
-            className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
+            className={`p-1.5 sm:p-2 rounded-lg border transition-[background-color,border-color,color] duration-200 ${
               mdflowOutput
                 ? "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 text-white/60 hover:text-white"
                 : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
@@ -152,13 +152,13 @@ export const OutputToolbar = memo(function OutputToolbar({
         </Tooltip>
         {snapshotA && snapshotB ? (
           <>
-            <Tooltip content={compareLoading ? "Comparing..." : "Compare (2 versions)"}>
+            <Tooltip content={compareLoading ? "Comparing…" : "Compare (2 versions)"}>
               <button
                 type="button"
                 aria-label="Compare snapshots"
                 onClick={onCompareSnapshots}
                 disabled={compareLoading}
-                className={`p-1.5 sm:p-2 rounded-lg border text-white/60 transition-all ${
+                className={`p-1.5 sm:p-2 rounded-lg border text-white/60 transition-[background-color,border-color,color] duration-200 ${
                   compareLoading
                     ? "bg-white/10 border-white/20 cursor-wait"
                     : "bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 hover:text-white"
@@ -176,7 +176,7 @@ export const OutputToolbar = memo(function OutputToolbar({
                 type="button"
                 aria-label="Clear snapshots"
                 onClick={onClearSnapshots}
-                className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
+                className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-[background-color,border-color,color] duration-200"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -188,7 +188,7 @@ export const OutputToolbar = memo(function OutputToolbar({
             type="button"
             aria-label="Export output"
             disabled={!mdflowOutput || Boolean(reviewGateReason)}
-            className={`p-1.5 sm:p-2 rounded-lg border transition-all ${
+            className={`p-1.5 sm:p-2 rounded-lg border transition-[background-color,border-color,color] duration-200 ${
               mdflowOutput
                 ? "bg-accent-orange/90 hover:bg-accent-orange border-accent-orange/50 text-white"
                 : "bg-white/5 border-white/5 text-white/20 cursor-not-allowed"
@@ -209,7 +209,7 @@ export const OutputToolbar = memo(function OutputToolbar({
               type="button"
               aria-label="Show history"
               onClick={onShowHistory}
-              className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all"
+              className="p-1.5 sm:p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/60 hover:text-white transition-[background-color,border-color,color] duration-200"
             >
               <History className="w-3.5 h-3.5" />
             </button>

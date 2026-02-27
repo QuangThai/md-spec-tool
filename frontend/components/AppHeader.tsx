@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -84,12 +84,13 @@ export default function AppHeader() {
     pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <motion.header
-      initial={{ y: -16, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="sticky top-2 sm:top-3 lg:top-5 z-50 px-2 sm:px-4 lg:px-6"
-    >
+    <LazyMotion features={domAnimation}>
+      <m.header
+        initial={{ y: -16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="sticky top-2 sm:top-3 lg:top-5 z-50 px-2 sm:px-4 lg:px-6"
+      >
       <div className="mx-auto max-w-7xl">
         <div className="glass relative z-60 flex h-12 sm:h-12 lg:h-14 items-center justify-between px-3 sm:px-5 lg:px-4 rounded-xl sm:rounded-2xl border border-white/8 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.25)] overflow-hidden">
           {/* Subtle brand glow */}
@@ -125,7 +126,7 @@ export default function AppHeader() {
           {/* Right: Menu button (mobile) / Status + Launch (desktop) */}
           <div className="flex items-center justify-end gap-2 sm:gap-4 lg:gap-6 z-10">
             {/* Mobile menu button - right side */}
-            <motion.button
+            <m.button
               type="button"
               onClick={() => setMenuOpen((o) => !o)}
               className="lg:hidden p-2 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/5 transition-colors duration-200"
@@ -134,16 +135,16 @@ export default function AppHeader() {
             >
               <AnimatePresence mode="wait">
                 {menuOpen ? (
-                  <motion.span key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.12 }}>
+                  <m.span key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.12 }}>
                     <X className="w-[18px] h-[18px]" />
-                  </motion.span>
+                  </m.span>
                 ) : (
-                  <motion.span key="menu" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.12 }}>
+                  <m.span key="menu" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.12 }}>
                     <Menu className="w-[18px] h-[18px]" />
-                  </motion.span>
+                  </m.span>
                 )}
               </AnimatePresence>
-            </motion.button>
+            </m.button>
             {/* System Status - Desktop Only */}
             <div className="hidden xl:flex items-center gap-2.5 bg-white/4 pl-3 pr-3.5 py-1.5 rounded-xl border border-white/6">
               <div className="relative flex h-1.5 w-1.5">
@@ -156,14 +157,11 @@ export default function AppHeader() {
             </div>
 
             {/* Launch Studio */}
-            <Link href="/studio" className="hidden sm:inline-block">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="h-8 sm:h-9 lg:h-9 px-4 sm:px-5 lg:px-5 rounded-lg text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] bg-accent-orange/90 hover:bg-accent-orange text-white shadow-[0_2px_12px_-2px_rgba(242,123,47,0.35)] cursor-pointer transition-colors duration-200"
-              >
-                Launch Studio
-              </motion.button>
+            <Link
+              href="/studio"
+              className="hidden sm:inline-flex h-8 sm:h-9 lg:h-9 items-center justify-center px-4 sm:px-5 lg:px-5 rounded-lg text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] bg-accent-orange/90 hover:bg-accent-orange text-white shadow-[0_2px_12px_-2px_rgba(242,123,47,0.35)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+              Launch Studio
             </Link>
           </div>
         </div>
@@ -172,7 +170,7 @@ export default function AppHeader() {
         <AnimatePresence>
           {menuOpen && (
             <>
-              <motion.div
+              <m.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -180,7 +178,7 @@ export default function AppHeader() {
                 className="lg:hidden fixed inset-0 top-12 sm:top-12 z-40 bg-black/60 backdrop-blur-sm"
                 onClick={() => setMenuOpen(false)}
               />
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -190,7 +188,7 @@ export default function AppHeader() {
                 <div className="h-px bg-linear-to-r from-transparent via-accent-orange/25 to-transparent" />
                 <nav className="py-2 px-0.5">
                   {navItems.map((item, i) => (
-                    <motion.div
+                    <m.div
                       key={item.label}
                       initial={{ opacity: 0, x: -6 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -216,30 +214,30 @@ export default function AppHeader() {
                         />
                         {item.label}
                       </Link>
-                    </motion.div>
+                    </m.div>
                   ))}
                   <div className="my-2 mx-3 h-px bg-white/6" />
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.08 }}
                     className="px-2.5 pb-2.5"
                   >
-                    <Link href="/studio" onClick={() => setMenuOpen(false)} className="block">
-                      <motion.button
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full py-2.5 rounded-lg text-[11px] font-semibold uppercase tracking-[0.12em] text-white bg-accent-orange/90 hover:bg-accent-orange shadow-[0_2px_12px_-2px_rgba(242,123,47,0.4)] transition-colors duration-200"
-                      >
-                        Launch Studio
-                      </motion.button>
+                    <Link
+                      href="/studio"
+                      onClick={() => setMenuOpen(false)}
+                      className="block w-full py-2.5 rounded-lg text-[11px] font-semibold uppercase tracking-[0.12em] text-white bg-accent-orange/90 hover:bg-accent-orange shadow-[0_2px_12px_-2px_rgba(242,123,47,0.4)] transition-colors duration-200 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                    >
+                      Launch Studio
                     </Link>
-                  </motion.div>
+                  </m.div>
                 </nav>
-              </motion.div>
+              </m.div>
             </>
           )}
         </AnimatePresence>
       </div>
-    </motion.header>
+      </m.header>
+    </LazyMotion>
   );
 }

@@ -2,7 +2,7 @@
 
 import { AISuggestion, AISuggestionType } from "@/lib/types";
 import { mapErrorToUserFacing } from "@/lib/errorUtils";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import {
   AlertCircle,
   AlertTriangle,
@@ -95,7 +95,7 @@ function SuggestionItem({ suggestion }: { suggestion: AISuggestion }) {
     : suggestion.field;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -8, height: 0 }}
@@ -154,7 +154,7 @@ function SuggestionItem({ suggestion }: { suggestion: AISuggestion }) {
 
       <AnimatePresence>
         {expanded && suggestion.suggestion && (
-          <motion.div
+          <m.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -171,10 +171,10 @@ function SuggestionItem({ suggestion }: { suggestion: AISuggestion }) {
                 {suggestion.suggestion}
               </p>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -244,13 +244,13 @@ export function AISuggestionsPanel({
           <span className="text-[9px] font-black uppercase tracking-[0.25em] text-purple-400/80">
             AI Suggestions
           </span>
-          <span className="text-[9px] text-white/40">Analyzing...</span>
+          <span className="text-[9px] text-white/40">Analyzing…</span>
         </div>
         <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
           <div className="flex items-center gap-3">
             <div className="w-4 h-4 border-2 border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />
             <p className="text-[11px] text-white/60">
-              AI is analyzing your specification for quality improvements...
+              AI is analyzing your specification for quality improvements…
             </p>
           </div>
         </div>
@@ -319,21 +319,23 @@ export function AISuggestionsPanel({
       {/* Suggestions list */}
       <AnimatePresence>
         {!collapsed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar"
-          >
-            <AnimatePresence mode="popLayout">
-              {suggestions.map((suggestion, index) => (
-                <SuggestionItem
-                  key={`${suggestion.type}-${suggestion.row_ref || index}-${index}`}
-                  suggestion={suggestion}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
+          <LazyMotion features={domAnimation}>
+            <m.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar"
+            >
+              <AnimatePresence mode="popLayout">
+                {suggestions.map((suggestion) => (
+                  <SuggestionItem
+                    key={`${suggestion.type}-${String(suggestion.row_ref ?? "")}-${String(suggestion.field ?? "")}-${suggestion.message.slice(0, 40)}`}
+                    suggestion={suggestion}
+                  />
+                ))}
+              </AnimatePresence>
+            </m.div>
+          </LazyMotion>
         )}
       </AnimatePresence>
     </div>

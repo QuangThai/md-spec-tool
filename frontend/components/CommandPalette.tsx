@@ -4,7 +4,7 @@ import { useBodyScrollLock } from "@/lib/useBodyScrollLock";
 import { formatShortcut, SHORTCUTS } from "@/lib/useKeyboardShortcuts";
 import { OutputFormat } from "@/lib/types";
 import { Command } from "cmdk";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation, m } from "framer-motion";
 import {
   Copy,
   Download,
@@ -208,34 +208,35 @@ export function CommandPalette({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-black/60 backdrop-blur-sm"
-          onClick={() => onOpenChange(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            onClick={(e) => e.stopPropagation()}
+        <LazyMotion features={domAnimation}>
+          <m.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-black/60 backdrop-blur-sm"
+            onClick={() => onOpenChange(false)}
           >
-            <Command
-              className="w-[560px] max-h-[400px] overflow-hidden rounded-xl border border-white/20 bg-black/95 shadow-2xl"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  onOpenChange(false);
-                }
-              }}
+            <m.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <Command.Input
-                placeholder="Type a command or search..."
-                className="w-full border-b border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none"
-                autoFocus
-              />
+              <Command
+                className="w-[560px] max-h-[400px] overflow-hidden rounded-xl border border-white/20 bg-black/95 shadow-2xl"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    onOpenChange(false);
+                  }
+                }}
+              >
+                <Command.Input
+                  placeholder="Type a command or search…"
+                  aria-label="Command or search"
+                  className="w-full border-b border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus-visible:ring-2 focus-visible:ring-accent-orange/20 rounded-sm"
+                />
               <Command.List className="max-h-[320px] overflow-y-auto p-2">
                 <Command.Empty className="py-6 text-center text-sm text-white/50">
                   No results found
@@ -280,8 +281,9 @@ export function CommandPalette({
                 </Command.Group>
               </Command.List>
             </Command>
-          </motion.div>
-        </motion.div>
+            </m.div>
+          </m.div>
+        </LazyMotion>
       )}
     </AnimatePresence>
   );
