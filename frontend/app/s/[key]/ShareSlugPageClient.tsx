@@ -450,7 +450,7 @@ function ShareSlugContent() {
             createdDate={createdDate}
             onToggleShare={handleToggleShare}
             updatingShare={updatingShare}
-            canComment={canComment}
+            canComment={Boolean(canComment)}
             form={form}
             setForm={setForm}
             onSubmitComment={handleSubmit}
