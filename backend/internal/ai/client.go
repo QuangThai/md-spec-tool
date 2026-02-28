@@ -30,6 +30,12 @@ const (
 	maxParseRetries = 2
 )
 
+// UsageInfo holds actual token usage returned by the OpenAI API.
+type UsageInfo struct {
+	InputTokens  int64
+	OutputTokens int64
+}
+
 // Client wraps the OpenAI API with structured output support
 type Client struct {
 	client        openai.Client
@@ -38,6 +44,7 @@ type Client struct {
 	promptProfile string
 	maxRetries    int
 	retryDelay    time.Duration
+	breaker       *CircuitBreaker
 }
 
 // NewClient creates a new OpenAI client
@@ -72,6 +79,8 @@ func NewClient(config Config) (*Client, error) {
 
 	client := openai.NewClient(clientOpts...)
 
+	breaker := NewCircuitBreaker(DefaultCircuitBreakerConfig())
+
 	return &Client{
 		client:        client,
 		model:         config.Model,
@@ -79,20 +88,24 @@ func NewClient(config Config) (*Client, error) {
 		promptProfile: config.PromptProfile,
 		maxRetries:    config.MaxRetries,
 		retryDelay:    config.RetryBaseDelay,
+		breaker:       breaker,
 	}, nil
 }
 
 // MapColumns performs column header mapping with structured output
-func (c *Client) MapColumns(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, error) {
+func (c *Client) MapColumns(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, *UsageInfo, error) {
 	userContent := formatMapColumnsPrompt(req, c.promptProfile)
 	result := &ColumnMappingResult{}
 
 	// Build JSON schema for structured output
 	schema := c.buildColumnMappingSchema()
 
-	err := c.callStructured(ctx, SystemPromptColumnMapping, userContent, schema, result)
+	var usage UsageInfo
+	err := c.callWithBreaker(ctx, "MapColumns", func() error {
+		return c.callStructured(ctx, SystemPromptColumnMapping, userContent, schema, result, &usage)
+	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Ensure schema version is set
@@ -100,11 +113,37 @@ func (c *Client) MapColumns(ctx context.Context, req MapColumnsRequest) (*Column
 		result.SchemaVersion = SchemaVersionColumnMapping
 	}
 
-	return result, nil
+	return result, &usage, nil
+}
+
+// callWithBreaker wraps an AI call with circuit breaker protection.
+// Returns ErrAIUnavailable immediately if circuit is open.
+func (c *Client) callWithBreaker(ctx context.Context, operation string, fn func() error) error {
+	if c.breaker != nil && !c.breaker.Allow() {
+		return &AIError{
+			Err:     ErrAIUnavailable,
+			Message: fmt.Sprintf("circuit breaker open for %s", operation),
+		}
+	}
+	err := fn()
+	if err != nil && c.breaker != nil {
+		statusCode := extractHTTPStatusCode(err)
+		classified := ClassifyError(statusCode, err)
+		// Only trip circuit breaker for provider-unavailable errors (5xx, timeouts)
+		// Don't trip for content/validation errors which are non-transient provider failures
+		if classified.Category == ErrorCategoryTransient {
+			c.breaker.RecordFailure()
+		}
+		return err
+	}
+	if c.breaker != nil {
+		c.breaker.RecordSuccess()
+	}
+	return nil
 }
 
 // RefineMapping performs a refinement pass on column mappings using additional context
-func (c *Client) RefineMapping(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, error) {
+func (c *Client) RefineMapping(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, *UsageInfo, error) {
 	// Build refinement prompt that emphasizes the refinement context
 	userContent := formatRefineMappingPrompt(req, c.promptProfile)
 	result := &ColumnMappingResult{}
@@ -115,9 +154,12 @@ func (c *Client) RefineMapping(ctx context.Context, req MapColumnsRequest) (*Col
 	// Use a refinement-specific system prompt that emphasizes reconsideration
 	systemPrompt := SystemPromptColumnMapping + "\n\nREFINEMENT CONTEXT:\nThis is a refinement pass on a previous mapping. Be extra critical of low-confidence mappings. If a mapping is truly ambiguous, move it to extra_columns rather than force an incorrect mapping."
 
-	err := c.callStructured(ctx, systemPrompt, userContent, schema, result)
+	var usage UsageInfo
+	err := c.callWithBreaker(ctx, "RefineMapping", func() error {
+		return c.callStructured(ctx, systemPrompt, userContent, schema, result, &usage)
+	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Ensure schema version is set
@@ -125,20 +167,23 @@ func (c *Client) RefineMapping(ctx context.Context, req MapColumnsRequest) (*Col
 		result.SchemaVersion = SchemaVersionColumnMapping
 	}
 
-	return result, nil
+	return result, &usage, nil
 }
 
 // AnalyzePaste analyzes pasted content with structured output
-func (c *Client) AnalyzePaste(ctx context.Context, req AnalyzePasteRequest) (*PasteAnalysis, error) {
+func (c *Client) AnalyzePaste(ctx context.Context, req AnalyzePasteRequest) (*PasteAnalysis, *UsageInfo, error) {
 	userContent := formatAnalyzePastePrompt(req, c.promptProfile)
 	result := &PasteAnalysis{}
 
 	// Build JSON schema for structured output
 	schema := c.buildPasteAnalysisSchema()
 
-	err := c.callStructured(ctx, SystemPromptPasteAnalysis, userContent, schema, result)
+	var usage UsageInfo
+	err := c.callWithBreaker(ctx, "AnalyzePaste", func() error {
+		return c.callStructured(ctx, SystemPromptPasteAnalysis, userContent, schema, result, &usage)
+	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Ensure schema version is set
@@ -146,19 +191,24 @@ func (c *Client) AnalyzePaste(ctx context.Context, req AnalyzePasteRequest) (*Pa
 		result.SchemaVersion = SchemaVersionPasteAnalysis
 	}
 
-	return result, nil
+	return result, &usage, nil
 }
 
 // callStructured makes a structured output call with retry logic.
 // Retries on rate limit/server errors. On JSON parse failure, retries up to maxParseRetries
 // with parse error feedback in the prompt.
-func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent string, schema interface{}, out interface{}) error {
+// If usage is non-nil, it is populated with actual token counts from the API response.
+func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent string, schema interface{}, out interface{}, usage *UsageInfo) error {
 	var lastErr error
 
 	maxAttempts := 1 + c.maxRetries
 	if maxAttempts <= 0 {
 		maxAttempts = 1
 	}
+
+	// Track maximum tokens to use (may increase on truncation)
+	currentMaxTokens := c.config.MaxCompletionTokens
+	const MaxTokensLimit = 4000 // cap to prevent infinite growth
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
@@ -193,7 +243,7 @@ func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent s
 			resp, err := c.client.Chat.Completions.New(reqCtx, openai.ChatCompletionNewParams{
 				Model:               openai.ChatModel(c.model),
 				Messages:            messages,
-				MaxCompletionTokens: openai.Int(int64(c.config.MaxCompletionTokens)),
+				MaxCompletionTokens: openai.Int(int64(currentMaxTokens)),
 				ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
 					OfJSONSchema: &openai.ResponseFormatJSONSchemaParam{
 						JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
@@ -236,7 +286,19 @@ func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent s
 			switch choice.FinishReason {
 			case "length":
 				lastErr = fmt.Errorf("%w: response truncated (max tokens reached)", ErrAITruncated)
-				slog.Warn("ai.callStructured", "error", "response truncated", "finish_reason", choice.FinishReason)
+				slog.Warn("ai.callStructured", "error", "response truncated", "finish_reason", choice.FinishReason, "current_max_tokens", currentMaxTokens)
+				
+				// Truncation is retryable: increase max_tokens and retry
+				if currentMaxTokens < MaxTokensLimit {
+					newMax := int(float64(currentMaxTokens) * 1.5)
+					if newMax > MaxTokensLimit {
+						newMax = MaxTokensLimit
+					}
+					currentMaxTokens = newMax
+					slog.Info("ai.callStructured", "msg", "truncation retry with increased tokens", "new_max_tokens", newMax)
+					break // exit inner loop, retry outer with increased tokens
+				}
+				// If we've already hit the limit, return the error
 				return lastErr
 			case "content_filter":
 				lastErr = fmt.Errorf("%w: content filtered", ErrAIInvalidOutput)
@@ -261,6 +323,10 @@ func (c *Client) callStructured(ctx context.Context, systemPrompt, userContent s
 				return lastErr
 			}
 
+			if usage != nil {
+				usage.InputTokens = resp.Usage.PromptTokens
+				usage.OutputTokens = resp.Usage.CompletionTokens
+			}
 			return nil
 		}
 	}
@@ -290,6 +356,27 @@ func jitterDuration(base time.Duration) time.Duration {
 		return 0
 	}
 	return time.Duration(rand.Int63n(maxJitter + 1))
+}
+
+// extractHTTPStatusCode attempts to extract HTTP status code from error.
+// Returns 0 if no status code can be determined.
+func extractHTTPStatusCode(err error) int {
+	if err == nil {
+		return 0
+	}
+
+	// Check if it's an openai.Error with StatusCode
+	if apiErr, ok := err.(*openai.Error); ok {
+		return apiErr.StatusCode
+	}
+
+	// Check if it's an AIError that wraps an openai.Error
+	var aiErr *AIError
+	if errors.As(err, &aiErr) {
+		return extractHTTPStatusCode(aiErr.Err)
+	}
+
+	return 0
 }
 
 // translateError converts OpenAI errors to domain errors
@@ -452,6 +539,28 @@ func (c *Client) buildColumnMappingSchema() interface{} {
 		"required":             []string{"schema_version", "canonical_fields", "extra_columns", "meta"},
 		"additionalProperties": false,
 	}
+}
+
+// handleFinishReason checks the OpenAI finish reason and returns appropriate error
+func handleFinishReason(reason string) error {
+	switch reason {
+	case "stop":
+		return nil
+	case "length":
+		return fmt.Errorf("%w: response truncated (finish_reason=length)", ErrAITruncated)
+	case "content_filter":
+		return fmt.Errorf("%w: blocked by content filter", ErrAIContentFiltered)
+	default:
+		return nil
+	}
+}
+
+// handleRefusal checks if the model refused the request
+func handleRefusal(refusal string) error {
+	if refusal == "" {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrAIRefused, refusal)
 }
 
 // buildPasteAnalysisSchema builds the JSON schema for paste analysis results
@@ -697,16 +806,19 @@ Return the analysis as JSON following the PasteAnalysis schema.`, content)
 }
 
 // GetSuggestions analyzes spec content and returns improvement suggestions
-func (c *Client) GetSuggestions(ctx context.Context, req SuggestionsRequest) (*SuggestionsResult, error) {
+func (c *Client) GetSuggestions(ctx context.Context, req SuggestionsRequest) (*SuggestionsResult, *UsageInfo, error) {
 	userContent := formatSuggestionsPrompt(req, c.promptProfile)
 	result := &SuggestionsResult{}
 
 	// Build JSON schema for structured output
 	schema := c.buildSuggestionsSchema()
 
-	err := c.callStructured(ctx, SystemPromptSuggestions, userContent, schema, result)
+	var usage UsageInfo
+	err := c.callWithBreaker(ctx, "GetSuggestions", func() error {
+		return c.callStructured(ctx, SystemPromptSuggestions, userContent, schema, result, &usage)
+	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Ensure schema version is set
@@ -742,7 +854,7 @@ func (c *Client) GetSuggestions(ctx context.Context, req SuggestionsRequest) (*S
 	}
 	result.Suggestions = validSuggestions
 
-	return result, nil
+	return result, &usage, nil
 }
 
 // formatSuggestionsPrompt formats the user prompt for suggestions
@@ -835,19 +947,22 @@ func (c *Client) buildSuggestionsSchema() interface{} {
 }
 
 // SummarizeDiff analyzes diff between two documents and returns AI-generated summary
-func (c *Client) SummarizeDiff(ctx context.Context, req SummarizeDiffRequest) (*DiffSummary, error) {
+func (c *Client) SummarizeDiff(ctx context.Context, req SummarizeDiffRequest) (*DiffSummary, *UsageInfo, error) {
 	userContent := formatSummarizeDiffPrompt(req)
 	result := &DiffSummary{}
 
 	// Build JSON schema for structured output
 	schema := c.buildDiffSummarySchema()
 
-	err := c.callStructured(ctx, SystemPromptDiffSummary, userContent, schema, result)
+	var usage UsageInfo
+	err := c.callWithBreaker(ctx, "SummarizeDiff", func() error {
+		return c.callStructured(ctx, SystemPromptDiffSummary, userContent, schema, result, &usage)
+	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return result, nil
+	return result, &usage, nil
 }
 
 // formatSummarizeDiffPrompt formats the user prompt for diff summarization
@@ -914,19 +1029,22 @@ func (c *Client) buildDiffSummarySchema() interface{} {
 }
 
 // ValidateSemantic performs AI-powered semantic validation of spec content
-func (c *Client) ValidateSemantic(ctx context.Context, req SemanticValidationRequest) (*SemanticValidationResult, error) {
+func (c *Client) ValidateSemantic(ctx context.Context, req SemanticValidationRequest) (*SemanticValidationResult, *UsageInfo, error) {
 	userContent := formatSemanticValidationPrompt(req)
 	result := &SemanticValidationResult{}
 
 	// Build JSON schema for structured output
 	schema := c.buildSemanticValidationSchema()
 
-	err := c.callStructured(ctx, SystemPromptSemanticValidation, userContent, schema, result)
+	var usage UsageInfo
+	err := c.callWithBreaker(ctx, "ValidateSemantic", func() error {
+		return c.callStructured(ctx, SystemPromptSemanticValidation, userContent, schema, result, &usage)
+	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return result, nil
+	return result, &usage, nil
 }
 
 // formatSemanticValidationPrompt formats the user prompt for semantic validation

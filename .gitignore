@@ -6,6 +6,7 @@ dist/
 *.so
 *.dylib
 __debug_bin
+backend/server
 .env
 .env.local
 

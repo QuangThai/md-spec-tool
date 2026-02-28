@@ -1,0 +1,5 @@
+Endpoint	Method	Description	Parameters	Response	Status Code
+/api/v1/users	GET	List all users	page, limit, sort	{users: [], total: int}	200
+/api/v1/users	POST	Create new user	name, email, role	{id: string, created: bool}	201
+/api/v1/users/:id	GET	Get user by ID	id (path)	{user: object}	200
+/api/v1/users/:id	DELETE	Delete user	id (path)	{deleted: bool}	204

@@ -325,3 +325,37 @@ func clamp(v, min, max float64) float64 {
 	}
 	return v
 }
+
+// ValidateColumnMappingBusinessRules performs strict business rule validation
+// on column mapping results. Unlike Validator methods, this does NOT fix invalid
+// data — it rejects outright.
+func ValidateColumnMappingBusinessRules(result *ColumnMappingResult) error {
+	if result == nil {
+		return fmt.Errorf("%w: nil result", ErrAIValidationFailed)
+	}
+
+	seen := make(map[string]bool)
+	for _, field := range result.CanonicalFields {
+		// Check duplicate canonical names
+		if seen[field.CanonicalName] {
+			return fmt.Errorf("%w: duplicate canonical name %q", ErrAIValidationFailed, field.CanonicalName)
+		}
+		seen[field.CanonicalName] = true
+
+		// Check confidence range
+		if field.Confidence < 0 || field.Confidence > 1.0 {
+			return fmt.Errorf("%w: confidence %f out of range [0,1] for %q", ErrAIValidationFailed, field.Confidence, field.CanonicalName)
+		}
+
+		// Check column index
+		if field.ColumnIndex < 0 {
+			return fmt.Errorf("%w: negative column index %d for %q", ErrAIValidationFailed, field.ColumnIndex, field.CanonicalName)
+		}
+
+		// Check allowed canonical name
+		if _, ok := CanonicalFields[field.CanonicalName]; !ok {
+			return fmt.Errorf("%w: unknown canonical name %q", ErrAIValidationFailed, field.CanonicalName)
+		}
+	}
+	return nil
+}

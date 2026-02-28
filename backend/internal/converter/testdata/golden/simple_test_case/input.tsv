@@ -1,0 +1,4 @@
+TC ID	Test Case Name	Precondition	Steps	Expected Result	Status
+TC-001	Login with valid credentials	User is on login page	1. Enter username\n2. Enter password\n3. Click Login	Dashboard is displayed	Pass
+TC-002	Login with invalid password	User is on login page	1. Enter username\n2. Enter wrong password\n3. Click Login	Error message shown	Not tested
+TC-003	Forgot password flow	User is on login page	1. Click Forgot Password\n2. Enter email\n3. Submit	Reset email is sent	Pass

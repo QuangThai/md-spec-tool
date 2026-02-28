@@ -2,6 +2,7 @@ package converter
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -19,6 +20,7 @@ type AIMappingMeta struct {
 	Mode                  string
 	Used                  bool
 	Degraded              bool
+	FallbackReason        string // reason AI was not used: "ai_unavailable" or error message
 	Model                 string
 	PromptVersion         string
 	AvgConfidence         float64
@@ -72,8 +74,8 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 		slog.Info("ai.mapping_profile", "model", meta.Model, "prompt_version", meta.PromptVersion)
 	}
 
-	cleanHeaders := normalizeHeaders(headers)
-	sampleRows := buildSampleRows(dataRows, aiSampleRows)
+	cleanHeaders := SanitizeHeaders(normalizeHeaders(headers))
+	sampleRows := SanitizeSampleRows(buildSampleRows(dataRows, aiSampleRows))
 	sourceLang := DetectLanguageHint(EstimateEnglishScore(headers, dataRows), headers, dataRows)
 	schemaHint := inferSchemaHint(headers, dataRows)
 
@@ -88,12 +90,27 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 	if err != nil {
 		meta.Degraded = true
 		colMap, unmapped := fallback(headers)
+
+		// Distinguish error types for better UX
+		warningCode := "MAPPING_AI_FAILED"
+		warningMsg := "AI mapping failed; using fallback mapping."
+		warningHint := "Check your AI configuration or retry conversion."
+
+		if errors.Is(err, ai.ErrAIUnavailable) {
+			warningCode = "AI_UNAVAILABLE"
+			warningMsg = "AI service unavailable; using heuristic fallback. Results may be less accurate."
+			warningHint = "AI will auto-recover when the service stabilizes."
+			meta.FallbackReason = "ai_unavailable"
+		} else {
+			meta.FallbackReason = err.Error()
+		}
+
 		return colMap, unmapped, []Warning{newWarning(
-			"MAPPING_AI_FAILED",
+			warningCode,
 			SeverityWarn,
 			CatMapping,
-			"AI mapping failed; using fallback mapping.",
-			"Check your AI configuration or retry conversion.",
+			warningMsg,
+			warningHint,
 			map[string]any{"error": err.Error()},
 		)}, meta
 	}
@@ -441,6 +458,7 @@ func applyAIMeta(meta *SpecDocMeta, aiMeta *AIMappingMeta) {
 	meta.AIMode = aiMeta.Mode
 	meta.AIUsed = aiMeta.Used
 	meta.AIDegraded = aiMeta.Degraded
+	meta.AIFallbackReason = aiMeta.FallbackReason
 	meta.AIModel = aiMeta.Model
 	meta.AIPromptVersion = aiMeta.PromptVersion
 	meta.AIAvgConfidence = aiMeta.AvgConfidence
@@ -458,6 +476,7 @@ func applyAIMetaToTableMeta(meta *TableMeta, aiMeta *AIMappingMeta) {
 	meta.AIMode = aiMeta.Mode
 	meta.AIUsed = aiMeta.Used
 	meta.AIDegraded = aiMeta.Degraded
+	meta.AIFallbackReason = aiMeta.FallbackReason
 	meta.AIModel = aiMeta.Model
 	meta.AIPromptVersion = aiMeta.PromptVersion
 	meta.AIAvgConfidence = aiMeta.AvgConfidence

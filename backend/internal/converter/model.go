@@ -135,6 +135,7 @@ type SpecDocMeta struct {
 	AIMode                  string         `json:"ai_mode,omitempty"`
 	AIUsed                  bool           `json:"ai_used,omitempty"`
 	AIDegraded              bool           `json:"ai_degraded,omitempty"`
+	AIFallbackReason        string         `json:"ai_fallback_reason,omitempty"`
 	AIModel                 string         `json:"ai_model,omitempty"`
 	AIPromptVersion         string         `json:"ai_prompt_version,omitempty"`
 	AIAvgConfidence         float64        `json:"ai_avg_confidence,omitempty"`

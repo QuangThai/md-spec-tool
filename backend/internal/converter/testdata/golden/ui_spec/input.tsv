@@ -1,0 +1,5 @@
+No	Item Name	Item Type	Required/Optional	Input Restrictions	Display Conditions	Action	Navigation Destination
+1	Username	Text Input	Required	Max 50 chars, alphanumeric	Always visible	-	-
+2	Password	Password Input	Required	Min 8 chars	Always visible	-	-
+3	Remember Me	Checkbox	Optional	-	Always visible	Toggle	-
+4	Login Button	Button	-	-	Username and Password filled	Submit form	Dashboard

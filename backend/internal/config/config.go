@@ -125,6 +125,7 @@ type Config struct {
 
 	// Storage
 	ShareStorePath string
+	FeedbackDBPath string
 
 	// Spec validation
 	SpecStrictMode          bool
@@ -208,6 +209,7 @@ func LoadConfig() *Config {
 
 		// Storage
 		ShareStorePath: getEnv("SHARE_STORE_PATH", ""),
+		FeedbackDBPath: getEnv("FEEDBACK_DB_PATH", ".cache/feedback.db"),
 
 		// Spec validation
 		SpecStrictMode:          getEnvBool("SPEC_STRICT_MODE", DefaultSpecStrictMode),

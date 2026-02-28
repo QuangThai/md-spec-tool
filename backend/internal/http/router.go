@@ -10,6 +10,7 @@ import (
 	"github.com/yourorg/md-spec-tool/internal/ai"
 	"github.com/yourorg/md-spec-tool/internal/config"
 	"github.com/yourorg/md-spec-tool/internal/converter"
+	"github.com/yourorg/md-spec-tool/internal/feedback"
 	"github.com/yourorg/md-spec-tool/internal/http/handlers"
 	"github.com/yourorg/md-spec-tool/internal/http/middleware"
 	"github.com/yourorg/md-spec-tool/internal/share"
@@ -118,6 +119,9 @@ func setupRouterInternal(cfg *config.Config, withCleanup bool) (*gin.Engine, fun
 	templateHandler := handlers.NewTemplateHandler(converter.NewMDFlowRenderer(), cfg)
 	validationHandler := handlers.NewValidationHandler(cfg, aiProvider)
 
+	// Phase 6.2: Streaming pipeline handler (SSE)
+	streamHandler := handlers.NewStreamHandler(convForConvert, cfg, aiProvider)
+
 	// Inject quota handler for token tracking (created above)
 	convertHandler.SetQuotaHandler(quotaHandler)
 
@@ -151,6 +155,15 @@ func setupRouterInternal(cfg *config.Config, withCleanup bool) (*gin.Engine, fun
 	shareStore := share.NewStore(cfg.ShareStorePath)
 	shareHandler := handlers.NewShareHandler(shareStore)
 
+	// Create feedback store and handler (Phase 6.3: Feedback System)
+	var feedbackHandler *handlers.FeedbackHandler
+	feedbackStore, err := feedback.NewStore(cfg.FeedbackDBPath)
+	if err != nil {
+		slog.Warn("feedback store initialization failed; feedback endpoints will be unavailable", "error", err)
+	} else {
+		feedbackHandler = handlers.NewFeedbackHandler(feedbackStore)
+	}
+
 	// Create diff handler (always created; supports BYOK even when no server AI key)
 	diffHandler := handlers.NewDiffHandler(aiProvider, cfg)
 	if suggestAIService != nil {
@@ -172,6 +185,9 @@ func setupRouterInternal(cfg *config.Config, withCleanup bool) (*gin.Engine, fun
 		v1.POST("/tsv", convertRateLimit, quotaCheck, convertHandler.ConvertTSV)
 		v1.POST("/xlsx", convertRateLimit, quotaCheck, convertHandler.ConvertXLSX)
 		v1.POST("/xlsx/sheets", convertHandler.GetXLSXSheets)
+
+		// Streaming pipeline (Phase 6.2: SSE real-time progress)
+		v1.POST("/convert/stream", convertRateLimit, quotaCheck, streamHandler.ConvertStream)
 
 		// Preview endpoints (Phase 5.3: specialized PreviewHandler)
 		v1.POST("/preview", previewRateLimit, quotaCheck, previewHandler.PreviewPaste)
@@ -195,6 +211,12 @@ func setupRouterInternal(cfg *config.Config, withCleanup bool) (*gin.Engine, fun
 		v1.POST("/gsheet/preview", previewRateLimit, quotaCheck, gsheetHandler.PreviewGoogleSheet)
 		v1.POST("/gsheet/convert", convertRateLimit, quotaCheck, gsheetHandler.ConvertGoogleSheet)
 		v1.POST("/ai/suggest", aiSuggestRateLimit, quotaCheck, mdflowHandler.GetAISuggestions)
+
+		// Feedback endpoints (Phase 6.3: Feedback System)
+		if feedbackHandler != nil {
+			v1.POST("/feedback", feedbackHandler.SubmitFeedback)
+			v1.GET("/feedback/stats", feedbackHandler.GetFeedbackStats)
+		}
 	}
 
 	// Legacy routes (deprecated, point to v1) - support for backward compatibility
@@ -258,6 +280,11 @@ func setupRouterInternal(cfg *config.Config, withCleanup bool) (*gin.Engine, fun
 		// Quota store cleanup (in-memory, no external resources)
 		if quotaStore != nil {
 			_ = quotaStore.Cleanup(context.Background())
+		}
+		if feedbackStore != nil {
+			if err := feedbackStore.Close(); err != nil {
+				slog.Warn("feedback store close error", "error", err)
+			}
 		}
 		slog.Debug("All handlers closed successfully")
 	}

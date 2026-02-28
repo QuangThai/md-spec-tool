@@ -28,6 +28,7 @@ type TableMeta struct {
 	AIMode                  string    // "on", "shadow", "off"
 	AIUsed                  bool      // True if AI mapping was used
 	AIDegraded              bool      // True if fallback was used
+	AIFallbackReason        string    // reason AI was not used: "ai_unavailable" or error message
 	AIModel                 string    // AI model used for mapping
 	AIPromptVersion         string    // Prompt version used for mapping
 	AIAvgConfidence         float64   // Average AI confidence

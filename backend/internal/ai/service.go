@@ -107,12 +107,21 @@ type AnalyzePasteRequest struct {
 
 // ServiceImpl implements the Service interface
 type ServiceImpl struct {
-	client        *Client
-	cache         *Cache
-	validator     *Validator
-	model         string
-	promptProfile string
-	disableCache  bool // BYOK: skip cache to isolate per-user results
+	client         *Client
+	cache          CacheLayer
+	validator      *Validator
+	model          string
+	promptProfile  string
+	disableCache   bool // BYOK: skip cache to isolate per-user results
+	promptRegistry *PromptRegistry
+	cacheMetrics   *CacheMetrics
+	cacheCleanup   func() // called on shutdown to close persistent cache
+
+	// Phase 4: Observability
+	tracer        *AITracer
+	costTracker   *CostTracker
+	budgetManager *BudgetManager
+	aiMetrics     *AIMetrics
 }
 
 // NewService creates a new AI service instance
@@ -122,13 +131,40 @@ func NewService(config Config) (*ServiceImpl, error) {
 		return nil, err
 	}
 
+	// Build cache stack from service config
+	cacheCfg := CacheConfigFromServiceConfig(config)
+	cacheStack, cleanup, cacheErr := BuildCacheStack(cacheCfg)
+	if cacheErr != nil {
+		return nil, fmt.Errorf("cache setup failed: %w", cacheErr)
+	}
+
+	// Attach cache metrics if the stack is a MultiLevelCache
+	var cacheMetrics *CacheMetrics
+	if multi, ok := cacheStack.(*MultiLevelCache); ok {
+		cacheMetrics = AttachMetrics(multi)
+	}
+
+	// Phase 4: Initialize observability stack
+	aiMetrics := NewAIMetrics()
+	costCalc := NewCostCalculator()
+	costTracker := NewCostTracker()
+	tracer := NewAITracer(aiMetrics, costCalc, costTracker)
+	budgetMgr := NewBudgetManager(DefaultBudgetConfig())
+
 	return &ServiceImpl{
-		client:        client,
-		cache:         NewCache(config.MaxCacheSize, config.CacheTTL),
-		validator:     NewValidator(),
-		model:         config.Model,
-		promptProfile: NormalizePromptProfile(config.PromptProfile),
-		disableCache:  config.DisableCache,
+		client:         client,
+		cache:          cacheStack,
+		validator:      NewValidator(),
+		model:          config.Model,
+		promptProfile:  NormalizePromptProfile(config.PromptProfile),
+		disableCache:   config.DisableCache,
+		promptRegistry: DefaultPromptRegistry(),
+		cacheMetrics:   cacheMetrics,
+		cacheCleanup:   cleanup,
+		tracer:         tracer,
+		costTracker:    costTracker,
+		budgetManager:  budgetMgr,
+		aiMetrics:      aiMetrics,
 	}, nil
 }
 
@@ -143,21 +179,52 @@ func (s *ServiceImpl) GetModel() string {
 
 // MapColumns maps source headers to canonical fields
 func (s *ServiceImpl) MapColumns(ctx context.Context, req MapColumnsRequest) (*ColumnMappingResult, error) {
+	// Check cache first
 	var cacheKey string
 	if !s.disableCache {
 		var err error
-		cacheKey, err = MakeCacheKey(CacheKeyScopeMapColumns, s.model, ColumnMappingPromptVersion(s.promptProfile), SchemaVersionColumnMapping, req)
+		cacheKey, err = MakeCacheKey(CacheKeyScopeMapColumns, s.model, s.promptCacheVersion(PromptIDColumnMapping, ColumnMappingPromptVersion(s.promptProfile)), SchemaVersionColumnMapping, req)
 		if err == nil {
 			if cached, ok := s.cache.Get(cacheKey); ok {
+				s.recordCacheHit(CacheKeyScopeMapColumns)
 				return cached.(*ColumnMappingResult), nil
 			}
 		}
 	}
 
-	result, err := s.client.MapColumns(ctx, req)
+	// Check budget
+	if err := s.checkBudget(CacheKeyScopeMapColumns); err != nil {
+		return nil, err
+	}
+
+	// Trace the AI call
+	var result *ColumnMappingResult
+	trace, err := s.tracer.TraceCall(ctx, TraceInput{
+		Operation: CacheKeyScopeMapColumns,
+		Model:     s.model,
+	}, func(ctx context.Context) (*TraceOutput, error) {
+		r, usage, callErr := s.client.MapColumns(ctx, req)
+		if callErr != nil {
+			return nil, callErr
+		}
+		result = r
+		out := &TraceOutput{Confidence: r.Meta.AvgConfidence}
+		if usage != nil {
+			out.InputTokens = usage.InputTokens
+			out.OutputTokens = usage.OutputTokens
+		}
+		return out, nil
+	})
+
+	// Log the call
+	s.logAICall(trace, err)
+
 	if err != nil {
 		return nil, err
 	}
+
+	// Record cost in budget
+	s.recordSpend(trace.Cost.TotalCost)
 
 	// Validate result with header count for column_index range check
 	if err := s.validator.ValidateColumnMappingWithHeaders(result, len(req.Headers)); err != nil {
@@ -177,20 +244,42 @@ func (s *ServiceImpl) AnalyzePaste(ctx context.Context, req AnalyzePasteRequest)
 	var cacheKey string
 	if !s.disableCache {
 		var err error
-		cacheKey, err = MakeCacheKey(CacheKeyScopeAnalyzePaste, s.model, PromptVersionPasteAnalysis, SchemaVersionPasteAnalysis, req)
+		cacheKey, err = MakeCacheKey(CacheKeyScopeAnalyzePaste, s.model, s.promptCacheVersion(PromptIDPasteAnalysis, PromptVersionPasteAnalysis), SchemaVersionPasteAnalysis, req)
 		if err == nil {
 			if cached, ok := s.cache.Get(cacheKey); ok {
+				s.recordCacheHit(CacheKeyScopeAnalyzePaste)
 				return cached.(*PasteAnalysis), nil
 			}
 		}
 	}
 
-	result, err := s.client.AnalyzePaste(ctx, req)
-	if err != nil {
+	if err := s.checkBudget(CacheKeyScopeAnalyzePaste); err != nil {
 		return nil, err
 	}
 
-	// Validate result
+	var result *PasteAnalysis
+	trace, err := s.tracer.TraceCall(ctx, TraceInput{
+		Operation: CacheKeyScopeAnalyzePaste,
+		Model:     s.model,
+	}, func(ctx context.Context) (*TraceOutput, error) {
+		r, usage, callErr := s.client.AnalyzePaste(ctx, req)
+		if callErr != nil {
+			return nil, callErr
+		}
+		result = r
+		out := &TraceOutput{Confidence: r.Confidence}
+		if usage != nil {
+			out.InputTokens = usage.InputTokens
+			out.OutputTokens = usage.OutputTokens
+		}
+		return out, nil
+	})
+	s.logAICall(trace, err)
+	if err != nil {
+		return nil, err
+	}
+	s.recordSpend(trace.Cost.TotalCost)
+
 	if err := s.validator.ValidatePasteAnalysis(result); err != nil {
 		slog.Warn("ai.AnalyzePaste validation failed", "error", err)
 		return nil, err
@@ -208,18 +297,41 @@ func (s *ServiceImpl) GetSuggestions(ctx context.Context, req SuggestionsRequest
 	var cacheKey string
 	if !s.disableCache {
 		var err error
-		cacheKey, err = MakeCacheKey(CacheKeyScopeSuggestions, s.model, SuggestionsPromptVersion(s.promptProfile), SchemaVersionSuggestions, req)
+		cacheKey, err = MakeCacheKey(CacheKeyScopeSuggestions, s.model, s.promptCacheVersion(PromptIDSuggestions, SuggestionsPromptVersion(s.promptProfile)), SchemaVersionSuggestions, req)
 		if err == nil {
 			if cached, ok := s.cache.Get(cacheKey); ok {
+				s.recordCacheHit(CacheKeyScopeSuggestions)
 				return cached.(*SuggestionsResult), nil
 			}
 		}
 	}
 
-	result, err := s.client.GetSuggestions(ctx, req)
+	if err := s.checkBudget(CacheKeyScopeSuggestions); err != nil {
+		return nil, err
+	}
+
+	var result *SuggestionsResult
+	trace, err := s.tracer.TraceCall(ctx, TraceInput{
+		Operation: CacheKeyScopeSuggestions,
+		Model:     s.model,
+	}, func(ctx context.Context) (*TraceOutput, error) {
+		r, usage, callErr := s.client.GetSuggestions(ctx, req)
+		if callErr != nil {
+			return nil, callErr
+		}
+		result = r
+		out := &TraceOutput{}
+		if usage != nil {
+			out.InputTokens = usage.InputTokens
+			out.OutputTokens = usage.OutputTokens
+		}
+		return out, nil
+	})
+	s.logAICall(trace, err)
 	if err != nil {
 		return nil, err
 	}
+	s.recordSpend(trace.Cost.TotalCost)
 
 	if !s.disableCache && cacheKey != "" {
 		s.cache.Set(cacheKey, result)
@@ -233,18 +345,41 @@ func (s *ServiceImpl) SummarizeDiff(ctx context.Context, req SummarizeDiffReques
 	var cacheKey string
 	if !s.disableCache {
 		var err error
-		cacheKey, err = MakeCacheKey(CacheKeyScopeSummarizeDiff, s.model, PromptVersionDiffSummary, SchemaVersionDiffSummary, req)
+		cacheKey, err = MakeCacheKey(CacheKeyScopeSummarizeDiff, s.model, s.promptCacheVersion(PromptIDDiffSummary, PromptVersionDiffSummary), SchemaVersionDiffSummary, req)
 		if err == nil {
 			if cached, ok := s.cache.Get(cacheKey); ok {
+				s.recordCacheHit(CacheKeyScopeSummarizeDiff)
 				return cached.(*DiffSummary), nil
 			}
 		}
 	}
 
-	result, err := s.client.SummarizeDiff(ctx, req)
+	if err := s.checkBudget(CacheKeyScopeSummarizeDiff); err != nil {
+		return nil, err
+	}
+
+	var result *DiffSummary
+	trace, err := s.tracer.TraceCall(ctx, TraceInput{
+		Operation: CacheKeyScopeSummarizeDiff,
+		Model:     s.model,
+	}, func(ctx context.Context) (*TraceOutput, error) {
+		r, usage, callErr := s.client.SummarizeDiff(ctx, req)
+		if callErr != nil {
+			return nil, callErr
+		}
+		result = r
+		out := &TraceOutput{Confidence: r.Confidence}
+		if usage != nil {
+			out.InputTokens = usage.InputTokens
+			out.OutputTokens = usage.OutputTokens
+		}
+		return out, nil
+	})
+	s.logAICall(trace, err)
 	if err != nil {
 		return nil, err
 	}
+	s.recordSpend(trace.Cost.TotalCost)
 
 	if !s.disableCache && cacheKey != "" {
 		s.cache.Set(cacheKey, result)
@@ -258,18 +393,41 @@ func (s *ServiceImpl) ValidateSemantic(ctx context.Context, req SemanticValidati
 	var cacheKey string
 	if !s.disableCache {
 		var err error
-		cacheKey, err = MakeCacheKey(CacheKeyScopeValidateSemantic, s.model, PromptVersionSemanticValidation, SchemaVersionSemanticValidation, req)
+		cacheKey, err = MakeCacheKey(CacheKeyScopeValidateSemantic, s.model, s.promptCacheVersion(PromptIDSemanticValidation, PromptVersionSemanticValidation), SchemaVersionSemanticValidation, req)
 		if err == nil {
 			if cached, ok := s.cache.Get(cacheKey); ok {
+				s.recordCacheHit(CacheKeyScopeValidateSemantic)
 				return cached.(*SemanticValidationResult), nil
 			}
 		}
 	}
 
-	result, err := s.client.ValidateSemantic(ctx, req)
+	if err := s.checkBudget(CacheKeyScopeValidateSemantic); err != nil {
+		return nil, err
+	}
+
+	var result *SemanticValidationResult
+	trace, err := s.tracer.TraceCall(ctx, TraceInput{
+		Operation: CacheKeyScopeValidateSemantic,
+		Model:     s.model,
+	}, func(ctx context.Context) (*TraceOutput, error) {
+		r, usage, callErr := s.client.ValidateSemantic(ctx, req)
+		if callErr != nil {
+			return nil, callErr
+		}
+		result = r
+		out := &TraceOutput{Confidence: r.Confidence}
+		if usage != nil {
+			out.InputTokens = usage.InputTokens
+			out.OutputTokens = usage.OutputTokens
+		}
+		return out, nil
+	})
+	s.logAICall(trace, err)
 	if err != nil {
 		return nil, err
 	}
+	s.recordSpend(trace.Cost.TotalCost)
 
 	if !s.disableCache && cacheKey != "" {
 		s.cache.Set(cacheKey, result)
@@ -338,7 +496,7 @@ func (s *ServiceImpl) RefineMapping(ctx context.Context, original *ColumnMapping
 	}
 
 	// Call client refinement method
-	refined, err := s.client.RefineMapping(ctx, refinementReq)
+	refined, _, err := s.client.RefineMapping(ctx, refinementReq)
 	if err != nil {
 		return nil, err
 	}
@@ -390,4 +548,147 @@ func (s *ServiceImpl) applyConfidenceFallback(result *ColumnMappingResult) *Colu
 	result.Meta.UnmappedColumns = len(result.ExtraColumns)
 
 	return result
+}
+
+// promptCacheVersion returns the hash-based cache version for an operation.
+// Falls back to legacy version string if registry lookup fails.
+func (s *ServiceImpl) promptCacheVersion(promptID string, fallbackVersion string) string {
+	if s.promptRegistry != nil {
+		if entry, ok := s.promptRegistry.Get(promptID); ok {
+			return entry.CacheVersion()
+		}
+	}
+	return fallbackVersion
+}
+
+// --- Phase 4: Observability helpers ---
+
+// checkBudget verifies the AI budget has not been exceeded.
+// Returns ErrAIUnavailable-wrapped error if over budget.
+func (s *ServiceImpl) checkBudget(operation string) error {
+	if s.budgetManager == nil {
+		return nil
+	}
+	ok, remaining := s.budgetManager.CheckBudget()
+	if !ok {
+		slog.Warn("ai_budget_exceeded", "operation", operation, "remaining", remaining)
+		return fmt.Errorf("%w: daily AI budget exceeded", ErrAIUnavailable)
+	}
+	return nil
+}
+
+// recordSpend records cost in the budget manager
+func (s *ServiceImpl) recordSpend(cost float64) {
+	if s.budgetManager != nil && cost > 0 {
+		s.budgetManager.RecordSpend(cost)
+	}
+}
+
+// recordCacheHit records a cache hit in AI metrics
+func (s *ServiceImpl) recordCacheHit(operation string) {
+	if s.tracer != nil {
+		s.tracer.TraceCall(context.Background(), TraceInput{
+			Operation: operation,
+			Model:     s.model,
+			CacheHit:  true,
+		}, func(ctx context.Context) (*TraceOutput, error) {
+			return &TraceOutput{}, nil
+		})
+	}
+}
+
+// logAICall logs a structured slog entry for an AI call trace
+func (s *ServiceImpl) logAICall(trace AICallTrace, err error) {
+	attrs := []any{
+		"operation", trace.Operation,
+		"model", trace.Model,
+		"latency_ms", trace.Latency.Milliseconds(),
+		"input_tokens", trace.InputTokens,
+		"output_tokens", trace.OutputTokens,
+		"cost_usd", fmt.Sprintf("%.6f", trace.Cost.TotalCost),
+		"confidence", fmt.Sprintf("%.2f", trace.Confidence),
+		"cache_hit", trace.CacheHit,
+	}
+
+	if err != nil {
+		attrs = append(attrs, "error", err.Error())
+		slog.Error("ai_call_failed", attrs...)
+	} else {
+		slog.Info("ai_call_completed", attrs...)
+	}
+}
+
+// GetAIMetrics returns the AI pipeline metrics snapshot
+func (s *ServiceImpl) GetAIMetrics() AIMetricsSnapshot {
+	if s.aiMetrics == nil {
+		return AIMetricsSnapshot{}
+	}
+	return s.aiMetrics.GetSnapshot()
+}
+
+// GetCostSummary returns the cost tracking summary
+func (s *ServiceImpl) GetCostSummary() CostSummary {
+	if s.costTracker == nil {
+		return CostSummary{}
+	}
+	return s.costTracker.GetSummary()
+}
+
+// GetBudgetStatus returns the current budget status
+func (s *ServiceImpl) GetBudgetStatus() BudgetStatus {
+	if s.budgetManager == nil {
+		return BudgetStatus{}
+	}
+	return s.budgetManager.GetStatus()
+}
+
+// GetAIMetricsPrometheus returns metrics in Prometheus text format
+func (s *ServiceImpl) GetAIMetricsPrometheus() string {
+	if s.aiMetrics == nil {
+		return ""
+	}
+	return s.aiMetrics.PrometheusFormat()
+}
+
+// PromptInfo contains metadata about a registered prompt (for diagnostics)
+type PromptInfo struct {
+	ID           string `json:"id"`
+	Version      string `json:"version"`
+	Hash         string `json:"hash"`
+	CacheVersion string `json:"cache_version"`
+}
+
+// GetPromptInfo returns metadata about all registered prompts
+func (s *ServiceImpl) GetPromptInfo() []PromptInfo {
+	if s.promptRegistry == nil {
+		return nil
+	}
+	entries := s.promptRegistry.List()
+	info := make([]PromptInfo, len(entries))
+	for i, e := range entries {
+		info[i] = PromptInfo{
+			ID:           e.ID,
+			Version:      e.Version,
+			Hash:         e.Hash,
+			CacheVersion: e.CacheVersion(),
+		}
+	}
+	return info
+}
+
+// GetCacheMetrics returns a point-in-time snapshot of cache performance metrics
+func (s *ServiceImpl) GetCacheMetrics() CacheMetricsSnapshot {
+	if s.cacheMetrics == nil {
+		return CacheMetricsSnapshot{}
+	}
+	return s.cacheMetrics.GetStats()
+}
+
+// Close releases resources held by the service (e.g., persistent cache DB).
+// Should be called on server shutdown.
+func (s *ServiceImpl) Close() error {
+	if s.cacheCleanup != nil {
+		s.cacheCleanup()
+	}
+	return nil
 }
