@@ -163,24 +163,10 @@ func (c *Converter) ConvertPasteWithFormat(text string, templateName string, out
 	return c.ConvertPasteWithFormatContext(context.Background(), text, templateName, outputFormat)
 }
 
-// ConvertPasteWithFormatContext converts pasted text with format option and context
-// templateName: template identifier for rendering
-// outputFormat: "spec" | "table" (output rendering format)
+// ConvertPasteWithFormatContext converts pasted text with format option and context.
+// Uses parse-first strategy (delegates to ConvertPasteWithOverridesAndOptions).
 func (c *Converter) ConvertPasteWithFormatContext(ctx context.Context, text string, templateName string, outputFormat string) (*ConvertResponse, error) {
-	// Phase 1: Detect input type first
-	analysis := DetectInputType(text)
-
-	if analysis.Type == InputTypeMarkdown {
-		return c.convertMarkdown(text, templateName)
-	}
-
-	// Table path (existing behavior)
-	matrix, err := c.pasteParser.Parse(text)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.convertMatrixWithFormat(ctx, matrix, "", templateName, outputFormat)
+	return c.ConvertPasteWithOverridesAndOptions(ctx, text, templateName, outputFormat, nil, DefaultConvertOptions())
 }
 
 // ConvertPasteWithOverrides applies column overrides before conversion.
@@ -188,23 +174,76 @@ func (c *Converter) ConvertPasteWithOverrides(ctx context.Context, text string, 
 	return c.ConvertPasteWithOverridesAndOptions(ctx, text, templateName, outputFormat, overrides, DefaultConvertOptions())
 }
 
-// ConvertPasteWithOverridesAndOptions applies column overrides and rendering options before conversion.
-func (c *Converter) ConvertPasteWithOverridesAndOptions(ctx context.Context, text string, templateName string, outputFormat string, overrides map[string]string, options ConvertOptions) (*ConvertResponse, error) {
+// pasteParseFirstResult holds the result of parse-first input resolution.
+type pasteParseFirstResult struct {
+	analysis InputAnalysis
+	matrix   CellMatrix
+	hasTable bool // true when parse succeeded with >=2 columns
+	err      error
+}
+
+// AnalyzePasteForConvert returns the effective input type for conversion, using parse-first strategy.
+// When paste parses as a multi-column table, returns Table. Otherwise returns DetectInputType result.
+// Used by handlers for detect_only and to align conversion with preview.
+func (c *Converter) AnalyzePasteForConvert(text string) InputAnalysis {
+	res := c.resolvePasteParseFirst(text)
+	return res.analysis
+}
+
+// resolvePasteParseFirst tries parse-first (like Preview), then falls back to DetectInputType.
+// When parse yields a multi-column table, hasTable is true and we use the table path.
+// Otherwise hasTable is false and analysis comes from DetectInputType.
+func (c *Converter) resolvePasteParseFirst(text string) pasteParseFirstResult {
+	matrix, parseErr := c.pasteParser.Parse(text)
+	hasTable := parseErr == nil && matrix.RowCount() >= 1 && matrix.ColCount() >= 2
+	if hasTable {
+		return pasteParseFirstResult{
+			analysis: InputAnalysis{
+				Type:       InputTypeTable,
+				Confidence: 90,
+				Reason:     "Parsed as multi-column table",
+			},
+			matrix:   matrix,
+			hasTable: true,
+		}
+	}
 	analysis := DetectInputType(text)
-	if analysis.Type == InputTypeMarkdown {
+	return pasteParseFirstResult{
+		analysis: analysis,
+		matrix:   matrix,
+		hasTable: false,
+		err:      parseErr, // may be nil when single-col or empty
+	}
+}
+
+// ConvertPasteWithOverridesAndOptions applies column overrides and rendering options before conversion.
+// Uses parse-first strategy: when paste parses as a multi-column table, always takes table path.
+// Otherwise falls back to DetectInputType (e.g. markdown, single-column, or parse failure).
+func (c *Converter) ConvertPasteWithOverridesAndOptions(ctx context.Context, text string, templateName string, outputFormat string, overrides map[string]string, options ConvertOptions) (*ConvertResponse, error) {
+	res := c.resolvePasteParseFirst(text)
+	if res.hasTable {
+		matrix := res.matrix
+		if len(overrides) > 0 {
+			matrix = applyColumnOverrides(matrix, overrides)
+		}
+		return c.convertMatrixWithFormatAndOptions(ctx, matrix, "", templateName, outputFormat, options)
+	}
+	if res.analysis.Type == InputTypeMarkdown {
 		return c.convertMarkdown(text, templateName)
 	}
-
-	matrix, err := c.pasteParser.Parse(text)
-	if err != nil {
-		return nil, err
+	// Table or Unknown from DetectInputType but !hasTable
+	if res.err != nil {
+		return nil, res.err
 	}
-
-	if len(overrides) > 0 {
-		matrix = applyColumnOverrides(matrix, overrides)
+	// parse OK but single-column or empty; use matrix if we have it
+	if res.matrix != nil && res.matrix.RowCount() > 0 {
+		matrix := res.matrix
+		if len(overrides) > 0 {
+			matrix = applyColumnOverrides(matrix, overrides)
+		}
+		return c.convertMatrixWithFormatAndOptions(ctx, matrix, "", templateName, outputFormat, options)
 	}
-
-	return c.convertMatrixWithFormatAndOptions(ctx, matrix, "", templateName, outputFormat, options)
+	return c.convertMatrixWithFormatAndOptions(ctx, res.matrix, "", templateName, outputFormat, options)
 }
 
 // ConvertMatrix converts a CellMatrix to MDFlow (uses template-driven pipeline)

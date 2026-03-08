@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	aiMinAvgConfidence = 0.75
-	aiMinMappedRatio   = 0.60
-	aiSampleRows       = 5
+	aiMinAvgConfidence   = 0.75
+	aiMinMappedRatio     = 0.60
+	aiSampleRows         = 5
+	aiMergeConfThreshold = 0.75 // per-field threshold for merge (keep AI mappings >= this)
 )
 
 // AIMappingMeta captures AI mapping summary for metadata
@@ -76,12 +77,21 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 
 	cleanHeaders := SanitizeHeaders(normalizeHeaders(headers))
 	sampleRows := SanitizeSampleRows(buildSampleRows(dataRows, aiSampleRows))
+	// Prompt-injection defense: sanitize headers and sample cells before sending to LLM
+	promptSafeHeaders := ai.SanitizeHeadersForPrompt(cleanHeaders)
+	promptSafeRows := make([][]string, len(sampleRows))
+	for i, row := range sampleRows {
+		promptSafeRows[i] = make([]string, len(row))
+		for j, cell := range row {
+			promptSafeRows[i][j] = ai.SanitizeForPrompt(cell)
+		}
+	}
 	sourceLang := DetectLanguageHint(EstimateEnglishScore(headers, dataRows), headers, dataRows)
 	schemaHint := inferSchemaHint(headers, dataRows)
 
 	result, err := c.aiMapper.MapColumns(ctx, ai.MapColumnsRequest{
-		Headers:    cleanHeaders,
-		SampleRows: sampleRows,
+		Headers:    promptSafeHeaders,
+		SampleRows: promptSafeRows,
 		Format:     "spec",
 		FileType:   "table",
 		SourceLang: sourceLang,
@@ -138,6 +148,23 @@ func (c *Converter) resolveColumnMappingWithFallback(ctx context.Context, header
 	if !aiMappingMeetsThreshold(meta, len(headers)) || len(colMap) == 0 {
 		meta.Degraded = true
 		fallbackMap, fallbackUnmapped := fallback(headers)
+		highConfCount := countHighConfidenceAIMappings(result, headers, aiMergeConfThreshold)
+		if highConfCount >= 1 {
+			// Merge: keep high-confidence AI mappings, fill rest with fallback
+			mergedMap, mergedUnmapped, used := mergeAIMappingWithFallback(result, fallbackMap, headers, aiMergeConfThreshold)
+			if used {
+				mappingWarnings = append(mappingWarnings, newWarning(
+					"MAPPING_AI_PARTIAL_MERGE",
+					SeverityWarn,
+					CatMapping,
+					"AI mapping partially used; merged high-confidence AI mappings with fallback for remaining columns.",
+					"Review column mappings if output looks unexpected.",
+					map[string]any{"ai_mappings_kept": highConfCount, "avg_confidence": meta.AvgConfidence},
+				))
+				return mergedMap, mergedUnmapped, mappingWarnings, meta
+			}
+		}
+		// Pure fallback: no AI mappings met threshold
 		mappingWarnings = append(mappingWarnings, newWarning(
 			"MAPPING_AI_LOW_CONFIDENCE",
 			SeverityWarn,
@@ -203,6 +230,65 @@ func aiMappingMeetsThreshold(meta *AIMappingMeta, totalColumns int) bool {
 	}
 	mappedRatio := float64(meta.MappedColumns) / float64(totalColumns)
 	return mappedRatio >= aiMinMappedRatio
+}
+
+// countHighConfidenceAIMappings returns how many AI mappings have Confidence >= threshold
+// and map to a valid CanonicalField with valid column index.
+func countHighConfidenceAIMappings(result *ai.ColumnMappingResult, headers []string, threshold float64) int {
+	if result == nil || len(headers) == 0 {
+		return 0
+	}
+	n := 0
+	for _, m := range result.CanonicalFields {
+		if m.Confidence < threshold {
+			continue
+		}
+		_, ok := mapAICanonicalField(m.CanonicalName)
+		if !ok || aiExtraFieldNames[m.CanonicalName] {
+			continue
+		}
+		if m.ColumnIndex < 0 || m.ColumnIndex >= len(headers) {
+			continue
+		}
+		n++
+	}
+	return n
+}
+
+// mergeAIMappingWithFallback merges high-confidence AI mappings (Confidence >= threshold)
+// with rule-based fallback. AI mappings override fallback for the same canonical field.
+// Returns (merged ColumnMap, unmapped headers, true if any AI mapping was used).
+func mergeAIMappingWithFallback(
+	result *ai.ColumnMappingResult,
+	fallbackMap ColumnMap,
+	headers []string,
+	threshold float64,
+) (ColumnMap, []string, bool) {
+	if result == nil || len(headers) == 0 {
+		return fallbackMap, collectUnmappedHeaders(headers, fallbackMap), false
+	}
+	merged := make(ColumnMap, len(fallbackMap))
+	for f, idx := range fallbackMap {
+		merged[f] = idx
+	}
+	aiUsed := 0
+	for _, m := range result.CanonicalFields {
+		if m.Confidence < threshold {
+			continue
+		}
+		field, ok := mapAICanonicalField(m.CanonicalName)
+		if !ok || aiExtraFieldNames[m.CanonicalName] {
+			continue
+		}
+		if m.ColumnIndex < 0 || m.ColumnIndex >= len(headers) {
+			continue
+		}
+		// Override fallback: AI takes precedence
+		merged[field] = m.ColumnIndex
+		aiUsed++
+	}
+	unmapped := collectUnmappedHeaders(headers, merged)
+	return merged, unmapped, aiUsed > 0
 }
 
 func buildSampleRows(rows [][]string, limit int) [][]string {
@@ -432,14 +518,10 @@ var aiCanonicalAliases = map[string]CanonicalField{
 	"rule":       FieldInputRestrictions,
 }
 
-// aiExtraFieldNames are canonical names the AI may return that are valid
-// metadata but don't map to any CanonicalField. They should not produce
-// warnings.
-var aiExtraFieldNames = map[string]bool{
-	"assignee":  true,
-	"component": true,
-	"category":  true,
-}
+// aiExtraFieldNames: canonical names the AI may return that we accept but
+// that do not map to CanonicalField (or are handled separately). assignee,
+// component, category are not listed here—they are covered by aiCanonicalAliases.
+var aiExtraFieldNames = map[string]bool{}
 
 func mapAICanonicalField(name string) (CanonicalField, bool) {
 	if field, ok := aiCanonicalAliases[name]; ok {

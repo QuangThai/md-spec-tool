@@ -1,0 +1,4 @@
+No,Item Name,Scenario,Expected,,No,項目名
+1,Login,Happy path,User redirected,,1,ログイン
+2,Logout,Click sign out,Session cleared,,2,ログアウト
+3,Settings,Open menu,Options shown,,3,設定

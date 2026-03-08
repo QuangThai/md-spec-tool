@@ -111,8 +111,9 @@ func (h *ConvertHandler) ConvertPaste(c *gin.Context) {
 	req.Template = normalizedTemplate
 	req.Format = normalizedFormat
 
-	// Detect input type FIRST regardless of request
-	analysis := converter.DetectInputType(req.PasteText)
+	// Parse-first input resolution (aligns with Preview and conversion)
+	conv := h.byokCache.GetConverterForRequest(c, h.converter)
+	analysis := conv.AnalyzePasteForConvert(req.PasteText)
 
 	// Check if this is detection-only request
 	detectOnly, err := strconv.ParseBool(c.DefaultQuery("detect_only", "false"))
@@ -142,8 +143,6 @@ func (h *ConvertHandler) ConvertPaste(c *gin.Context) {
 	// Full conversion with format support (BYOK-aware)
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 150*time.Second)
 	defer cancel()
-
-	conv := h.byokCache.GetConverterForRequest(c, h.converter)
 	columnOverrides := req.ColumnOverrides
 	if len(columnOverrides) == 0 {
 		columnOverrides = nil

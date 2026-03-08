@@ -15,7 +15,7 @@ func collectStreamEvents(t *testing.T, conv *Converter, content, template, forma
 	callback := func(e StreamEvent) {
 		events = append(events, e)
 	}
-	result, err := conv.ConvertPasteStreaming(context.Background(), content, template, format, callback)
+	result, err := conv.ConvertPasteStreaming(context.Background(), content, template, format, callback, DefaultConvertOptions())
 	return events, result, err
 }
 
@@ -183,7 +183,7 @@ func TestConvertPasteStreaming_ContextCancellation(t *testing.T) {
 	var events []StreamEvent
 	_, err := conv.ConvertPasteStreaming(ctx, input, "spec", "spec", func(e StreamEvent) {
 		events = append(events, e)
-	})
+	}, DefaultConvertOptions())
 
 	if err == nil {
 		t.Fatal("expected context cancellation error, got nil")
@@ -208,7 +208,7 @@ func TestConvertPasteStreaming_ContextTimeout(t *testing.T) {
 	// Let timeout expire.
 	time.Sleep(1 * time.Millisecond)
 
-	_, err := conv.ConvertPasteStreaming(ctx, input, "spec", "spec", func(e StreamEvent) {})
+	_, err := conv.ConvertPasteStreaming(ctx, input, "spec", "spec", func(e StreamEvent) {}, DefaultConvertOptions())
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
 	}
@@ -220,7 +220,7 @@ func TestConvertPasteStreaming_InvalidFormat(t *testing.T) {
 	conv := NewConverter()
 	input := "Feature\tScenario\nLogin\tHappy path"
 
-	_, err := conv.ConvertPasteStreaming(context.Background(), input, "spec", "invalid_format", func(e StreamEvent) {})
+	_, err := conv.ConvertPasteStreaming(context.Background(), input, "spec", "invalid_format", func(e StreamEvent) {}, DefaultConvertOptions())
 	if err == nil {
 		t.Fatal("expected error for invalid format")
 	}

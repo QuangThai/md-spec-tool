@@ -1,14 +1,20 @@
 package converter_test
 
 import (
-	. "github.com/yourorg/md-spec-tool/internal/converter"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+
+	. "github.com/yourorg/md-spec-tool/internal/converter"
 )
 
 func TestGSheetParallelJapaneseEnglishFixture_SelectsEnglishBlock(t *testing.T) {
-	content, err := os.ReadFile("../../../use-cases/gsheet_parallel_jp_en.csv")
+	_, fp, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(fp)
+	fixturePath := filepath.Join(testDir, "testdata", "gsheet_parallel_jp_en.csv")
+	content, err := os.ReadFile(fixturePath)
 	if err != nil {
 		t.Fatalf("failed to read fixture: %v", err)
 	}

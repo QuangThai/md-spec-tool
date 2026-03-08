@@ -1,7 +1,7 @@
 ---
 name: "Specification"
 version: "1.0"
-generated_at: "2026-02-28"
+generated_at: "2026-03-08"
 type: "specification"
 ---
 

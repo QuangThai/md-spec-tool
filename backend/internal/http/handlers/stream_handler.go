@@ -129,7 +129,8 @@ func (h *StreamHandler) ConvertStream(c *gin.Context) {
 	}
 
 	// ── Run streaming pipeline ───────────────────────────────────────────────
-	result, err := conv.ConvertPasteStreaming(ctx, req.PasteText, req.Template, req.Format, callback)
+	convertOptions := resolveConvertOptions(req.IncludeMetadata, req.NumberRows)
+	result, err := conv.ConvertPasteStreaming(ctx, req.PasteText, req.Template, req.Format, callback, convertOptions)
 	if err != nil {
 		if ctx.Err() != nil {
 			slog.Info("mdflow.ConvertStream: context done", "cause", ctx.Err())

@@ -36,13 +36,18 @@ type StreamCallback func(event StreamEvent)
 //
 //	parsing  (20%) → mapping (50%) → rendering (80%) → complete (100%)
 //
+// options controls IncludeMetadata and NumberRows in the output (defaults used when nil).
 // It does NOT modify any existing Converter methods.
 // Returns the final ConvertResponse, or an error (including context.Canceled).
 func (c *Converter) ConvertPasteStreaming(
 	ctx context.Context,
 	content, templateName, outputFormat string,
 	callback StreamCallback,
+	options ConvertOptions,
 ) (*ConvertResponse, error) {
+	if (ConvertOptions{} == options) {
+		options = DefaultConvertOptions()
+	}
 	// Validate format early (before any work) so callers always get a fast,
 	// predictable error for unsupported formats.
 	normalized := strings.ToLower(strings.TrimSpace(outputFormat))
@@ -162,7 +167,8 @@ func (c *Converter) ConvertPasteStreaming(
 	table := c.tableParser.MatrixToTable(headers, dataRows, "")
 	table.Meta.HeaderRowIndex = headerRow
 	table.Meta.ColumnMap = colMap
-	table.Meta.IncludeMetadata = true
+	table.Meta.IncludeMetadata = options.IncludeMetadata
+	table.Meta.NumberRows = options.NumberRows
 	applyAIMetaToTableMeta(&table.Meta, aiMeta)
 
 	// Resolve template
